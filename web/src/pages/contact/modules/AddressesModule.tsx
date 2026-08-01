@@ -20,31 +20,61 @@ import {
   EditOutlined,
   EnvironmentOutlined,
 } from "@ant-design/icons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryKey,
+} from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
 import { api } from "@/api";
 import type { Address, APIError } from "@/api";
 import { useTranslation } from "react-i18next";
 import { formatMonthYear, useDateFormat } from "@/utils/dateFormat";
+import type { NormalizedFeedSource } from "@/utils/feedSourceLink";
+import {
+  invalidateFeedQueries,
+  type ContactQueryScope,
+} from "@/utils/queryInvalidation";
+import { sourceRecordKey, useSourceRecordReveal } from "../contactSourceRecord";
+import {
+  createContactSaveMutationOperation,
+  type ContactSaveMutationOperation,
+} from "./contactSaveMutationOperation";
 
 interface AddressFormValues {
-  line_1: string;
-  line_2?: string;
-  city: string;
-  province?: string;
-  postal_code?: string;
-  country: string;
-  is_past_address?: boolean;
-  date_from?: Dayjs | null;
-  date_to?: Dayjs | null;
+  readonly line_1: string;
+  readonly line_2?: string;
+  readonly city: string;
+  readonly province?: string;
+  readonly postal_code?: string;
+  readonly country: string;
+  readonly is_past_address?: boolean;
+  readonly date_from?: Dayjs | null;
+  readonly date_to?: Dayjs | null;
 }
+
+type AddressSaveMutationOperation =
+  ContactSaveMutationOperation<AddressFormValues> & {
+    readonly scope: ContactQueryScope;
+    // Route props can change while the request is pending, so success must use the submitted list identity.
+    readonly listQueryKey: QueryKey;
+  };
+
+type AddressDeleteMutationOperation = {
+  readonly source: ContactQueryScope;
+  readonly listQueryKey: QueryKey;
+  readonly id: number;
+};
 
 export default function AddressesModule({
   vaultId,
   contactId,
+  target,
 }: {
   vaultId: string | number;
   contactId: string | number;
+  target?: Extract<NormalizedFeedSource, { readonly module: "addresses" }>;
 }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -54,18 +84,37 @@ export default function AddressesModule({
   const { t } = useTranslation();
   const dateFormats = useDateFormat();
   const { token } = theme.useToken();
-  const qk = ["vaults", vaultId, "contacts", contactId, "addresses"];
+  const scope = {
+    vaultId: String(vaultId),
+    contactId: String(contactId),
+  } as const satisfies ContactQueryScope;
+  const qk = [
+    "vaults",
+    vaultId,
+    "contacts",
+    contactId,
+    "addresses",
+  ] as const satisfies QueryKey;
 
   const { data: addresses = [], isLoading } = useQuery({
     queryKey: qk,
-    queryFn: async () => {
-      const res = await api.addresses.contactsAddressesList(String(vaultId), String(contactId));
+    queryFn: async (): Promise<Address[]> => {
+      const res = await api.addresses.contactsAddressesList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
+  const targetAvailable =
+    target !== undefined &&
+    addresses.some((address: Address) => address.id === target.id);
+
+  useSourceRecordReveal(target, targetAvailable);
 
   const saveMutation = useMutation({
-    mutationFn: (values: AddressFormValues) => {
+    mutationFn: (operation: AddressSaveMutationOperation) => {
+      const { values } = operation;
       // Convert Dayjs picker values into ISO strings the backend expects.
       // null/undefined gets passed through so the backend can clear them.
       const payload = {
@@ -76,26 +125,81 @@ export default function AddressesModule({
         postal_code: values.postal_code,
         country: values.country,
         is_past_address: values.is_past_address ?? false,
-        date_from: values.date_from ? values.date_from.toISOString() : undefined,
+        date_from: values.date_from
+          ? values.date_from.toISOString()
+          : undefined,
         date_to: values.date_to ? values.date_to.toISOString() : undefined,
       };
-      if (editingId) {
-        return api.addresses.contactsAddressesUpdate(String(vaultId), String(contactId), editingId, payload);
+
+      switch (operation.kind) {
+        case "create":
+          return api.addresses.contactsAddressesCreate(
+            operation.scope.vaultId,
+            operation.scope.contactId,
+            payload,
+          );
+        case "update":
+          return api.addresses.contactsAddressesUpdate(
+            operation.scope.vaultId,
+            operation.scope.contactId,
+            operation.id,
+            payload,
+          );
+        default: {
+          const unreachableOperation: never = operation;
+          throw new Error(
+            `Unexpected address save operation: ${String(unreachableOperation)}`,
+          );
+        }
       }
-      return api.addresses.contactsAddressesCreate(String(vaultId), String(contactId), payload);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
+    onSuccess: async (_data, operation) => {
+      switch (operation.kind) {
+        case "create": {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: operation.listQueryKey }),
+            invalidateFeedQueries(queryClient, {
+              vaultIds: [operation.scope.vaultId],
+              contacts: [operation.scope],
+            }),
+          ]);
+          message.success(t("modules.addresses.added"));
+          break;
+        }
+        case "update":
+          await queryClient.invalidateQueries({
+            queryKey: operation.listQueryKey,
+          });
+          message.success(t("modules.addresses.updated"));
+          break;
+        default: {
+          const unreachableOperation: never = operation;
+          throw new Error(
+            `Unexpected address save operation: ${String(unreachableOperation)}`,
+          );
+        }
+      }
       closeModal();
-      message.success(editingId ? t("modules.addresses.updated") : t("modules.addresses.added"));
     },
     onError: (e: APIError) => message.error(e.message),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.addresses.contactsAddressesDelete(String(vaultId), String(contactId), id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
+    mutationFn: (operation: AddressDeleteMutationOperation) =>
+      api.addresses.contactsAddressesDelete(
+        operation.source.vaultId,
+        operation.source.contactId,
+        operation.id,
+      ),
+    onSuccess: async (_data, operation) => {
+      // Historical Feed rows query source availability, so deletion must refresh both projections.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: operation.listQueryKey }),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [operation.source.vaultId],
+          contacts: [operation.source],
+        }),
+      ]);
       message.success(t("modules.addresses.deleted"));
     },
     onError: (e: APIError) => message.error(e.message),
@@ -150,13 +254,20 @@ export default function AddressesModule({
 
   return (
     <Card
-      title={<span style={{ fontWeight: 500 }}>{t("modules.addresses.title")}</span>}
+      title={
+        <span style={{ fontWeight: 500 }}>{t("modules.addresses.title")}</span>
+      }
       styles={{
         header: { borderBottom: `1px solid ${token.colorBorderSecondary}` },
-        body: { padding: '16px 24px' },
+        body: { padding: "16px 24px" },
       }}
       extra={
-        <Button type="text" icon={<PlusOutlined />} onClick={() => setOpen(true)} style={{ color: token.colorPrimary }}>
+        <Button
+          type="text"
+          icon={<PlusOutlined />}
+          onClick={() => setOpen(true)}
+          style={{ color: token.colorPrimary }}
+        >
           {t("modules.addresses.add")}
         </Button>
       }
@@ -164,26 +275,67 @@ export default function AddressesModule({
       <List
         loading={isLoading}
         dataSource={addresses}
-        locale={{ emptyText: <Empty description={t("modules.addresses.no_addresses")} /> }}
+        locale={{
+          emptyText: (
+            <Empty description={t("modules.addresses.no_addresses")} />
+          ),
+        }}
         split={false}
         renderItem={(a: Address) => {
           const range = formatRange(a);
           return (
             <List.Item
+              data-source-record={
+                a.id ? sourceRecordKey("Address", a.id) : undefined
+              }
               style={{
                 borderRadius: token.borderRadius,
-                padding: '10px 12px',
+                padding: "10px 12px",
                 marginBottom: 4,
-                transition: 'background 0.2s',
+                transition: "background 0.2s",
                 opacity: a.is_past_address ? 0.7 : 1,
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = token.colorFillQuaternary; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = token.colorFillQuaternary;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
               actions={[
-                <Button key="map" type="text" size="small" icon={<EnvironmentOutlined />} href={mapsUrl(a)} target="_blank" aria-label={t("modules.addresses.view_map")} />,
-                <Button key="e" type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(a)} />,
-                <Popconfirm key="d" title={t("modules.addresses.delete_confirm")} onConfirm={() => deleteMutation.mutate(a.id!)}>
-                  <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                <Button
+                  key="map"
+                  type="text"
+                  size="small"
+                  icon={<EnvironmentOutlined />}
+                  href={mapsUrl(a)}
+                  target="_blank"
+                  aria-label={t("modules.addresses.view_map")}
+                />,
+                <Button
+                  key="e"
+                  type="text"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => openEdit(a)}
+                />,
+                <Popconfirm
+                  key="d"
+                  title={t("modules.addresses.delete_confirm")}
+                  onConfirm={() => {
+                    if (a.id === undefined) return;
+                    deleteMutation.mutate({
+                      source: scope,
+                      listQueryKey: qk,
+                      id: a.id,
+                    });
+                  }}
+                >
+                  <Button
+                    type="text"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                  />
                 </Popconfirm>,
               ]}
             >
@@ -196,25 +348,38 @@ export default function AddressesModule({
                       style={{
                         width: 100,
                         height: 75,
-                        objectFit: 'cover',
+                        objectFit: "cover",
                         borderRadius: token.borderRadiusSM,
                         border: `1px solid ${token.colorBorderSecondary}`,
                       }}
                       onError={(e) => {
-                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.style.display = "none";
                       }}
                     />
                   ) : null
                 }
                 title={
-                  <span style={{ fontWeight: 500, display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                  <span
+                    style={{
+                      fontWeight: 500,
+                      display: "inline-flex",
+                      gap: 8,
+                      alignItems: "center",
+                    }}
+                  >
                     {formatAddress(a)}
-                    {a.is_past_address && <Tag>{t("modules.addresses.past_tag")}</Tag>}
+                    {a.is_past_address && (
+                      <Tag>{t("modules.addresses.past_tag")}</Tag>
+                    )}
                   </span>
                 }
                 description={
                   range ? (
-                    <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>{range}</span>
+                    <span
+                      style={{ color: token.colorTextTertiary, fontSize: 12 }}
+                    >
+                      {range}
+                    </span>
                   ) : null
                 }
               />
@@ -224,29 +389,61 @@ export default function AddressesModule({
       />
 
       <Modal
-        title={editingId ? t("modules.addresses.modal_edit") : t("modules.addresses.modal_add")}
+        title={
+          editingId
+            ? t("modules.addresses.modal_edit")
+            : t("modules.addresses.modal_add")
+        }
         open={open}
         onCancel={closeModal}
         onOk={() => form.submit()}
         confirmLoading={saveMutation.isPending}
       >
-        <Form form={form} layout="vertical" onFinish={(v) => saveMutation.mutate(v)}>
-          <Form.Item name="line_1" label={t("modules.addresses.address_line_1")} rules={[{ required: true }]}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={(values) =>
+            saveMutation.mutate({
+              ...createContactSaveMutationOperation(editingId, values),
+              scope,
+              listQueryKey: qk,
+            })
+          }
+        >
+          <Form.Item
+            name="line_1"
+            label={t("modules.addresses.address_line_1")}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="line_2" label={t("modules.addresses.address_line_2")}>
+          <Form.Item
+            name="line_2"
+            label={t("modules.addresses.address_line_2")}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="city" label={t("modules.addresses.city")} rules={[{ required: true }]}>
+          <Form.Item
+            name="city"
+            label={t("modules.addresses.city")}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
           <Form.Item name="province" label={t("modules.addresses.province")}>
             <Input />
           </Form.Item>
-          <Form.Item name="postal_code" label={t("modules.addresses.postal_code")}>
+          <Form.Item
+            name="postal_code"
+            label={t("modules.addresses.postal_code")}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="country" label={t("modules.addresses.country")} rules={[{ required: true }]}>
+          <Form.Item
+            name="country"
+            label={t("modules.addresses.country")}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
           <Form.Item
@@ -254,14 +451,22 @@ export default function AddressesModule({
             label={t("modules.addresses.date_from")}
             tooltip={t("modules.addresses.date_from_tooltip")}
           >
-            <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" allowClear />
+            <DatePicker
+              style={{ width: "100%" }}
+              format="YYYY-MM-DD"
+              allowClear
+            />
           </Form.Item>
           <Form.Item
             name="date_to"
             label={t("modules.addresses.date_to")}
             tooltip={t("modules.addresses.date_to_tooltip")}
           >
-            <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" allowClear />
+            <DatePicker
+              style={{ width: "100%" }}
+              format="YYYY-MM-DD"
+              allowClear
+            />
           </Form.Item>
           <Form.Item
             name="is_past_address"
