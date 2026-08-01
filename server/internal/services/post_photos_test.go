@@ -40,7 +40,7 @@ func setupPostPhotoTest(t *testing.T) (*VaultFileService, uint, string) {
 	}
 
 	postSvc := NewPostService(db)
-	post, err := postSvc.Create(journal.ID, dto.CreatePostRequest{
+	post, err := postSvc.Create(journal.ID, vault.ID, dto.CreatePostRequest{
 		Title:     "Test Post",
 		WrittenAt: time.Now(),
 	})

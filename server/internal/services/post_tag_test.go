@@ -25,7 +25,7 @@ func setupPostTagTest(t *testing.T) (*PostTagService, uint, uint, string) {
 	journal, _ := journalSvc.Create(vault.ID, dto.CreateJournalRequest{Name: "Test Journal"})
 
 	postSvc := NewPostService(db)
-	post, _ := postSvc.Create(journal.ID, dto.CreatePostRequest{Title: "Test Post", WrittenAt: time.Now()})
+	post, _ := postSvc.Create(journal.ID, vault.ID, dto.CreatePostRequest{Title: "Test Post", WrittenAt: time.Now()})
 
 	return NewPostTagService(db), post.ID, journal.ID, vault.ID
 }
