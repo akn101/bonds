@@ -329,34 +329,6 @@ func (s *ContactService) UpdateContact(contactID, vaultID, userID string, req dt
 	return &resp, nil
 }
 
-func (s *ContactService) DeleteContact(contactID, vaultID string) error {
-	var contact models.Contact
-	if err := s.db.Where("id = ? AND vault_id = ?", contactID, vaultID).First(&contact).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrContactNotFound
-		}
-		return err
-	}
-
-	if s.davPushService != nil {
-		go s.davPushService.PushContactDelete(contactID, vaultID)
-	}
-
-	if err := s.db.Delete(&contact).Error; err != nil {
-		return err
-	}
-
-	if s.feedRecorder != nil {
-		s.feedRecorder.Record(contactID, "", ActionContactDeleted, "Deleted contact", nil, nil)
-	}
-
-	if s.searchService != nil {
-		s.searchService.DeleteContact(contactID)
-	}
-
-	return nil
-}
-
 func (s *ContactService) ToggleArchive(contactID, vaultID, userID string) (*dto.ContactResponse, error) {
 	var contact models.Contact
 	if err := s.db.Where("id = ? AND vault_id = ?", contactID, vaultID).First(&contact).Error; err != nil {
