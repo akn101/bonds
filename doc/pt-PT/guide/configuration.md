@@ -15,7 +15,7 @@ cp server/.env.example server/.env
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
 | `DEBUG` | `false` | Ativar modo de depuração: logging de pedidos, logging SQL, Swagger UI (padrão ativado) |
-| `JWT_SECRET` | — | **Obrigatório em produção.** Chave de assinatura para tokens de autenticação |
+| `JWT_SECRET` | — | **Obrigatório em produção.** Gere uma chave de 256 bits com `openssl rand -hex 32`, guarde-a e reutilize-a nos reinícios. |
 | `SETTINGS_ENC_KEY` | _(vazio)_ | Opcional. Ativa encriptação AES-256-GCM em repouso para definições sensíveis do sistema (palavra-passe SMTP, segredos de cliente OAuth, chaves de API de geocodificação). Veja [A encriptar Definições Sensíveis](#criptografando-configuracoes-sensiveis) abaixo. |
 | `SERVER_PORT` | `8080` | Porta em que o servidor escuta |
 | `SERVER_HOST` | `0.0.0.0` | Endereço do host ao qual o servidor se vincula |
@@ -98,7 +98,7 @@ Se definir `SETTINGS_ENC_KEY` e depois perdê-la, os segredos encriptados são i
 
 ## Lista de Verificação para Produção
 
-1. **Defina `JWT_SECRET`**: Use uma string forte e aleatória (32+ caracteres).
+1. **Defina `JWT_SECRET`**: Execute `export JWT_SECRET="$(openssl rand -hex 32)"` uma vez, guarde o valor de 256 bits num ambiente protegido ou gestor de segredos e reutilize-o nos reinícios. Planeie a rotação: invalida sessões existentes e pode exigir a reintrodução das credenciais de subscrições DAV, pois a respetiva encriptação deriva deste segredo.
 2. **Defina `SETTINGS_ENC_KEY`**: Recomendado para produção. Criptografa credenciais SMTP/OAuth/geocodificação em repouso.
 3. **Defina `APP_ENV=production`**: Desativa funcionalidades de depuração.
 4. **Defina `APP_URL`**: A sua URL pública, usada em emails e callbacks OAuth.
@@ -115,8 +115,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - JWT_SECRET=change-me-to-a-random-string
-      - SETTINGS_ENC_KEY=change-me-to-another-random-string
+      - JWT_SECRET=${JWT_SECRET:?Defina um segredo JWT persistido de 256 bits antes do arranque}
+      - SETTINGS_ENC_KEY=${SETTINGS_ENC_KEY:?Defina uma chave de encriptação de definições persistida antes do arranque}
       - APP_ENV=production
       - APP_URL=https://bonds.example.com
       - DB_DSN=/data/bonds.db

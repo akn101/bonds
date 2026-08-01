@@ -8,22 +8,16 @@ A maneira mais fácil de executar Bonds é com Docker:
 # Transferir docker-compose.yml
 curl -O https://raw.githubusercontent.com/naiba/bonds/main/docker-compose.yml
 
+# Gere e exporte um segredo JWT de 256 bits neste shell
+export JWT_SECRET="$(openssl rand -hex 32)"
+
 # Iniciar o serviço
 docker compose up -d
 ```
 
 Abra **http://localhost:8080** e crie a sua conta.
 
-### Personalizar Definições
-
-Edite `docker-compose.yml` para definir o seu segredo JWT e outras opções:
-
-```yaml
-environment:
-  - JWT_SECRET=sua-chave-secreta-aqui   # ⚠️ Mude isto em produção!
-  - APP_URL=https://bonds.example.com
-  - APP_ENV=production
-```
+Gere o segredo uma vez, guarde-o num ambiente protegido ou gestor de segredos e reutilize o mesmo valor em cada reinício. Planeie a rotação do JWT: invalida sessões existentes e pode exigir a reintrodução das credenciais de subscrições DAV, pois a respetiva encriptação deriva deste segredo.
 
 ### Armazenamento Persistente
 
@@ -34,8 +28,8 @@ O `docker-compose.yml` padrão monta um volume para a base de dados SQLite e fic
 Transfira a versão mais recente dos [Lançamentos no GitHub](https://github.com/naiba/bonds/releases):
 
 ```bash
-# Definir variáveis de ambiente necessárias
-export JWT_SECRET=sua-chave-secreta-aqui
+# Gere o segredo JWT uma vez, guarde-o em segurança e reutilize-o
+export JWT_SECRET="$(openssl rand -hex 32)"
 export APP_ENV=production
 
 # Executar o servidor
@@ -70,7 +64,7 @@ make setup
 make build-all
 
 # Executar
-export JWT_SECRET=sua-chave-secreta-aqui
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./server/bin/bonds-server
 ```
 

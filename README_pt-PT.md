@@ -56,25 +56,23 @@ Monica é um CRM pessoal de código aberto muito apreciado com mais de 24k estre
 # Transfira o docker-compose.yml
 curl -O https://raw.githubusercontent.com/naiba/bonds/main/docker-compose.yml
 
+# Gere e exporte um segredo JWT de 256 bits neste shell
+export JWT_SECRET="$(openssl rand -hex 32)"
+
 # Inicie o serviço
 docker compose up -d
 ```
 
 Abra **http://localhost:8080** e crie a sua conta.
 
-Para personalizar as definições, edite `docker-compose.yml`:
-
-```yaml
-environment:
-  - JWT_SECRET=your-secret-key-here   # ⚠️ Altere isto!
-```
+Gere o segredo uma vez, guarde-o num ambiente protegido ou gestor de segredos e reutilize o mesmo valor em cada reinício. Planeie a rotação do JWT: invalida sessões existentes e pode exigir a reintrodução das credenciais de subscrições DAV, pois a respetiva encriptação deriva deste segredo.
 
 ### Opção 2: Binário Pré-compilado
 
 Transfira a versão mais recente dos [GitHub Releases](https://github.com/naiba/bonds/releases) e depois:
 
 ```bash
-export JWT_SECRET=your-secret-key-here
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./bonds-server
 ```
 
@@ -95,7 +93,7 @@ make setup
 make build-all
 
 # Execute
-export JWT_SECRET=your-secret-key-here
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./server/bin/bonds-server
 ```
 
@@ -117,7 +115,7 @@ cp server/.env.example server/.env
 | Variável | Padrão | Descrição |
 |----------|---------|-------------|
 | `DEBUG` | `false` | Ativa o modo de depuração: registo de pedidos Echo, logs SQL do GORM, Swagger UI (ativo por padrão) |
-| `JWT_SECRET` | — | **Obrigatório em produção.** Chave de assinatura para tokens de autenticação |
+| `JWT_SECRET` | — | **Obrigatório em produção.** Gere com `openssl rand -hex 32`, guarde e reutilize a chave de assinatura de 256 bits nos reinícios. |
 | `SETTINGS_ENC_KEY` | _(vazio)_ | Opcional. Ativa encriptação em repouso AES-256-GCM para segredos SMTP/OAuth/geocodificação. Veja [docs](https://naiba.github.io/bonds/guide/configuration#encrypting-sensitive-settings) |
 | `SERVER_PORT` | `8080` | Porta em que o servidor escuta |
 | `SERVER_HOST` | `0.0.0.0` | Endereço do host ao qual o servidor se vincula |
