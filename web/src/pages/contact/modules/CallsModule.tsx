@@ -21,12 +21,31 @@ import {
   PhoneOutlined,
   EditOutlined,
 } from "@ant-design/icons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryKey,
+} from "@tanstack/react-query";
 import { api } from "@/api";
 import type { Call, PaginationMeta, APIError } from "@/api";
 import { useTranslation } from "react-i18next";
 import { useDateFormat, formatDateTime } from "@/utils/dateFormat";
 import dayjs from "dayjs";
+import type { NormalizedFeedSource } from "@/utils/feedSourceLink";
+import {
+  invalidateFeedQueries,
+  type ContactQueryScope,
+} from "@/utils/queryInvalidation";
+import {
+  scanTargetRecordPages,
+  sourceRecordKey,
+  useSourceRecordReveal,
+} from "../contactSourceRecord";
+import {
+  createContactSaveMutationOperation,
+  type ContactSaveMutationOperation,
+} from "./contactSaveMutationOperation";
 
 const typeColor: Record<string, string> = {
   incoming: "green",
@@ -34,16 +53,39 @@ const typeColor: Record<string, string> = {
   missed: "red",
 };
 
+type CallFormValues = {
+  readonly called_at: dayjs.Dayjs;
+  readonly duration?: number;
+  readonly type: string;
+  readonly description?: string;
+};
+
+type CallSaveMutationOperation =
+  ContactSaveMutationOperation<CallFormValues> & {
+    readonly scope: ContactQueryScope;
+    // Route props can change while the request is pending, so success must use the submitted list identity.
+    readonly listQueryKey: QueryKey;
+  };
+
+type CallDeleteMutationOperation = {
+  readonly source: ContactQueryScope;
+  readonly listQueryKey: QueryKey;
+  readonly id: number;
+};
+
 export default function CallsModule({
   vaultId,
   contactId,
+  target,
 }: {
   vaultId: string | number;
   contactId: string | number;
+  target?: Extract<NormalizedFeedSource, { readonly module: "calls" }>;
 }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
+  const [lastLoadedPage, setLastLoadedPage] = useState(0);
   const [allCalls, setAllCalls] = useState<Call[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [form] = Form.useForm();
@@ -52,10 +94,21 @@ export default function CallsModule({
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const dateFormats = useDateFormat();
-  const qk = ["vaults", vaultId, "contacts", contactId, "calls"];
+  const scope = {
+    vaultId: String(vaultId),
+    contactId: String(contactId),
+  } as const satisfies ContactQueryScope;
+  const qk = [
+    "vaults",
+    vaultId,
+    "contacts",
+    contactId,
+    "calls",
+  ] as const satisfies QueryKey;
 
   const resetPagination = useCallback(() => {
     setPage(1);
+    setLastLoadedPage(0);
     setAllCalls([]);
   }, []);
 
@@ -65,25 +118,83 @@ export default function CallsModule({
     { value: "missed", label: t("modules.calls.type_missed") },
   ];
 
-  const { isLoading, isFetching } = useQuery({
-    queryKey: [...qk, page],
+  const {
+    data: callsQueryResult,
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: [...qk, page, target?.id],
     queryFn: async () => {
-      const res = await api.calls.contactsCallsList(String(vaultId), String(contactId), { page, per_page: 15 });
-      const newItems = (res.data ?? []) as Call[];
+      const res = await api.calls.contactsCallsList(
+        String(vaultId),
+        String(contactId),
+        { page, per_page: 15 },
+      );
+      const newItems: Call[] = res.data ?? [];
       const meta = res.meta as PaginationMeta | undefined;
-      setAllCalls(prev => page === 1 ? newItems : [...prev, ...newItems]);
-      setHasMore(meta ? meta.page! < meta.total_pages! : newItems.length >= 15);
-      return newItems;
+      const initialPage = {
+        page: meta?.page ?? page,
+        items: newItems,
+        totalPages: meta?.total_pages ?? page,
+      };
+
+      if (page === 1 && target) {
+        // Scan inside one query: effect-driven page increments raced isFetching and could stop after page 1.
+        const scan = await scanTargetRecordPages({
+          targetId: target.id,
+          initialPage,
+          loadPage: async (nextPage) => {
+            const response = await api.calls.contactsCallsList(
+              String(vaultId),
+              String(contactId),
+              {
+                page: nextPage,
+                per_page: 15,
+              },
+            );
+            return {
+              page: nextPage,
+              items: response.data ?? [],
+              totalPages: response.meta?.total_pages ?? nextPage,
+            };
+          },
+          getRecordId: (call: Call) => call.id,
+        });
+        return {
+          items: [...scan.items],
+          lastPage: scan.lastPage,
+          totalPages: scan.totalPages,
+        };
+      }
+
+      setAllCalls((previousCalls) =>
+        page === 1 ? newItems : [...previousCalls, ...newItems],
+      );
+      setLastLoadedPage(initialPage.page);
+      setHasMore(initialPage.page < initialPage.totalPages);
+      return {
+        items: newItems,
+        lastPage: initialPage.page,
+        totalPages: initialPage.totalPages,
+      };
     },
   });
+  const displayedCalls = target ? (callsQueryResult?.items ?? []) : allCalls;
+  const displayedLastPage = target
+    ? (callsQueryResult?.lastPage ?? 0)
+    : lastLoadedPage;
+  const displayedHasMore = target
+    ? (callsQueryResult?.lastPage ?? 0) < (callsQueryResult?.totalPages ?? 0)
+    : hasMore;
+  const targetAvailable =
+    target !== undefined &&
+    displayedCalls.some((call) => call.id === target.id);
+
+  useSourceRecordReveal(target, targetAvailable);
 
   const saveMutation = useMutation({
-    mutationFn: (values: {
-      called_at: dayjs.Dayjs;
-      duration?: number;
-      type: string;
-      description?: string;
-    }) => {
+    mutationFn: (operation: CallSaveMutationOperation) => {
+      const { values } = operation;
       const data = {
         called_at: values.called_at.toISOString(),
         duration: values.duration,
@@ -91,28 +202,81 @@ export default function CallsModule({
         description: values.description,
         who_initiated: values.type === "outgoing" ? "me" : "contact",
       };
-      
-      if (editingId) {
-        return api.calls.contactsCallsUpdate(String(vaultId), String(contactId), editingId, data);
+
+      switch (operation.kind) {
+        case "create":
+          return api.calls.contactsCallsCreate(
+            operation.scope.vaultId,
+            operation.scope.contactId,
+            data,
+          );
+        case "update":
+          return api.calls.contactsCallsUpdate(
+            operation.scope.vaultId,
+            operation.scope.contactId,
+            operation.id,
+            data,
+          );
+        default: {
+          const unreachableOperation: never = operation;
+          throw new Error(
+            `Unexpected call save operation: ${String(unreachableOperation)}`,
+          );
+        }
       }
-      return api.calls.contactsCallsCreate(String(vaultId), String(contactId), data);
     },
-    onSuccess: () => {
-      resetPagination();
-      queryClient.invalidateQueries({ queryKey: qk });
+    onSuccess: async (_data, operation) => {
+      switch (operation.kind) {
+        case "create": {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: operation.listQueryKey }),
+            invalidateFeedQueries(queryClient, {
+              vaultIds: [operation.scope.vaultId],
+              contacts: [operation.scope],
+            }),
+          ]);
+          resetPagination();
+          message.success(t("modules.calls.logged"));
+          break;
+        }
+        case "update":
+          await queryClient.invalidateQueries({
+            queryKey: operation.listQueryKey,
+          });
+          resetPagination();
+          message.success(t("modules.calls.updated"));
+          break;
+        default: {
+          const unreachableOperation: never = operation;
+          throw new Error(
+            `Unexpected call save operation: ${String(unreachableOperation)}`,
+          );
+        }
+      }
       setOpen(false);
       setEditingId(null);
       form.resetFields();
-      message.success(editingId ? t("modules.calls.updated") : t("modules.calls.logged"));
     },
     onError: (e: APIError) => message.error(e.message),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.calls.contactsCallsDelete(String(vaultId), String(contactId), id),
-    onSuccess: () => {
+    mutationFn: (operation: CallDeleteMutationOperation) =>
+      api.calls.contactsCallsDelete(
+        operation.source.vaultId,
+        operation.source.contactId,
+        operation.id,
+      ),
+    onSuccess: async (_data, operation) => {
+      // Historical Feed rows query source availability, so deletion must refresh both projections.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: operation.listQueryKey }),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [operation.source.vaultId],
+          contacts: [operation.source],
+        }),
+      ]);
       resetPagination();
-      queryClient.invalidateQueries({ queryKey: qk });
       message.success(t("modules.calls.deleted"));
     },
     onError: (e: APIError) => message.error(e.message),
@@ -120,20 +284,22 @@ export default function CallsModule({
 
   return (
     <Card
-      title={<span style={{ fontWeight: 500 }}>{t("modules.calls.title")}</span>}
+      title={
+        <span style={{ fontWeight: 500 }}>{t("modules.calls.title")}</span>
+      }
       styles={{
         header: { borderBottom: `1px solid ${token.colorBorderSecondary}` },
-        body: { padding: '16px 24px' },
+        body: { padding: "16px 24px" },
       }}
       extra={
-        <Button 
-          type="text" 
-          icon={<PlusOutlined />} 
+        <Button
+          type="text"
+          icon={<PlusOutlined />}
           onClick={() => {
             setEditingId(null);
             form.resetFields();
             setOpen(true);
-          }} 
+          }}
           style={{ color: token.colorPrimary }}
         >
           {t("modules.calls.log_call")}
@@ -142,19 +308,28 @@ export default function CallsModule({
     >
       <List
         loading={isLoading && page === 1}
-        dataSource={allCalls}
-        locale={{ emptyText: <Empty description={t("modules.calls.no_calls")} /> }}
+        dataSource={displayedCalls}
+        locale={{
+          emptyText: <Empty description={t("modules.calls.no_calls")} />,
+        }}
         split={false}
         renderItem={(c: Call) => (
           <List.Item
+            data-source-record={
+              c.id ? sourceRecordKey("Call", c.id) : undefined
+            }
             style={{
               borderRadius: token.borderRadius,
-              padding: '10px 12px',
+              padding: "10px 12px",
               marginBottom: 4,
-              transition: 'background 0.2s',
+              transition: "background 0.2s",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = token.colorFillQuaternary; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = token.colorFillQuaternary;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
             actions={[
               <Button
                 key="edit"
@@ -170,19 +345,43 @@ export default function CallsModule({
                   setOpen(true);
                 }}
               />,
-              <Popconfirm key="d" title={t("modules.calls.delete_confirm")} onConfirm={() => deleteMutation.mutate(c.id!)}>
-                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+              <Popconfirm
+                key="d"
+                title={t("modules.calls.delete_confirm")}
+                onConfirm={() => {
+                  if (c.id === undefined) return;
+                  deleteMutation.mutate({
+                    source: scope,
+                    listQueryKey: qk,
+                    id: c.id,
+                  });
+                }}
+              >
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                />
               </Popconfirm>,
             ]}
           >
             <List.Item.Meta
-              avatar={<PhoneOutlined style={{ fontSize: 18, color: token.colorPrimary }} />}
+              avatar={
+                <PhoneOutlined
+                  style={{ fontSize: 18, color: token.colorPrimary }}
+                />
+              }
               title={
-                 <>
-                     <Tag color={typeColor[c.type!] ?? "default"}>{c.type}</Tag>
-                   <span style={{ fontWeight: 400, color: token.colorTextSecondary }}>{formatDateTime(c.called_at, dateFormats)}</span>
-                 </>
-               }
+                <>
+                  <Tag color={typeColor[c.type!] ?? "default"}>{c.type}</Tag>
+                  <span
+                    style={{ fontWeight: 400, color: token.colorTextSecondary }}
+                  >
+                    {formatDateTime(c.called_at, dateFormats)}
+                  </span>
+                </>
+              }
               description={
                 <span style={{ color: token.colorTextTertiary }}>
                   {c.duration != null && <span>{c.duration} min · </span>}
@@ -193,26 +392,55 @@ export default function CallsModule({
           </List.Item>
         )}
       />
-      {hasMore && allCalls.length > 0 && (
+      {displayedHasMore && displayedCalls.length > 0 && (
         <div style={{ textAlign: "center", marginTop: 12 }}>
-          <Button onClick={() => setPage(p => p + 1)} loading={isFetching}>
+          <Button
+            onClick={() => setPage(displayedLastPage + 1)}
+            loading={isFetching}
+          >
             {t("common.load_more")}
           </Button>
         </div>
       )}
 
       <Modal
-        title={editingId ? t("modules.calls.edit_call") : t("modules.calls.modal_title")}
+        title={
+          editingId
+            ? t("modules.calls.edit_call")
+            : t("modules.calls.modal_title")
+        }
         open={open}
-        onCancel={() => { setOpen(false); setEditingId(null); form.resetFields(); }}
+        onCancel={() => {
+          setOpen(false);
+          setEditingId(null);
+          form.resetFields();
+        }}
         onOk={() => form.submit()}
         confirmLoading={saveMutation.isPending}
       >
-        <Form form={form} layout="vertical" onFinish={(v) => saveMutation.mutate(v)}>
-          <Form.Item name="called_at" label={t("modules.calls.date_time")} rules={[{ required: true }]}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={(values: CallFormValues) =>
+            saveMutation.mutate({
+              ...createContactSaveMutationOperation(editingId, values),
+              scope,
+              listQueryKey: qk,
+            })
+          }
+        >
+          <Form.Item
+            name="called_at"
+            label={t("modules.calls.date_time")}
+            rules={[{ required: true }]}
+          >
             <DatePicker showTime style={{ width: "100%" }} />
           </Form.Item>
-          <Form.Item name="type" label={t("modules.calls.type")} rules={[{ required: true }]}>
+          <Form.Item
+            name="type"
+            label={t("modules.calls.type")}
+            rules={[{ required: true }]}
+          >
             <Select options={callTypes} />
           </Form.Item>
           <Form.Item name="duration" label={t("modules.calls.duration")}>
