@@ -1,298 +1,224 @@
 import { useState } from "react";
-import {
-  Card,
-  List,
-  Button,
-  Input,
-  Checkbox,
-  Space,
-  Popconfirm,
-  App,
-  Divider,
-  Empty,
-  Tag,
-  theme,
-} from "antd";
-import { PlusOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, List, Button, Divider, Empty, theme } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api";
-import type { Task, APIError } from "@/api";
+import type { Task } from "@/api";
 import { useTranslation } from "react-i18next";
+import type { NormalizedFeedSource } from "@/utils/feedSourceLink";
+import {
+  taskListQueryKeys,
+  type TaskMutationSource,
+} from "@/utils/taskQueryInvalidation";
+import { useSourceRecordReveal } from "../contactSourceRecord";
+import TaskEditor from "./TaskEditor";
+import TaskListItem from "./TaskListItem";
+import {
+  createTaskDeleteMutationOperation,
+  createTaskSaveMutationOperation,
+  createTaskToggleMutationOperation,
+  type TaskMutationTarget,
+} from "./taskMutationOperation";
+import { useTaskMutations } from "./useTaskMutations";
 
 export default function TasksModule({
   vaultId,
   contactId,
+  target,
 }: {
   vaultId: string | number;
   contactId: string | number;
+  target?: Extract<NormalizedFeedSource, { readonly module: "tasks" }>;
 }) {
   const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingTask, setEditingTask] = useState<TaskMutationTarget | null>(
+    null,
+  );
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
-  const queryClient = useQueryClient();
-  const { message } = App.useApp();
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const [showCompleted, setShowCompleted] = useState(false);
-  const qk = ["vaults", vaultId, "contacts", contactId, "tasks"];
-  const qkCompleted = ["vaults", vaultId, "contacts", contactId, "tasks-completed"];
+  const source: TaskMutationSource = {
+    vaultId: String(vaultId),
+    contactId: String(contactId),
+  };
+  const queryKeys = taskListQueryKeys(source);
+  const resetSaveForm = () => {
+    setAdding(false);
+    setEditingTask(null);
+    setLabel("");
+    setDescription("");
+  };
+  const { saveMutation, toggleMutation, deleteMutation } = useTaskMutations({
+    resetSaveForm,
+  });
 
   const { data: pending = [], isLoading } = useQuery({
-    queryKey: qk,
-    queryFn: async () => {
-      const res = await api.tasks.contactsTasksList(String(vaultId), String(contactId));
+    queryKey: queryKeys.pending,
+    queryFn: async (): Promise<Task[]> => {
+      const res = await api.tasks.contactsTasksList(
+        source.vaultId,
+        source.contactId,
+      );
       return res.data ?? [];
     },
   });
 
   const { data: completed = [], isLoading: isLoadingCompleted } = useQuery({
-    queryKey: qkCompleted,
-    queryFn: async () => {
-      const res = await api.tasks.contactsTasksCompletedList(String(vaultId), String(contactId));
-      return res.data ?? [];
-    },
-    enabled: showCompleted,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: ({ taskLabel, taskDescription }: { taskLabel: string; taskDescription: string }) => {
-      const payload = { label: taskLabel, description: taskDescription };
-      if (editingId) {
-        return api.tasks.contactsTasksUpdate(String(vaultId), String(contactId), editingId, payload);
+    queryKey: queryKeys.completed,
+    queryFn: async (): Promise<Task[]> => {
+      const res = await api.tasks.contactsTasksCompletedList(
+        source.vaultId,
+        source.contactId,
+      );
+      const completedTasks: Task[] = res.data ?? [];
+      if (
+        target &&
+        completedTasks.some((task: Task) => task.id === target.id)
+      ) {
+        setShowCompleted(true);
       }
-      return api.tasks.contactsTasksCreate(String(vaultId), String(contactId), payload);
+      return completedTasks;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
-      queryClient.invalidateQueries({ queryKey: qkCompleted });
-      setAdding(false);
-      setEditingId(null);
-      setLabel("");
-      setDescription("");
-      message.success(editingId ? t("modules.tasks.updated") : t("modules.tasks.added"));
-    },
-    onError: (e: APIError) => message.error(e.message),
+    enabled: showCompleted || target !== undefined,
   });
+  const targetAvailable =
+    target !== undefined &&
+    [...pending, ...completed].some((task: Task) => task.id === target.id);
 
-  const toggleMutation = useMutation({
-    mutationFn: (task: Task) =>
-      api.tasks.contactsTasksToggleUpdate(String(vaultId), String(contactId), task.id!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
-      queryClient.invalidateQueries({ queryKey: qkCompleted });
-    },
-    onError: (e: APIError) => message.error(e.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (taskId: number) => api.tasks.contactsTasksDelete(String(vaultId), String(contactId), taskId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
-      queryClient.invalidateQueries({ queryKey: qkCompleted });
-      message.success(t("modules.tasks.deleted"));
-    },
-    onError: (e: APIError) => message.error(e.message),
-  });
+  useSourceRecordReveal(target, targetAvailable);
 
   function submitForm() {
     const trimmedLabel = label.trim();
     if (!trimmedLabel) return;
-    createMutation.mutate({ taskLabel: trimmedLabel, taskDescription: description.trim() });
-  }
-
-  function renderSharedAssignees(task: Task) {
-    const others = (task.contacts ?? []).filter(
-      (c) => String(c.id) !== String(contactId),
-    );
-    if (others.length === 0) return null;
-    return (
-      <div
-        style={{
-          marginLeft: 24,
-          marginTop: 6,
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 4,
-        }}
-      >
-        {others.map((c) => (
-          <Tag key={c.id} color="blue" style={{ marginRight: 0 }}>
-            {c.name || c.id}
-          </Tag>
-        ))}
-      </div>
+    saveMutation.mutate(
+      createTaskSaveMutationOperation(source, editingTask, {
+        label: trimmedLabel,
+        description: description.trim(),
+      }),
     );
   }
 
   function renderItem(task: Task) {
-    if (editingId === task.id) {
+    if (editingTask?.id === task.id) {
       return (
-        <List.Item style={{ padding: '8px 12px', display: 'block' }}>
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
-            <Input
-              autoFocus
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              onPressEnter={submitForm}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setEditingId(null);
-                  setLabel("");
-                  setDescription("");
-                }
-              }}
-              placeholder={t("modules.tasks.new_task_placeholder")}
-            />
-            <Input.TextArea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t("modules.tasks.description_placeholder")}
-              autoSize={{ minRows: 2, maxRows: 6 }}
-            />
-            <Space>
-              <Button type="primary" onClick={submitForm} loading={createMutation.isPending}>
-                {t("common.save")}
-              </Button>
-              <Button onClick={() => { setEditingId(null); setLabel(""); setDescription(""); }}>
-                {t("common.cancel")}
-              </Button>
-            </Space>
-          </Space>
-        </List.Item>
+        <TaskEditor
+          mode="update"
+          values={{ label, description }}
+          pending={saveMutation.isPending}
+          onChange={(values) => {
+            setLabel(values.label);
+            setDescription(values.description);
+          }}
+          onSubmit={submitForm}
+          onCancel={resetSaveForm}
+        />
       );
     }
 
     return (
-      <List.Item
-        style={{
-          borderRadius: token.borderRadius,
-          padding: '8px 12px',
-          marginBottom: 4,
-          transition: 'background 0.2s',
+      <TaskListItem
+        task={task}
+        routeContactId={source.contactId}
+        onEdit={(selectedTask) => {
+          if (selectedTask.id === undefined) return;
+          setEditingTask({
+            id: selectedTask.id,
+            contacts: selectedTask.contacts,
+          });
+          setLabel(selectedTask.label ?? "");
+          setDescription(selectedTask.description ?? "");
+          setAdding(false);
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = token.colorFillQuaternary; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-        actions={[
-          <Button
-            key="edit"
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setEditingId(task.id!);
-              setLabel(task.label!);
-              setDescription(task.description ?? "");
-              setAdding(false);
-            }}
-          />,
-          <Popconfirm key="d" title={t("modules.tasks.delete_confirm")} onConfirm={() => deleteMutation.mutate(task.id!)}>
-            <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>,
-        ]}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Checkbox
-            checked={task.completed}
-            onChange={() => toggleMutation.mutate(task)}
-            style={{ display: "flex", alignItems: "flex-start" }}
-          >
-            <span
-              style={{
-                textDecoration: task.completed ? "line-through" : undefined,
-                color: task.completed ? token.colorTextQuaternary : token.colorText,
-                overflowWrap: "anywhere",
-                wordBreak: "break-word",
-              }}
-            >
-              {task.label}
-            </span>
-          </Checkbox>
-          {task.description && (
-            <div
-              style={{
-                marginLeft: 24,
-                marginTop: 4,
-                fontSize: 13,
-                color: token.colorTextSecondary,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                textDecoration: task.completed ? "line-through" : undefined,
-              }}
-            >
-              {task.description}
-            </div>
-          )}
-          {renderSharedAssignees(task)}
-        </div>
-      </List.Item>
+        onToggle={(selectedTask) => {
+          if (selectedTask.id === undefined) return;
+          toggleMutation.mutate(
+            createTaskToggleMutationOperation(source, {
+              id: selectedTask.id,
+              completed: selectedTask.completed ?? false,
+              contacts: selectedTask.contacts,
+            }),
+          );
+        }}
+        onDelete={(selectedTask) => {
+          if (selectedTask.id === undefined) return;
+          deleteMutation.mutate(
+            createTaskDeleteMutationOperation(source, {
+              id: selectedTask.id,
+              contacts: selectedTask.contacts,
+            }),
+          );
+        }}
+      />
     );
   }
 
   return (
     <Card
-      title={<span style={{ fontWeight: 500 }}>{t("modules.tasks.title")}</span>}
+      title={
+        <span style={{ fontWeight: 500 }}>{t("modules.tasks.title")}</span>
+      }
       styles={{
         header: { borderBottom: `1px solid ${token.colorBorderSecondary}` },
-        body: { padding: '16px 24px' },
+        body: { padding: "16px 24px" },
       }}
       extra={
-        !adding && !editingId && (
-          <Button type="text" icon={<PlusOutlined />} onClick={() => { setAdding(true); setLabel(""); setDescription(""); }} style={{ color: token.colorPrimary }}>
+        !adding &&
+        editingTask === null && (
+          <Button
+            type="text"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setAdding(true);
+              setLabel("");
+              setDescription("");
+            }}
+            style={{ color: token.colorPrimary }}
+          >
             {t("modules.tasks.add")}
           </Button>
         )
       }
     >
       {adding && (
-        <div style={{
-          marginBottom: 16,
-          padding: 16,
-          background: token.colorFillQuaternary,
-          borderRadius: token.borderRadius,
-        }}>
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
-            <Input
-              placeholder={t("modules.tasks.new_task_placeholder")}
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              onPressEnter={submitForm}
-              autoFocus
-            />
-            <Input.TextArea
-              placeholder={t("modules.tasks.description_placeholder")}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              autoSize={{ minRows: 2, maxRows: 6 }}
-            />
-            <Space>
-              <Button type="primary" onClick={submitForm} loading={createMutation.isPending}>
-                {t("common.add")}
-              </Button>
-              <Button type="text" onClick={() => { setAdding(false); setLabel(""); setDescription(""); }}>
-                {t("common.cancel")}
-              </Button>
-            </Space>
-          </Space>
-        </div>
+        <TaskEditor
+          mode="create"
+          values={{ label, description }}
+          pending={saveMutation.isPending}
+          onChange={(values) => {
+            setLabel(values.label);
+            setDescription(values.description);
+          }}
+          onSubmit={submitForm}
+          onCancel={resetSaveForm}
+        />
       )}
 
       <List
         loading={isLoading}
         dataSource={pending}
-        locale={{ emptyText: <Empty description={t("modules.tasks.no_pending")} /> }}
+        locale={{
+          emptyText: <Empty description={t("modules.tasks.no_pending")} />,
+        }}
         split={false}
         renderItem={renderItem}
       />
 
-      <Divider orientationMargin={0} plain style={{ fontSize: 12, color: token.colorTextQuaternary }}>
+      <Divider
+        orientationMargin={0}
+        plain
+        style={{ fontSize: 12, color: token.colorTextQuaternary }}
+      >
         <Button
           type="text"
           size="small"
           onClick={() => setShowCompleted(!showCompleted)}
           style={{ fontSize: 12, color: token.colorTextQuaternary }}
         >
-          {showCompleted ? t("modules.tasks.hide_completed") : t("modules.tasks.show_completed")}
+          {showCompleted
+            ? t("modules.tasks.hide_completed")
+            : t("modules.tasks.show_completed")}
         </Button>
       </Divider>
 
@@ -302,7 +228,11 @@ export default function TasksModule({
           dataSource={completed}
           split={false}
           renderItem={renderItem}
-          locale={{ emptyText: <Empty description={t("modules.tasks.completed", { count: 0 })} /> }}
+          locale={{
+            emptyText: (
+              <Empty description={t("modules.tasks.completed", { count: 0 })} />
+            ),
+          }}
         />
       )}
     </Card>
