@@ -15,7 +15,7 @@ cp server/.env.example server/.env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DEBUG` | `false` | Enable debug mode: request logging, SQL logging, Swagger UI (default on) |
-| `JWT_SECRET` | — | **Required in production.** Signing key for auth tokens |
+| `JWT_SECRET` | — | **Required in production.** Generate a 256-bit key with `openssl rand -hex 32`, then persist and reuse it across restarts. |
 | `SETTINGS_ENC_KEY` | _(empty)_ | Optional. Enables AES-256-GCM encryption-at-rest for sensitive system settings (SMTP password, OAuth client secrets, geocoding API keys). See [Encrypting Sensitive Settings](#encrypting-sensitive-settings) below. |
 | `SERVER_PORT` | `8080` | Port the server listens on |
 | `SERVER_HOST` | `0.0.0.0` | Host address the server binds to |
@@ -98,7 +98,7 @@ If you set `SETTINGS_ENC_KEY` and then lose it, encrypted secrets are unrecovera
 
 ## Production Checklist
 
-1. **Set `JWT_SECRET`**: Use a strong, random string (32+ characters).
+1. **Set `JWT_SECRET`**: Run `export JWT_SECRET="$(openssl rand -hex 32)"` once, store the 256-bit value in a protected environment or secret store, and reuse it across restarts. Plan rotation: it invalidates existing sessions and can require DAV subscription credentials to be entered again because their encryption derives from this secret.
 2. **Set `SETTINGS_ENC_KEY`**: Recommended for production. Encrypts SMTP/OAuth/geocoding credentials at rest.
 3. **Set `APP_ENV=production`**: Disables debug features.
 4. **Set `APP_URL`**: Your public URL, used in emails and OAuth callbacks.
@@ -115,8 +115,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - JWT_SECRET=change-me-to-a-random-string
-      - SETTINGS_ENC_KEY=change-me-to-another-random-string
+      - JWT_SECRET=${JWT_SECRET:?Set a persisted 256-bit JWT secret before startup}
+      - SETTINGS_ENC_KEY=${SETTINGS_ENC_KEY:?Set a persisted settings encryption key before startup}
       - APP_ENV=production
       - APP_URL=https://bonds.example.com
       - DB_DSN=/data/bonds.db

@@ -56,25 +56,23 @@ Monica is a beloved open-source personal CRM with 24k+ stars. But as a side proj
 # Download docker-compose.yml
 curl -O https://raw.githubusercontent.com/naiba/bonds/main/docker-compose.yml
 
+# Generate and export a 256-bit JWT signing secret in this shell
+export JWT_SECRET="$(openssl rand -hex 32)"
+
 # Start the service
 docker compose up -d
 ```
 
 Open **http://localhost:8080** and create your account.
 
-To customize settings, edit `docker-compose.yml`:
-
-```yaml
-environment:
-  - JWT_SECRET=your-secret-key-here   # ⚠️ Change this!
-```
+Generate the secret once, store it in a protected environment or secret store, and reuse the same value for every restart. Plan JWT secret rotation: it invalidates existing sessions and can require DAV subscription credentials to be entered again because their encryption derives from this secret.
 
 ### Option 2: Pre-built Binary
 
 Download the latest release from [GitHub Releases](https://github.com/naiba/bonds/releases), then:
 
 ```bash
-export JWT_SECRET=your-secret-key-here
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./bonds-server
 ```
 
@@ -95,7 +93,7 @@ make setup
 make build-all
 
 # Run it
-export JWT_SECRET=your-secret-key-here
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./server/bin/bonds-server
 ```
 
@@ -117,7 +115,7 @@ cp server/.env.example server/.env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DEBUG` | `false` | Enable debug mode: Echo request logging, GORM SQL logging, Swagger UI (default on) |
-| `JWT_SECRET` | — | **Required in production.** Signing key for auth tokens |
+| `JWT_SECRET` | — | **Required in production.** Generate with `openssl rand -hex 32`, then persist and reuse the 256-bit signing key across restarts. |
 | `SETTINGS_ENC_KEY` | _(empty)_ | Optional. Enables AES-256-GCM encryption-at-rest for SMTP/OAuth/geocoding secrets. See [docs](https://naiba.github.io/bonds/guide/configuration#encrypting-sensitive-settings) |
 | `SERVER_PORT` | `8080` | Port the server listens on |
 | `SERVER_HOST` | `0.0.0.0` | Host address the server binds to |

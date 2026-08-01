@@ -8,22 +8,16 @@ The easiest way to run Bonds is with Docker:
 # Download docker-compose.yml
 curl -O https://raw.githubusercontent.com/naiba/bonds/main/docker-compose.yml
 
+# Generate and export a 256-bit JWT signing secret in this shell
+export JWT_SECRET="$(openssl rand -hex 32)"
+
 # Start the service
 docker compose up -d
 ```
 
 Open **http://localhost:8080** and create your account.
 
-### Customize Settings
-
-Edit `docker-compose.yml` to set your JWT secret and other options:
-
-```yaml
-environment:
-  - JWT_SECRET=your-secret-key-here   # ⚠️ Change this in production!
-  - APP_URL=https://bonds.example.com
-  - APP_ENV=production
-```
+Generate the secret once, store it in a protected environment or secret store, and reuse the same value for every restart. Plan JWT secret rotation: it invalidates existing sessions and can require DAV subscription credentials to be entered again because their encryption derives from this secret.
 
 ### Persistent Storage
 
@@ -34,8 +28,8 @@ The default `docker-compose.yml` mounts a volume for the SQLite database and upl
 Download the latest release from [GitHub Releases](https://github.com/naiba/bonds/releases):
 
 ```bash
-# Set required environment variables
-export JWT_SECRET=your-secret-key-here
+# Generate the JWT signing secret once, then store and reuse it securely
+export JWT_SECRET="$(openssl rand -hex 32)"
 export APP_ENV=production
 
 # Run the server
@@ -70,7 +64,7 @@ make setup
 make build-all
 
 # Run it
-export JWT_SECRET=your-secret-key-here
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./server/bin/bonds-server
 ```
 
