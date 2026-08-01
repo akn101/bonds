@@ -1,259 +1,260 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { useMemo, useState } from "react";
 import {
-  Card,
-  Typography,
-  Button,
-  List,
-  Select,
-  Popconfirm,
-  App,
-  Empty,
-  Spin,
-  Space,
-  theme,
-} from "antd";
-import {
-  PlusOutlined,
-  DeleteOutlined,
   ArrowLeftOutlined,
+  PlusOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/api";
-import type { GroupContact, Contact, APIError } from "@/api";
+import { App, Button, Card, Spin, Typography, theme } from "antd";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import ContactAvatar from "@/components/ContactAvatar";
+import { api } from "@/api";
+import type { APIError, GroupContact } from "@/api";
+import GroupMemberAddPanel from "@/components/groups/GroupMemberAddPanel";
+import type { SelectableGroupContact } from "@/components/groups/GroupMemberAddPanel";
+import GroupMemberList from "@/components/groups/GroupMemberList";
+import type { GroupMemberListItem } from "@/components/groups/GroupMemberList";
+import { getGroupMemberFeedbackKey } from "@/components/groups/groupMemberFeedback";
+import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
 
 const { Title } = Typography;
 
+function hasGroupMemberId(
+  member: GroupContact,
+): member is GroupContact & { readonly id: string } {
+  return typeof member.id === "string";
+}
+
 export default function GroupDetail() {
-  const { id, groupId } = useParams<{ id: string; groupId: string }>();
-  const vaultId = id!;
-  const gId = groupId!;
+  const { id: vaultId, groupId } = useParams<{
+    id: string;
+    groupId: string;
+  }>();
   const navigate = useNavigate();
-  const [adding, setAdding] = useState(false);
-  const [selectedContact, setSelectedContact] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const { message } = App.useApp();
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const nameOrder = useVaultNameOrder(vaultId);
+  const [adding, setAdding] = useState(false);
+  const [contactsToAdd, setContactsToAdd] = useState<SelectableGroupContact[]>(
+    [],
+  );
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const numericGroupId = Number(groupId);
+  const hasRouteIdentity =
+    typeof vaultId === "string" &&
+    typeof groupId === "string" &&
+    Number.isInteger(numericGroupId);
 
   const { data: group, isLoading } = useQuery({
-    queryKey: ["vaults", vaultId, "groups", gId],
+    queryKey: ["vaults", vaultId, "groups", groupId],
     queryFn: async () => {
-      const res = await api.groups.groupsDetail(String(vaultId), Number(gId));
-      return res.data!;
+      if (!vaultId || !Number.isInteger(numericGroupId)) return null;
+      const response = await api.groups.groupsDetail(vaultId, numericGroupId);
+      return response.data ?? null;
     },
-    enabled: !!vaultId && !!gId,
+    enabled: hasRouteIdentity,
   });
+  const members = useMemo<GroupMemberListItem[]>(
+    () =>
+      (group?.contacts ?? [])
+        .filter((member: GroupContact) => hasGroupMemberId(member))
+        .map((member: GroupContact & { readonly id: string }) => {
+          const backendName = member.name?.trim();
+          return {
+            id: member.id,
+            name: backendName || formatContactName(nameOrder, member),
+            firstName: member.first_name,
+            lastName: member.last_name,
+          };
+        }),
+    [group?.contacts, nameOrder],
+  );
+  const memberIds = useMemo(
+    () => new Set(members.map((member) => member.id)),
+    [members],
+  );
 
-  const { data: contacts = [] } = useQuery({
-    queryKey: ["vaults", vaultId, "contacts"],
-    queryFn: async () => {
-      const res = await api.contacts.contactsList(String(vaultId), { per_page: 9999 });
-      return res.data ?? [];
-    },
-    enabled: !!vaultId,
-  });
+  const invalidateGroupQueries = async () => {
+    if (!vaultId || !groupId) return;
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "groups", groupId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "groups"],
+      }),
+    ]);
+  };
 
   const addMutation = useMutation({
-    mutationFn: (contactId: number) =>
-      api.groups.contactsGroupsCreate(String(vaultId), String(contactId), { group_id: Number(gId) }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "groups", gId],
+    mutationFn: (contactIds: readonly string[]) => {
+      if (!vaultId || !Number.isInteger(numericGroupId)) {
+        return Promise.reject(new Error("Missing group route identity"));
+      }
+      return api.groups.groupsMembersCreate(vaultId, numericGroupId, {
+        contact_ids: [...contactIds],
       });
+    },
+    onSuccess: async (response, contactIds) => {
+      const affectedCount = response.data?.affected_count ?? contactIds.length;
+      await invalidateGroupQueries();
+      setContactsToAdd([]);
       setAdding(false);
-      setSelectedContact(null);
-      message.success(t("vault.group_detail.member_added"));
+      message.success(
+        t(getGroupMemberFeedbackKey("added", affectedCount), {
+          count: affectedCount,
+        }),
+      );
     },
-    onError: (e: APIError) => message.error(e.message),
+    onError: (error: APIError) => {
+      message.error(error.message || t("common.error"));
+    },
   });
-
   const removeMutation = useMutation({
-    mutationFn: (contactId: string) =>
-      api.groups.contactsGroupsDelete(String(vaultId), String(contactId), Number(gId)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "groups", gId],
+    mutationFn: (contactIds: readonly string[]) => {
+      if (!vaultId || !Number.isInteger(numericGroupId)) {
+        return Promise.reject(new Error("Missing group route identity"));
+      }
+      return api.groups.groupsMembersDelete(vaultId, numericGroupId, {
+        contact_ids: [...contactIds],
       });
-      message.success(t("vault.group_detail.member_removed"));
     },
-    onError: (e: APIError) => message.error(e.message),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (name: string) =>
-      api.groups.groupsUpdate(String(vaultId), Number(gId), { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "groups", gId],
+    onSuccess: async (response, contactIds) => {
+      const affectedCount = response.data?.affected_count ?? contactIds.length;
+      await invalidateGroupQueries();
+      setSelectedMemberIds((currentIds) => {
+        const remainingIds = new Set(currentIds);
+        for (const contactId of contactIds) remainingIds.delete(contactId);
+        return remainingIds;
       });
+      message.success(
+        t(getGroupMemberFeedbackKey("removed", affectedCount), {
+          count: affectedCount,
+        }),
+      );
+    },
+    onError: (error: APIError) => {
+      message.error(error.message || t("common.error"));
+    },
+  });
+  const updateMutation = useMutation({
+    mutationFn: (name: string) => {
+      if (!vaultId || !Number.isInteger(numericGroupId)) {
+        return Promise.reject(new Error("Missing group route identity"));
+      }
+      return api.groups.groupsUpdate(vaultId, numericGroupId, { name });
+    },
+    onSuccess: async () => {
+      await invalidateGroupQueries();
       message.success(t("vault.group_detail.name_updated"));
     },
-    onError: (e: APIError) => message.error(e.message),
+    onError: (error: APIError) => {
+      message.error(error.message || t("common.error"));
+    },
   });
 
   if (isLoading) {
     return (
-      <div style={{ textAlign: "center", padding: 80 }}>
+      <div style={{ padding: token.paddingXL, textAlign: "center" }}>
         <Spin size="large" />
       </div>
     );
   }
-
-  if (!group) return null;
-
-  const memberIds = new Set((group.contacts ?? []).map((c: GroupContact) => c.id));
-  const availableContacts = contacts.filter((c: Contact) => !memberIds.has(c.id));
+  if (!group || !vaultId) return null;
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
+    <div style={{ maxWidth: 840, margin: "0 auto" }}>
+      <header
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: token.marginSM,
+          marginBottom: token.marginLG,
+        }}
+      >
         <Button
           type="text"
           icon={<ArrowLeftOutlined />}
+          aria-label={t("vault.group_detail.back")}
           onClick={() => navigate(`/vaults/${vaultId}/groups`)}
           style={{ color: token.colorTextSecondary }}
         />
         <div
           style={{
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
+            width: 36,
+            height: 36,
+            borderRadius: token.borderRadiusLG,
             background: token.colorPrimaryBg,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <TeamOutlined style={{ fontSize: 16, color: token.colorPrimary }} />
+          <TeamOutlined
+            style={{ fontSize: token.fontSizeLG, color: token.colorPrimary }}
+          />
         </div>
         <Title
           level={4}
-          style={{ margin: 0, flex: 1 }}
+          style={{ margin: 0, flex: 1, minWidth: 0 }}
           editable={{
-            onChange: (val: string) => { if (val.trim()) updateMutation.mutate(val.trim()); },
+            onChange: (value) => {
+              const name = value.trim();
+              if (name) updateMutation.mutate(name);
+            },
             triggerType: ["text"],
             tooltip: t("vault.group_detail.edit_name"),
           }}
         >
           {group.name}
         </Title>
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <Title level={5} style={{ margin: 0 }}>{t("vault.group_detail.members")}</Title>
         {!adding && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setAdding(true)}>
-            {t("vault.group_detail.add_member")}
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setAdding(true)}
+          >
+            {t("vault.group_detail.add_members")}
           </Button>
         )}
-      </div>
+      </header>
 
       {adding && (
-        <Card
-          size="small"
-          style={{
-            marginBottom: 16,
-            background: token.colorPrimaryBg,
-            borderColor: token.colorPrimaryBorder,
-            boxShadow: token.boxShadowTertiary,
-          }}
-        >
-          <Space style={{ width: "100%" }}>
-            <Select
-              showSearch
-              style={{ width: 300 }}
-              placeholder={t("vault.group_detail.select_contact")}
-              value={selectedContact}
-              onChange={setSelectedContact}
-              options={availableContacts.map((c: Contact) => ({
-                value: c.id,
-                label: formatContactName(nameOrder, c),
-              }))}
-              filterOption={(input, option) =>
-                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
-              }
-            />
-            <Button
-              type="primary"
-              onClick={() => selectedContact && addMutation.mutate(selectedContact)}
-              loading={addMutation.isPending}
-              disabled={!selectedContact}
-            >
-              {t("common.add")}
-            </Button>
-            <Button onClick={() => { setAdding(false); setSelectedContact(null); }}>
-              {t("common.cancel")}
-            </Button>
-          </Space>
-        </Card>
-      )}
-
-      <div
-        style={{
-          background: token.colorBgContainer,
-          borderRadius: token.borderRadiusLG,
-          boxShadow: token.boxShadowTertiary,
-          padding: "8px 0",
-        }}
-      >
-        <List
-          dataSource={group.contacts ?? []}
-          locale={{ emptyText: <Empty description={t("vault.group_detail.no_members")} style={{ padding: 32 }} /> }}
-          renderItem={(member: GroupContact) => {
-            const backendName = member.name?.trim();
-            const contactName = backendName || formatContactName(nameOrder, member);
-            return (
-              <List.Item
-                style={{
-                  margin: "4px 16px",
-                  paddingLeft: 16,
-                  borderRadius: token.borderRadius,
-                  cursor: "pointer",
-                }}
-                actions={[
-                  <Popconfirm
-                    key="d"
-                    title={t("vault.group_detail.remove_confirm")}
-                    onConfirm={(e) => { e?.stopPropagation(); removeMutation.mutate(member.id!); }}
-                  >
-                    <Button
-                      type="text"
-                      size="small"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </Popconfirm>,
-                ]}
-                onClick={() => navigate(`/vaults/${vaultId}/contacts/${member.id}`)}
-              >
-                <List.Item.Meta
-                  avatar={
-                    <ContactAvatar
-                      vaultId={String(vaultId)}
-                      contactId={member.id!}
-                      firstName={member.first_name}
-                      lastName={member.last_name}
-                      size={36}
-                    />
-                  }
-                  title={
-                    <span style={{ fontWeight: 500 }}>
-                      {contactName}
-                    </span>
-                  }
-                />
-              </List.Item>
-            );
+        <GroupMemberAddPanel
+          vaultId={vaultId}
+          groupId={numericGroupId}
+          memberIds={memberIds}
+          selectedContacts={contactsToAdd}
+          submitting={addMutation.isPending}
+          onSelectionChange={setContactsToAdd}
+          onSubmit={() =>
+            addMutation.mutate(contactsToAdd.map((contact) => contact.id))
+          }
+          onCancel={() => {
+            setContactsToAdd([]);
+            setAdding(false);
           }}
         />
-      </div>
+      )}
+
+      <Card
+        title={t("vault.group_detail.members")}
+        styles={{ body: { padding: token.paddingSM } }}
+      >
+        <GroupMemberList
+          vaultId={vaultId}
+          members={members}
+          selectedIds={selectedMemberIds}
+          removing={removeMutation.isPending}
+          onSelectionChange={setSelectedMemberIds}
+          onRemove={(ids) => removeMutation.mutate(ids)}
+        />
+      </Card>
     </div>
   );
 }
