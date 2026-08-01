@@ -88,8 +88,8 @@ type PostMetric struct {
 
 type ContactPost struct {
 	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	PostID    uint      `json:"post_id" gorm:"not null;index"`
-	ContactID string    `json:"contact_id" gorm:"type:text;not null;index"`
+	PostID    uint      `json:"post_id" gorm:"not null;index;uniqueIndex:idx_contact_post_unique"`
+	ContactID string    `json:"contact_id" gorm:"type:text;not null;index;uniqueIndex:idx_contact_post_unique"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

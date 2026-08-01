@@ -52,8 +52,8 @@ type Group struct {
 
 type ContactGroup struct {
 	ID              uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	GroupID         uint      `json:"group_id" gorm:"not null;index"`
-	ContactID       string    `json:"contact_id" gorm:"type:text;not null;index"`
+	GroupID         uint      `json:"group_id" gorm:"not null;index;uniqueIndex:idx_contact_group_unique"`
+	ContactID       string    `json:"contact_id" gorm:"type:text;not null;index;uniqueIndex:idx_contact_group_unique"`
 	GroupTypeRoleID *uint     `json:"group_type_role_id" gorm:"index"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
