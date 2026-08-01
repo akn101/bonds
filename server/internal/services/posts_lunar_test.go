@@ -13,11 +13,11 @@ import (
 // clients on different calendar libraries could disagree on the gregorian
 // equivalent and the post would jump around in the journal feed.
 func TestCreatePostWithLunarWrittenAt(t *testing.T) {
-	svc, journalID := setupPostTest(t)
+	svc, journalID, vaultID := setupPostTest(t)
 
 	placeholder := time.Date(2025, 1, 1, 20, 15, 0, 0, time.UTC)
 	day, month, year := 15, 1, 2025
-	post, err := svc.Create(journalID, dto.CreatePostRequest{
+	post, err := svc.Create(journalID, vaultID, dto.CreatePostRequest{
 		Title:         "Lantern festival",
 		Published:     true,
 		WrittenAt:     placeholder,
@@ -51,10 +51,10 @@ func TestCreatePostWithLunarWrittenAt(t *testing.T) {
 
 // TestUpdatePostSwitchesLunarToGregorianClearsOriginals — reverse transition.
 func TestUpdatePostSwitchesLunarToGregorianClearsOriginals(t *testing.T) {
-	svc, journalID := setupPostTest(t)
+	svc, journalID, vaultID := setupPostTest(t)
 
 	day, month, year := 15, 1, 2025
-	post, err := svc.Create(journalID, dto.CreatePostRequest{
+	post, err := svc.Create(journalID, vaultID, dto.CreatePostRequest{
 		Title:         "Lunar entry",
 		WrittenAt:     time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
 		CalendarType:  "lunar",
@@ -66,7 +66,7 @@ func TestUpdatePostSwitchesLunarToGregorianClearsOriginals(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	updated, err := svc.Update(post.ID, journalID, dto.UpdatePostRequest{
+	updated, err := svc.Update(post.ID, journalID, vaultID, dto.UpdatePostRequest{
 		Title:        "Lunar entry",
 		WrittenAt:    time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC),
 		CalendarType: "gregorian",

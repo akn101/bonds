@@ -17,10 +17,10 @@ type postTestContext struct {
 	db        *gorm.DB
 }
 
-func setupPostTest(t *testing.T) (*PostService, uint) {
+func setupPostTest(t *testing.T) (*PostService, uint, string) {
 	t.Helper()
 	ctx := setupPostTestFull(t)
-	return ctx.svc, ctx.journalID
+	return ctx.svc, ctx.journalID, ctx.vaultID
 }
 
 func setupPostTestFull(t *testing.T) postTestContext {
@@ -60,9 +60,9 @@ func setupPostTestFull(t *testing.T) postTestContext {
 }
 
 func TestCreatePost(t *testing.T) {
-	svc, journalID := setupPostTest(t)
+	svc, journalID, vaultID := setupPostTest(t)
 
-	post, err := svc.Create(journalID, dto.CreatePostRequest{
+	post, err := svc.Create(journalID, vaultID, dto.CreatePostRequest{
 		Title:     "My First Post",
 		Published: true,
 		WrittenAt: time.Now(),
@@ -92,16 +92,21 @@ func TestCreatePost(t *testing.T) {
 }
 
 func TestListPosts(t *testing.T) {
-	svc, journalID := setupPostTest(t)
+	ctx := setupPostTestFull(t)
+	contact := models.Contact{VaultID: ctx.vaultID, FirstName: strPtrOrNil("Alice")}
+	if err := ctx.db.Create(&contact).Error; err != nil {
+		t.Fatalf("Create contact failed: %v", err)
+	}
 
-	_, err := svc.Create(journalID, dto.CreatePostRequest{
-		Title:     "Post 1",
-		WrittenAt: time.Now(),
+	firstPost, err := ctx.svc.Create(ctx.journalID, ctx.vaultID, dto.CreatePostRequest{
+		Title:      "Post 1",
+		WrittenAt:  time.Now(),
+		ContactIDs: []string{contact.ID},
 	})
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
-	_, err = svc.Create(journalID, dto.CreatePostRequest{
+	_, err = ctx.svc.Create(ctx.journalID, ctx.vaultID, dto.CreatePostRequest{
 		Title:     "Post 2",
 		WrittenAt: time.Now(),
 	})
@@ -109,19 +114,29 @@ func TestListPosts(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	posts, err := svc.List(journalID)
+	posts, err := ctx.svc.List(ctx.journalID, ctx.vaultID)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
 	if len(posts) != 2 {
 		t.Errorf("Expected 2 posts, got %d", len(posts))
 	}
+	for _, post := range posts {
+		if post.ID != firstPost.ID {
+			continue
+		}
+		if len(post.Contacts) != 1 || post.Contacts[0].ID != contact.ID {
+			t.Errorf("Expected Post 1 to include contact %q, got %+v", contact.ID, post.Contacts)
+		}
+		return
+	}
+	t.Errorf("Expected to find Post 1 with ID %d", firstPost.ID)
 }
 
 func TestGetPost(t *testing.T) {
-	svc, journalID := setupPostTest(t)
+	svc, journalID, vaultID := setupPostTest(t)
 
-	created, err := svc.Create(journalID, dto.CreatePostRequest{
+	created, err := svc.Create(journalID, vaultID, dto.CreatePostRequest{
 		Title:     "Get Me",
 		WrittenAt: time.Now(),
 		Sections: []dto.PostSectionInput{
@@ -132,7 +147,7 @@ func TestGetPost(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	got, err := svc.Get(created.ID, journalID)
+	got, err := svc.Get(created.ID, journalID, vaultID)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -148,9 +163,9 @@ func TestGetPost(t *testing.T) {
 }
 
 func TestUpdatePost(t *testing.T) {
-	svc, journalID := setupPostTest(t)
+	svc, journalID, vaultID := setupPostTest(t)
 
-	created, err := svc.Create(journalID, dto.CreatePostRequest{
+	created, err := svc.Create(journalID, vaultID, dto.CreatePostRequest{
 		Title:     "Original",
 		WrittenAt: time.Now(),
 		Sections: []dto.PostSectionInput{
@@ -161,7 +176,7 @@ func TestUpdatePost(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	updated, err := svc.Update(created.ID, journalID, dto.UpdatePostRequest{
+	updated, err := svc.Update(created.ID, journalID, vaultID, dto.UpdatePostRequest{
 		Title:     "Updated",
 		Published: true,
 		Sections: []dto.PostSectionInput{
@@ -184,9 +199,9 @@ func TestUpdatePost(t *testing.T) {
 }
 
 func TestDeletePost(t *testing.T) {
-	svc, journalID := setupPostTest(t)
+	svc, journalID, vaultID := setupPostTest(t)
 
-	created, err := svc.Create(journalID, dto.CreatePostRequest{
+	created, err := svc.Create(journalID, vaultID, dto.CreatePostRequest{
 		Title:     "To delete",
 		WrittenAt: time.Now(),
 	})
@@ -194,11 +209,11 @@ func TestDeletePost(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	if err := svc.Delete(created.ID, journalID); err != nil {
+	if err := svc.Delete(created.ID, journalID, vaultID); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	posts, err := svc.List(journalID)
+	posts, err := svc.List(journalID, vaultID)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -208,28 +223,28 @@ func TestDeletePost(t *testing.T) {
 }
 
 func TestPostNotFound(t *testing.T) {
-	svc, journalID := setupPostTest(t)
+	svc, journalID, vaultID := setupPostTest(t)
 
-	_, err := svc.Get(9999, journalID)
+	_, err := svc.Get(9999, journalID, vaultID)
 	if err != ErrPostNotFound {
 		t.Errorf("Expected ErrPostNotFound, got %v", err)
 	}
 
-	_, err = svc.Update(9999, journalID, dto.UpdatePostRequest{Title: "nope"})
+	_, err = svc.Update(9999, journalID, vaultID, dto.UpdatePostRequest{Title: "nope"})
 	if err != ErrPostNotFound {
 		t.Errorf("Expected ErrPostNotFound, got %v", err)
 	}
 
-	err = svc.Delete(9999, journalID)
+	err = svc.Delete(9999, journalID, vaultID)
 	if err != ErrPostNotFound {
 		t.Errorf("Expected ErrPostNotFound, got %v", err)
 	}
 }
 
 func TestPostGetIncrementsViewCount(t *testing.T) {
-	svc, journalID := setupPostTest(t)
+	svc, journalID, vaultID := setupPostTest(t)
 
-	created, err := svc.Create(journalID, dto.CreatePostRequest{
+	created, err := svc.Create(journalID, vaultID, dto.CreatePostRequest{
 		Title:     "View Count Test",
 		WrittenAt: time.Now(),
 	})
@@ -238,7 +253,7 @@ func TestPostGetIncrementsViewCount(t *testing.T) {
 	}
 	baseCount := created.ViewCount
 
-	got1, err := svc.Get(created.ID, journalID)
+	got1, err := svc.Get(created.ID, journalID, vaultID)
 	if err != nil {
 		t.Fatalf("Get #1 failed: %v", err)
 	}
@@ -246,7 +261,7 @@ func TestPostGetIncrementsViewCount(t *testing.T) {
 		t.Errorf("Expected view_count %d after first Get, got %d", baseCount+1, got1.ViewCount)
 	}
 
-	got2, err := svc.Get(created.ID, journalID)
+	got2, err := svc.Get(created.ID, journalID, vaultID)
 	if err != nil {
 		t.Fatalf("Get #2 failed: %v", err)
 	}
@@ -267,7 +282,7 @@ func TestPostUpdateWithContacts(t *testing.T) {
 		t.Fatalf("Create contact2 failed: %v", err)
 	}
 
-	post, err := ctx.svc.Create(ctx.journalID, dto.CreatePostRequest{
+	post, err := ctx.svc.Create(ctx.journalID, ctx.vaultID, dto.CreatePostRequest{
 		Title:     "Post with contacts",
 		WrittenAt: time.Now(),
 	})
@@ -275,7 +290,7 @@ func TestPostUpdateWithContacts(t *testing.T) {
 		t.Fatalf("Create post failed: %v", err)
 	}
 
-	updated, err := ctx.svc.Update(post.ID, ctx.journalID, dto.UpdatePostRequest{
+	updated, err := ctx.svc.Update(post.ID, ctx.journalID, ctx.vaultID, dto.UpdatePostRequest{
 		Title:      "Post with contacts",
 		ContactIDs: []string{contact1.ID, contact2.ID},
 	})
@@ -286,7 +301,7 @@ func TestPostUpdateWithContacts(t *testing.T) {
 		t.Errorf("Expected 2 contacts, got %d", len(updated.Contacts))
 	}
 
-	updated2, err := ctx.svc.Update(post.ID, ctx.journalID, dto.UpdatePostRequest{
+	updated2, err := ctx.svc.Update(post.ID, ctx.journalID, ctx.vaultID, dto.UpdatePostRequest{
 		Title:      "Post cleared contacts",
 		ContactIDs: []string{},
 	})
