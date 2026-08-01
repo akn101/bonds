@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card, Tag, Typography, Button, Grid, Spin, theme } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import {
@@ -21,17 +21,46 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api";
 import type { VaultTask } from "@/api";
 import { useDateFormat, formatShortDate } from "@/utils/dateFormat";
-import { useTaskStatuses, defaultStatusSlug, type TaskStatus } from "@/utils/taskStatus";
+import {
+  useTaskStatuses,
+  defaultStatusSlug,
+  type TaskStatus,
+} from "@/utils/taskStatus";
+import {
+  captureAuthenticationSubjectRevision,
+  isAuthenticationSubjectRevisionCurrent,
+  type AuthenticationSubjectRevision,
+} from "@/utils/authenticationSubjectRevision";
+import {
+  invalidateVaultTaskImpactQueries,
+  vaultTaskListQueryKey,
+} from "@/utils/taskQueryInvalidation";
 import TaskEditModal from "./TaskEditModal";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
-const TASK_QUERY_KEY = (vaultId: string) => ["vaults", vaultId, "all-tasks"];
-
 interface TasksKanbanProps {
   vaultId: string;
   tasks: VaultTask[];
+}
+
+type PositionMoveVariables = {
+  readonly vaultId: string;
+  readonly id: number;
+  readonly position: number;
+  readonly status: string;
+  readonly authenticationSubjectRevision: AuthenticationSubjectRevision;
+};
+
+type PositionMoveContext = {
+  readonly queryKey: ReturnType<typeof vaultTaskListQueryKey>;
+  readonly previous: VaultTask[] | undefined;
+  readonly authenticationSubjectRevision: AuthenticationSubjectRevision;
+};
+
+class StalePositionMoveError extends Error {
+  override readonly name = "StalePositionMoveError";
 }
 
 export default function TasksKanban({ vaultId, tasks }: TasksKanbanProps) {
@@ -44,32 +73,94 @@ export default function TasksKanban({ vaultId, tasks }: TasksKanbanProps) {
 
   const { data: statuses = [], isLoading: loadingStatuses } = useTaskStatuses();
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<VaultTask | null>(null);
   const [defaultStatus, setDefaultStatus] = useState<string>("todo");
   const [createSubParent, setCreateSubParent] = useState<number | null>(null);
+  const positionMoveInFlightRef = useRef(false);
 
   const moveMutation = useMutation({
-    mutationFn: ({ id, position, status }: { id: number; position: number; status: string }) =>
-      api.vaultTasks.tasksPositionPartialUpdate(vaultId, id, { position, status }),
-    onMutate: async ({ id, position, status }) => {
-      await queryClient.cancelQueries({ queryKey: TASK_QUERY_KEY(vaultId) });
-      const previous = queryClient.getQueryData<VaultTask[]>(TASK_QUERY_KEY(vaultId));
+    mutationFn: ({
+      vaultId: submittedVaultId,
+      id,
+      position,
+      status,
+      authenticationSubjectRevision,
+    }: PositionMoveVariables) => {
+      // onMutate awaits cancellation, so verify the submission's subject again before any request can escape.
+      if (!isAuthenticationSubjectRevisionCurrent(authenticationSubjectRevision)) {
+        throw new StalePositionMoveError();
+      }
+      return api.vaultTasks.tasksPositionPartialUpdate(submittedVaultId, id, {
+        position,
+        status,
+      });
+    },
+    onMutate: async ({
+      vaultId: submittedVaultId,
+      id,
+      position,
+      status,
+      authenticationSubjectRevision,
+    }) => {
+      const queryKey = vaultTaskListQueryKey(submittedVaultId);
+      await queryClient.cancelQueries({ queryKey });
+      if (
+        !isAuthenticationSubjectRevisionCurrent(authenticationSubjectRevision)
+      ) {
+        return {
+          queryKey,
+          previous: undefined,
+          authenticationSubjectRevision,
+        } satisfies PositionMoveContext;
+      }
+      const previous = queryClient.getQueryData<VaultTask[]>(queryKey);
       if (previous) {
-        queryClient.setQueryData<VaultTask[]>(TASK_QUERY_KEY(vaultId), (cur) => {
+        queryClient.setQueryData<VaultTask[]>(queryKey, (cur) => {
           if (!cur) return cur;
           return reorderInCache(cur, id, status, position);
         });
       }
-      return { previous };
+      return {
+        queryKey,
+        previous,
+        authenticationSubjectRevision,
+      } satisfies PositionMoveContext;
     },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(TASK_QUERY_KEY(vaultId), ctx.previous);
+    onError: (error, _vars, ctx) => {
+      if (error instanceof StalePositionMoveError) {
+        return;
+      }
+      // Old callbacks must not restore or invalidate after a newer authentication subject owns the QueryClient.
+      if (
+        ctx === undefined ||
+        ctx.previous === undefined ||
+        !isAuthenticationSubjectRevisionCurrent(
+          ctx.authenticationSubjectRevision,
+        )
+      ) {
+        return;
+      }
+      queryClient.setQueryData(ctx.queryKey, ctx.previous);
+    },
+    // Mutation options update on rerender, so completion must use the submitted Vault identity instead of current props.
+    onSuccess: (_data, { vaultId: submittedVaultId }, ctx) => {
+      if (
+        ctx === undefined ||
+        !isAuthenticationSubjectRevisionCurrent(
+          ctx.authenticationSubjectRevision,
+        )
+      ) {
+        return;
+      }
+      return invalidateVaultTaskImpactQueries(queryClient, [submittedVaultId]);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: TASK_QUERY_KEY(vaultId) });
+      positionMoveInFlightRef.current = false;
     },
   });
 
@@ -89,6 +180,7 @@ export default function TasksKanban({ vaultId, tasks }: TasksKanbanProps) {
   }, [statuses, tasks]);
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (positionMoveInFlightRef.current) return;
     const { active, over } = event;
     if (!over) return;
     const activeId = Number(active.id);
@@ -112,10 +204,20 @@ export default function TasksKanban({ vaultId, tasks }: TasksKanbanProps) {
     }
 
     const srcStatus = activeTask.status ?? defaultStatusSlug(statuses);
-    const srcPosition = (columns[srcStatus] ?? []).findIndex((t) => t.id === activeId);
+    const srcPosition = (columns[srcStatus] ?? []).findIndex(
+      (t) => t.id === activeId,
+    );
     if (srcStatus === destStatus && srcPosition === destPosition) return;
 
-    moveMutation.mutate({ id: activeId, position: destPosition, status: destStatus });
+    // Mutation render state can lag, so lock before mutate prevents pre-rerender reentry.
+    positionMoveInFlightRef.current = true;
+    moveMutation.mutate({
+      vaultId,
+      id: activeId,
+      position: destPosition,
+      status: destStatus,
+      authenticationSubjectRevision: captureAuthenticationSubjectRevision(),
+    });
   };
 
   const openCreateModal = (slug: string) => {
@@ -152,7 +254,11 @@ export default function TasksKanban({ vaultId, tasks }: TasksKanbanProps) {
   }
 
   const columnGrid = isWide
-    ? { display: "grid", gridTemplateColumns: `repeat(${statuses.length}, minmax(0, 1fr))`, gap: 16 }
+    ? {
+        display: "grid",
+        gridTemplateColumns: `repeat(${statuses.length}, minmax(0, 1fr))`,
+        gap: 16,
+      }
     : { display: "flex", flexDirection: "column" as const, gap: 16 };
 
   const renderColumns = () => (
@@ -170,6 +276,7 @@ export default function TasksKanban({ vaultId, tasks }: TasksKanbanProps) {
           onTaskClick={openEditModal}
           addLabel={t("vault.tasks.new_task")}
           interactive={isWide}
+          dragDisabled={moveMutation.isPending}
         />
       ))}
     </div>
@@ -178,7 +285,11 @@ export default function TasksKanban({ vaultId, tasks }: TasksKanbanProps) {
   return (
     <div>
       {isWide ? (
-        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragEnd={handleDragEnd}
+        >
           {renderColumns()}
         </DndContext>
       ) : (
@@ -211,7 +322,12 @@ export default function TasksKanban({ vaultId, tasks }: TasksKanbanProps) {
   );
 }
 
-function reorderInCache(tasks: VaultTask[], id: number, status: string, position: number): VaultTask[] {
+function reorderInCache(
+  tasks: VaultTask[],
+  id: number,
+  status: string,
+  position: number,
+): VaultTask[] {
   const moved = tasks.find((t) => t.id === id);
   if (!moved) return tasks;
   const filtered = tasks.filter((t) => t.id !== id);
@@ -238,10 +354,23 @@ interface KanbanColumnProps {
   onAdd: () => void;
   onTaskClick: (task: VaultTask) => void;
   interactive: boolean;
+  dragDisabled: boolean;
 }
 
 function KanbanColumn(props: KanbanColumnProps) {
-  const { status, tasks, token, dateFormats, dueLabel, emptyLabel, addLabel, onAdd, onTaskClick, interactive } = props;
+  const {
+    status,
+    tasks,
+    token,
+    dateFormats,
+    dueLabel,
+    emptyLabel,
+    addLabel,
+    onAdd,
+    onTaskClick,
+    interactive,
+    dragDisabled,
+  } = props;
 
   return (
     <div
@@ -256,16 +385,40 @@ function KanbanColumn(props: KanbanColumnProps) {
         gap: 8,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Text strong style={{ fontSize: 13 }}>
-          {status.label} <Text type="secondary" style={{ fontWeight: 400 }}>· {tasks.length}</Text>
+          {status.label}{" "}
+          <Text type="secondary" style={{ fontWeight: 400 }}>
+            · {tasks.length}
+          </Text>
         </Text>
-        <Button type="text" size="small" icon={<PlusOutlined />} onClick={onAdd} aria-label={addLabel} />
+        <Button
+          type="text"
+          size="small"
+          icon={<PlusOutlined />}
+          onClick={onAdd}
+          aria-label={addLabel}
+        />
       </div>
 
       {interactive ? (
-        <DroppableColumnArea slug={status.slug} token={token} empty={tasks.length === 0} emptyLabel={emptyLabel}>
-          <SortableContext items={tasks.map((t) => String(t.id))} strategy={verticalListSortingStrategy}>
+        <DroppableColumnArea
+          slug={status.slug}
+          token={token}
+          empty={tasks.length === 0}
+          emptyLabel={emptyLabel}
+          disabled={dragDisabled}
+        >
+          <SortableContext
+            items={tasks.map((t) => String(t.id))}
+            strategy={verticalListSortingStrategy}
+          >
             {tasks.map((task) => (
               <SortableTaskCard
                 key={task.id}
@@ -274,12 +427,20 @@ function KanbanColumn(props: KanbanColumnProps) {
                 dateFormats={dateFormats}
                 dueLabel={dueLabel}
                 onClick={() => onTaskClick(task)}
+                dragDisabled={dragDisabled}
               />
             ))}
           </SortableContext>
         </DroppableColumnArea>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 60 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            minHeight: 60,
+          }}
+        >
           {tasks.length === 0 ? (
             <EmptyColumnPlaceholder token={token} label={emptyLabel} />
           ) : (
@@ -305,9 +466,13 @@ function DroppableColumnArea(props: {
   token: ReturnType<typeof theme.useToken>["token"];
   empty: boolean;
   emptyLabel: string;
+  disabled: boolean;
   children: React.ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `col:${props.slug}` });
+  const { setNodeRef, isOver } = useDroppable({
+    id: `col:${props.slug}`,
+    disabled: props.disabled,
+  });
   return (
     <div
       ref={setNodeRef}
@@ -322,12 +487,19 @@ function DroppableColumnArea(props: {
         borderRadius: props.token.borderRadius,
       }}
     >
-      {props.empty ? <EmptyColumnPlaceholder token={props.token} label={props.emptyLabel} /> : props.children}
+      {props.empty ? (
+        <EmptyColumnPlaceholder token={props.token} label={props.emptyLabel} />
+      ) : (
+        props.children
+      )}
     </div>
   );
 }
 
-function EmptyColumnPlaceholder(props: { token: ReturnType<typeof theme.useToken>["token"]; label: string }) {
+function EmptyColumnPlaceholder(props: {
+  token: ReturnType<typeof theme.useToken>["token"];
+  label: string;
+}) {
   return (
     <div
       style={{
@@ -352,11 +524,20 @@ interface TaskCardCommonProps {
   onClick: () => void;
 }
 
-function TaskCardBody({ task, token, dateFormats, dueLabel }: Omit<TaskCardCommonProps, "onClick">) {
+function TaskCardBody({
+  task,
+  token,
+  dateFormats,
+  dueLabel,
+}: Omit<TaskCardCommonProps, "onClick">) {
   const contacts = task.contacts ?? [];
   const hasMeta = contacts.length > 0 || task.due_at;
   return (
-    <Card size="small" styles={{ body: { padding: 12 } }} style={{ borderRadius: token.borderRadius }}>
+    <Card
+      size="small"
+      styles={{ body: { padding: 12 } }}
+      style={{ borderRadius: token.borderRadius }}
+    >
       <div
         style={{
           fontWeight: 500,
@@ -368,7 +549,14 @@ function TaskCardBody({ task, token, dateFormats, dueLabel }: Omit<TaskCardCommo
         {task.label}
       </div>
       {hasMeta && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 6,
+            alignItems: "center",
+          }}
+        >
           {contacts.map((c) => (
             <Tag key={c.id} color="blue" style={{ marginRight: 0 }}>
               {c.name || c.id}
@@ -385,18 +573,35 @@ function TaskCardBody({ task, token, dateFormats, dueLabel }: Omit<TaskCardCommo
   );
 }
 
-function SortableTaskCard(props: TaskCardCommonProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+function SortableTaskCard(
+  props: TaskCardCommonProps & { readonly dragDisabled: boolean },
+) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: String(props.task.id),
+    disabled: props.dragDisabled,
   });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    cursor: "grab",
+    cursor: props.dragDisabled ? "pointer" : "grab",
   };
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={props.onClick}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      aria-disabled={undefined}
+      {...listeners}
+      onClick={props.onClick}
+    >
       <TaskCardBody {...props} />
     </div>
   );
