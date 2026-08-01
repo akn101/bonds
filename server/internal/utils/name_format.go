@@ -64,6 +64,13 @@ func FormatContactName(nameOrder string, contact *models.Contact, fallback strin
 	return result
 }
 
+func FormatContactNameSnapshot(nameOrder *string, contact *models.Contact) string {
+	if nameOrder != nil && strings.TrimSpace(*nameOrder) != "" {
+		return FormatContactName(*nameOrder, contact, BuildContactName(contact))
+	}
+	return BuildContactName(contact)
+}
+
 func ptrToString(value *string) string {
 	if value == nil {
 		return ""
