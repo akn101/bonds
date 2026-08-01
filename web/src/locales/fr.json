@@ -362,6 +362,15 @@
       "cover_removed": "Image de couverture supprimée",
       "select_cover": "Sélectionnez une image de couverture"
     },
+    "journal_mentions": {
+      "body_label": "Contenu",
+      "body_placeholder": "Rédigez l’article et utilisez @ pour mentionner un contact",
+      "contacts_label": "Contacts",
+      "contacts_placeholder": "Associer des contacts à cet article",
+      "mention_hint": "Saisissez @ suivi d’un nom pour mentionner un contact.",
+      "update_last_contacted": "Mettre à jour le dernier contact",
+      "view_contact": "Voir le contact"
+    },
     "post_detail": {
       "back": "Retour au journal",
       "post_title_placeholder": "Titre du message",
@@ -1653,12 +1662,3 @@
     "journal": "Commencez à tenir un journal pour capturer vos pensées"
   }
 }
-    "journal_mentions": {
-      "body_label": "Contenu",
-      "body_placeholder": "Rédigez l’article et utilisez @ pour mentionner un contact",
-      "contacts_label": "Contacts",
-      "contacts_placeholder": "Associer des contacts à cet article",
-      "mention_hint": "Saisissez @ suivi d’un nom pour mentionner un contact.",
-      "update_last_contacted": "Mettre à jour le dernier contact",
-      "view_contact": "Voir le contact"
-    },

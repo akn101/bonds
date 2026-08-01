@@ -362,6 +362,15 @@
       "cover_removed": "Titelbild entfernt",
       "select_cover": "Titelbild auswählen"
     },
+    "journal_mentions": {
+      "body_label": "Inhalt",
+      "body_placeholder": "Beitrag schreiben und mit @ einen Kontakt erwähnen",
+      "contacts_label": "Kontakte",
+      "contacts_placeholder": "Kontakte mit diesem Beitrag verknüpfen",
+      "mention_hint": "Geben Sie @ gefolgt von einem Namen ein, um einen Kontakt zu erwähnen.",
+      "update_last_contacted": "Letzten Kontakt aktualisieren",
+      "view_contact": "Kontakt anzeigen"
+    },
     "post_detail": {
       "back": "Zurück zum Journal",
       "post_title_placeholder": "Beitragstitel",
@@ -1653,12 +1662,3 @@
     "journal": "Beginnen Sie mit dem Journaling, um Ihre Gedanken festzuhalten"
   }
 }
-    "journal_mentions": {
-      "body_label": "Inhalt",
-      "body_placeholder": "Beitrag schreiben und mit @ einen Kontakt erwähnen",
-      "contacts_label": "Kontakte",
-      "contacts_placeholder": "Kontakte mit diesem Beitrag verknüpfen",
-      "mention_hint": "Geben Sie @ gefolgt von einem Namen ein, um einen Kontakt zu erwähnen.",
-      "update_last_contacted": "Letzten Kontakt aktualisieren",
-      "view_contact": "Kontakt anzeigen"
-    },

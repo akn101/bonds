@@ -362,6 +362,15 @@
       "cover_removed": "Imagem de capa removida",
       "select_cover": "Selecionar uma imagem de capa"
     },
+    "journal_mentions": {
+      "body_label": "Conteúdo",
+      "body_placeholder": "Escreva a publicação e use @ para mencionar um contato",
+      "contacts_label": "Contatos",
+      "contacts_placeholder": "Associe contatos a esta publicação",
+      "mention_hint": "Digite @ seguido de um nome para mencionar um contato.",
+      "update_last_contacted": "Atualizar último contato",
+      "view_contact": "Ver contato"
+    },
     "post_detail": {
       "back": "Voltar ao diário",
       "post_title_placeholder": "Título da postagem",
@@ -1653,12 +1662,3 @@
     "journal": "Comece a escrever um diário para registrar seus pensamentos"
   }
 }
-    "journal_mentions": {
-      "body_label": "Conteúdo",
-      "body_placeholder": "Escreva a publicação e use @ para mencionar um contato",
-      "contacts_label": "Contatos",
-      "contacts_placeholder": "Associe contatos a esta publicação",
-      "mention_hint": "Digite @ seguido de um nome para mencionar um contato.",
-      "update_last_contacted": "Atualizar último contato",
-      "view_contact": "Ver contato"
-    },
