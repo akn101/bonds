@@ -2,20 +2,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Typography,
-  Button,
-  Table,
-  theme,
-  Tag,
-} from "antd";
-import {
-  BellOutlined,
-  ArrowLeftOutlined,
-} from "@ant-design/icons";
+import { Typography, Button, Table, theme, Tag } from "antd";
+import { BellOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { api } from "@/api";
 import type { Reminder } from "@/api";
 import { useDateFormat, formatDate, formatShortDate } from "@/utils/dateFormat";
+import { queryKeyPrefixes } from "@/utils/queryInvalidation";
 
 const { Title, Text } = Typography;
 
@@ -27,7 +19,10 @@ type VaultReminderItem = Reminder & {
   contact_name?: string | null;
 };
 
-function getReminderContactName(nameOrder: string, record: VaultReminderItem): string {
+function getReminderContactName(
+  nameOrder: string,
+  record: VaultReminderItem,
+): string {
   const formattedName = record.contact_name?.trim();
   if (formattedName) return formattedName;
 
@@ -57,7 +52,7 @@ export default function VaultReminders() {
   };
 
   const { data: reminders = [], isLoading } = useQuery<VaultReminderItem[]>({
-    queryKey: ["vaults", vaultId, "reminders"],
+    queryKey: [...queryKeyPrefixes.reminder.vault(vaultId)],
     queryFn: async () => {
       const res = await api.reminders.remindersList(String(vaultId));
       return res.data ?? [];
@@ -67,7 +62,14 @@ export default function VaultReminders() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 24,
+        }}
+      >
         <Button
           type="text"
           icon={<ArrowLeftOutlined />}
@@ -75,7 +77,9 @@ export default function VaultReminders() {
           style={{ color: token.colorTextSecondary }}
         />
         <BellOutlined style={{ fontSize: 20, color: token.colorPrimary }} />
-        <Title level={4} style={{ margin: 0 }}>{t("vault.reminders.title")}</Title>
+        <Title level={4} style={{ margin: 0 }}>
+          {t("vault.reminders.title")}
+        </Title>
       </div>
 
       <Table<VaultReminderItem>
@@ -83,15 +87,29 @@ export default function VaultReminders() {
         rowKey="id"
         loading={isLoading}
         pagination={{ pageSize: 20 }}
-        locale={{ emptyText: (
-          <div className="bonds-empty-hero">
-            <div className="bonds-empty-hero-icon" style={{ background: token.colorPrimaryBg }}>
-              <BellOutlined style={{ fontSize: 32, color: token.colorPrimary }} />
+        locale={{
+          emptyText: (
+            <div className="bonds-empty-hero">
+              <div
+                className="bonds-empty-hero-icon"
+                style={{ background: token.colorPrimaryBg }}
+              >
+                <BellOutlined
+                  style={{ fontSize: 32, color: token.colorPrimary }}
+                />
+              </div>
+              <div className="bonds-empty-hero-title">
+                {t("vault.reminders.title")}
+              </div>
+              <div
+                className="bonds-empty-hero-desc"
+                style={{ color: token.colorTextSecondary }}
+              >
+                {t("empty.reminders")}
+              </div>
             </div>
-            <div className="bonds-empty-hero-title">{t("vault.reminders.title")}</div>
-            <div className="bonds-empty-hero-desc" style={{ color: token.colorTextSecondary }}>{t("empty.reminders")}</div>
-          </div>
-        ) }}
+          ),
+        }}
         columns={[
           {
             title: t("vault.reminders.label"),
@@ -129,8 +147,16 @@ export default function VaultReminders() {
             sorter: (a, b) => {
               if (!a.year) return -1;
               if (!b.year) return 1;
-              const da = new Date(a.year, (a.month || 1) - 1, a.day || 1).getTime();
-              const db = new Date(b.year, (b.month || 1) - 1, b.day || 1).getTime();
+              const da = new Date(
+                a.year,
+                (a.month || 1) - 1,
+                a.day || 1,
+              ).getTime();
+              const db = new Date(
+                b.year,
+                (b.month || 1) - 1,
+                b.day || 1,
+              ).getTime();
               return da - db;
             },
           },

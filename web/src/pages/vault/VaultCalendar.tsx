@@ -28,6 +28,7 @@ import type {
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
 import { useTranslation } from "react-i18next";
+import { queryKeyPrefixes } from "@/utils/queryInvalidation";
 
 const { Title } = Typography;
 
@@ -54,36 +55,68 @@ export default function VaultCalendar() {
   const panelYear = panelDate.year();
   const panelMonth = panelDate.month() + 1;
 
-  type MonthPayload = { important_dates?: CalendarDateItem[]; reminders?: CalendarReminderItem[] } | undefined;
+  type MonthPayload =
+    | {
+        important_dates?: CalendarDateItem[];
+        reminders?: CalendarReminderItem[];
+      }
+    | undefined;
 
   const { data: monthData } = useQuery({
-    queryKey: ["vaults", vaultId, "calendar", "month", panelYear, panelMonth],
+    queryKey: [
+      ...queryKeyPrefixes.calendar.vault(vaultId),
+      "month",
+      panelYear,
+      panelMonth,
+    ],
     queryFn: async () => {
-      const res = await api.calendar.calendarYearsMonthsDetail(String(vaultId), panelYear, panelMonth);
+      const res = await api.calendar.calendarYearsMonthsDetail(
+        String(vaultId),
+        panelYear,
+        panelMonth,
+      );
       return res.data as MonthPayload;
     },
     enabled: !!vaultId && calendarMode === "month",
   });
 
   const { data: yearData } = useQuery({
-    queryKey: ["vaults", vaultId, "calendar", "year", panelYear],
+    queryKey: [...queryKeyPrefixes.calendar.vault(vaultId), "year", panelYear],
     queryFn: async () => {
       const results = await Promise.all(
         Array.from({ length: 12 }, (_, i) =>
-          api.calendar.calendarYearsMonthsDetail(String(vaultId), panelYear, i + 1)
-        )
+          api.calendar.calendarYearsMonthsDetail(
+            String(vaultId),
+            panelYear,
+            i + 1,
+          ),
+        ),
       );
-      return results.map(r => r.data as MonthPayload);
+      return results.map((r) => r.data as MonthPayload);
     },
     enabled: !!vaultId && calendarMode === "year",
   });
 
   const { data: dayDetail } = useQuery({
-    queryKey: ["vaults", vaultId, "calendar", "day", selectedDate],
+    queryKey: [
+      ...queryKeyPrefixes.calendar.vault(vaultId),
+      "day",
+      selectedDate,
+    ],
     queryFn: async () => {
       const [y, m, d] = selectedDate!.split("-").map(Number);
-      const res = await api.calendar.calendarYearsMonthsDaysDetail(String(vaultId), y, m, d);
-      return res.data as { important_dates?: CalendarDateItem[]; reminders?: CalendarReminderItem[] } | undefined;
+      const res = await api.calendar.calendarYearsMonthsDaysDetail(
+        String(vaultId),
+        y,
+        m,
+        d,
+      );
+      return res.data as
+        | {
+            important_dates?: CalendarDateItem[];
+            reminders?: CalendarReminderItem[];
+          }
+        | undefined;
     },
     enabled: selectedDate !== null,
   });
@@ -91,7 +124,11 @@ export default function VaultCalendar() {
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItem[]>();
 
-    function dateKey(year: number | null, month: number | null, day: number | null): string | null {
+    function dateKey(
+      year: number | null,
+      month: number | null,
+      day: number | null,
+    ): string | null {
       if (!month || !day) return null;
       const y = year ?? panelYear;
       return `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -112,13 +149,27 @@ export default function VaultCalendar() {
         const key = dateKey(null, d.month ?? null, d.day ?? null);
         if (!key) continue;
         if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push({ type: "date", label: d.label ?? '', contactName: d.contact_name ?? '', contactId: d.contact_id ?? '', dateStr: key, calendarType: d.calendar_type });
+        map.get(key)!.push({
+          type: "date",
+          label: d.label ?? "",
+          contactName: d.contact_name ?? "",
+          contactId: d.contact_id ?? "",
+          dateStr: key,
+          calendarType: d.calendar_type,
+        });
       }
       for (const r of reminders) {
         const key = dateKey(r.year ?? null, r.month ?? null, r.day ?? null);
         if (!key) continue;
         if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push({ type: "reminder", label: r.label ?? '', contactName: r.contact_name ?? '', contactId: r.contact_id ?? '', dateStr: key, calendarType: r.calendar_type });
+        map.get(key)!.push({
+          type: "reminder",
+          label: r.label ?? "",
+          contactName: r.contact_name ?? "",
+          contactId: r.contact_id ?? "",
+          dateStr: key,
+          calendarType: r.calendar_type,
+        });
       }
     }
     return map;
@@ -141,12 +192,22 @@ export default function VaultCalendar() {
       const month = date.month() + 1;
       const items = itemsByMonth.get(month);
       if (!items?.length) return null;
-      const dateCount = items.filter(i => i.type === "date").length;
-      const reminderCount = items.filter(i => i.type === "reminder").length;
+      const dateCount = items.filter((i) => i.type === "date").length;
+      const reminderCount = items.filter((i) => i.type === "reminder").length;
       return (
         <div>
-          {dateCount > 0 && <Badge status="success" text={`${dateCount} ${t("vault.calendar.important_dates")}`} />}
-          {reminderCount > 0 && <Badge status="warning" text={`${reminderCount} ${t("vault.calendar.reminders")}`} />}
+          {dateCount > 0 && (
+            <Badge
+              status="success"
+              text={`${dateCount} ${t("vault.calendar.important_dates")}`}
+            />
+          )}
+          {reminderCount > 0 && (
+            <Badge
+              status="warning"
+              text={`${reminderCount} ${t("vault.calendar.reminders")}`}
+            />
+          )}
         </div>
       );
     }
@@ -164,7 +225,9 @@ export default function VaultCalendar() {
                 status={item.type === "date" ? "success" : "warning"}
                 text={
                   <span style={{ fontSize: 11 }}>
-                    {item.contactName ? `${item.contactName} - ${item.label}` : item.label}
+                    {item.contactName
+                      ? `${item.contactName} - ${item.label}`
+                      : item.label}
                   </span>
                 }
               />
@@ -177,7 +240,14 @@ export default function VaultCalendar() {
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 24,
+        }}
+      >
         <Button
           type="text"
           icon={<ArrowLeftOutlined />}
@@ -185,7 +255,9 @@ export default function VaultCalendar() {
           style={{ color: token.colorTextSecondary }}
         />
         <CalendarOutlined style={{ fontSize: 20, color: token.colorPrimary }} />
-        <Title level={4} style={{ margin: 0 }}>{t("vault.calendar.title")}</Title>
+        <Title level={4} style={{ margin: 0 }}>
+          {t("vault.calendar.title")}
+        </Title>
       </div>
 
       <Card
@@ -212,12 +284,16 @@ export default function VaultCalendar() {
             }));
             const goPrev = () => {
               const next =
-                type === "year" ? current.year(year - 1) : current.month(month - 1);
+                type === "year"
+                  ? current.year(year - 1)
+                  : current.month(month - 1);
               onChange(next);
             };
             const goNext = () => {
               const next =
-                type === "year" ? current.year(year + 1) : current.month(month + 1);
+                type === "year"
+                  ? current.year(year + 1)
+                  : current.month(month + 1);
               onChange(next);
             };
             return (
@@ -265,13 +341,19 @@ export default function VaultCalendar() {
                   optionType="button"
                   buttonStyle="solid"
                 >
-                  <Radio.Button value="month">{t("vault.calendar.view_month")}</Radio.Button>
-                  <Radio.Button value="year">{t("vault.calendar.view_year")}</Radio.Button>
+                  <Radio.Button value="month">
+                    {t("vault.calendar.view_month")}
+                  </Radio.Button>
+                  <Radio.Button value="year">
+                    {t("vault.calendar.view_year")}
+                  </Radio.Button>
                 </Radio.Group>
               </div>
             );
           }}
-          cellRender={(date, info) => cellRender(date as Dayjs, info as { type: "date" | "month" })}
+          cellRender={(date, info) =>
+            cellRender(date as Dayjs, info as { type: "date" | "month" })
+          }
           onSelect={(date) => {
             if (Date.now() - panelChangingRef.current < 300) {
               return;
@@ -289,34 +371,68 @@ export default function VaultCalendar() {
       </Card>
 
       <Modal
-        title={selectedDate ? `${t("vault.calendar.day_detail")} — ${selectedDate}` : ""}
+        title={
+          selectedDate
+            ? `${t("vault.calendar.day_detail")} — ${selectedDate}`
+            : ""
+        }
         open={selectedDate !== null}
         onCancel={() => setSelectedDate(null)}
         footer={null}
       >
         {dayDetail ? (
           <div>
-            {(dayDetail.important_dates ?? []).map((d: CalendarDateItem, i: number) => (
-              <div
-                key={`d-${i}`}
-                style={{ marginBottom: 8, cursor: d.contact_id ? "pointer" : undefined }}
-                onClick={() => d.contact_id && navigate(`/vaults/${vaultId}/contacts/${d.contact_id}`)}
-              >
-                <Badge status="success" text={d.contact_name ? `${d.contact_name} - ${d.label ?? ""}` : (d.label ?? "")} />
-              </div>
-            ))}
-            {(dayDetail.reminders ?? []).map((r: CalendarReminderItem, i: number) => (
-              <div
-                key={`r-${i}`}
-                style={{ marginBottom: 8, cursor: r.contact_id ? "pointer" : undefined }}
-                onClick={() => r.contact_id && navigate(`/vaults/${vaultId}/contacts/${r.contact_id}`)}
-              >
-                <Badge status="warning" text={r.contact_name ? `${r.contact_name} - ${r.label ?? ""}` : (r.label ?? "")} />
-              </div>
-            ))}
-            {!(dayDetail.important_dates?.length || dayDetail.reminders?.length) && (
-              <Empty description={t("vault.calendar.no_events")} />
+            {(dayDetail.important_dates ?? []).map(
+              (d: CalendarDateItem, i: number) => (
+                <div
+                  key={`d-${i}`}
+                  style={{
+                    marginBottom: 8,
+                    cursor: d.contact_id ? "pointer" : undefined,
+                  }}
+                  onClick={() =>
+                    d.contact_id &&
+                    navigate(`/vaults/${vaultId}/contacts/${d.contact_id}`)
+                  }
+                >
+                  <Badge
+                    status="success"
+                    text={
+                      d.contact_name
+                        ? `${d.contact_name} - ${d.label ?? ""}`
+                        : (d.label ?? "")
+                    }
+                  />
+                </div>
+              ),
             )}
+            {(dayDetail.reminders ?? []).map(
+              (r: CalendarReminderItem, i: number) => (
+                <div
+                  key={`r-${i}`}
+                  style={{
+                    marginBottom: 8,
+                    cursor: r.contact_id ? "pointer" : undefined,
+                  }}
+                  onClick={() =>
+                    r.contact_id &&
+                    navigate(`/vaults/${vaultId}/contacts/${r.contact_id}`)
+                  }
+                >
+                  <Badge
+                    status="warning"
+                    text={
+                      r.contact_name
+                        ? `${r.contact_name} - ${r.label ?? ""}`
+                        : (r.label ?? "")
+                    }
+                  />
+                </div>
+              ),
+            )}
+            {!(
+              dayDetail.important_dates?.length || dayDetail.reminders?.length
+            ) && <Empty description={t("vault.calendar.no_events")} />}
           </div>
         ) : (
           <Empty description={t("vault.calendar.no_events")} />
