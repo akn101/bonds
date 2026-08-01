@@ -1,8 +1,36 @@
-import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { App as AntApp, ConfigProvider } from "antd";
 import PostDetail from "@/pages/vault/PostDetail";
+
+const CONTACT_ID = "550e8400-e29b-41d4-a716-446655440000";
+const mockUpdatePost = vi.fn().mockResolvedValue({ data: { id: 1 } });
+
+type Deferred<T> = {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T | PromiseLike<T>) => void;
+};
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve: Deferred<T>["resolve"] | undefined;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  if (!resolve) {
+    throw new Error("Promise executor did not initialize resolve");
+  }
+
+  return { promise, resolve };
+}
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {
@@ -14,9 +42,21 @@ beforeAll(() => {
 
 vi.mock("@/api", () => ({
   api: {
+    preferences: { preferencesList: vi.fn() },
+    vaults: { vaultsDetail: vi.fn() },
+    contacts: {
+      contactsSelectableList: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: "550e8400-e29b-41d4-a716-446655440000",
+            name: "Renamed Person",
+          },
+        ],
+      }),
+    },
     posts: {
       journalsPostsDetail: vi.fn(),
-      journalsPostsUpdate: vi.fn(),
+      journalsPostsUpdate: (...args: unknown[]) => mockUpdatePost(...args),
       journalsPostsSlicesUpdate: vi.fn(),
       journalsPostsSlicesDelete: vi.fn(),
     },
@@ -31,27 +71,57 @@ vi.mock("@/api", () => ({
       journalsPostsPhotosCreate: vi.fn(),
       journalsPostsPhotosDelete: vi.fn(),
     },
-    journalMetrics: {
-      journalsMetricsList: vi.fn(),
-    },
+    journalMetrics: { journalsMetricsList: vi.fn() },
     postMetrics: {
       journalsPostsMetricsList: vi.fn(),
       journalsPostsMetricsCreate: vi.fn(),
       journalsPostsMetricsDelete: vi.fn(),
     },
-    slicesOfLife: {
-      journalsSlicesList: vi.fn(),
-    },
+    slicesOfLife: { journalsSlicesList: vi.fn() },
   },
   httpClient: {
-    instance: { defaults: { baseURL: "/api" } },
+    instance: {
+      defaults: { baseURL: "/api" },
+      get: vi.fn().mockResolvedValue({ data: new Blob([]) }),
+    },
   },
 }));
 
 const mockUseQuery = vi.fn();
+
+type MutationOptions<TVariables> = {
+  readonly mutationFn?: (variables: TVariables) => Promise<unknown> | unknown;
+  readonly onSuccess?: (
+    data: unknown,
+    variables: TVariables,
+    context: unknown,
+  ) => void;
+  readonly onError?: (
+    error: Error,
+    variables: TVariables,
+    context: unknown,
+  ) => void;
+};
+
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
-  useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useMutation: <TVariables,>(options?: MutationOptions<TVariables>) => ({
+    mutate: vi.fn(async (variables: TVariables) => {
+      try {
+        const data = await options?.mutationFn?.(variables);
+        options?.onSuccess?.(data, variables, undefined);
+        return data;
+      } catch (error) {
+        options?.onError?.(
+          error instanceof Error ? error : new Error(String(error)),
+          variables,
+          undefined,
+        );
+        return undefined;
+      }
+    }),
+    isPending: false,
+  }),
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
@@ -66,7 +136,7 @@ vi.mock("react-router-dom", async () => {
 
 function renderPostDetail() {
   return render(
-    <ConfigProvider>
+    <ConfigProvider theme={{ token: { motion: false } }}>
       <AntApp>
         <MemoryRouter>
           <PostDetail />
@@ -76,31 +146,198 @@ function renderPostDetail() {
   );
 }
 
+type PostContactFixture = {
+  readonly id: string;
+  readonly first_name?: string;
+  readonly last_name?: string;
+  readonly middle_name?: string;
+  readonly nickname?: string;
+  readonly maiden_name?: string;
+  readonly prefix?: string;
+  readonly suffix?: string;
+};
+
+function mockLoadedPostQueries(
+  contact: PostContactFixture = {
+    id: CONTACT_ID,
+    first_name: "Renamed",
+    last_name: "Person",
+  },
+  nameOrder = "%first_name% %last_name%",
+) {
+  mockUseQuery.mockImplementation(
+    (opts: {
+      readonly queryKey?: readonly unknown[];
+      readonly queryFn?: () => Promise<unknown>;
+    }) => {
+      const key = Array.isArray(opts.queryKey) ? opts.queryKey : [];
+      if (key.includes("selectable-contacts")) {
+        void opts.queryFn?.();
+        return {
+          data: [{ id: CONTACT_ID, name: "Renamed Person" }],
+          isLoading: false,
+        };
+      }
+      if (
+        key.includes("posts") &&
+        !key.includes("tags") &&
+        !key.includes("photos") &&
+        !key.includes("metrics")
+      ) {
+        return {
+          data: {
+            id: 1,
+            title: "My Test Post",
+            written_at: "2025-06-15",
+            contacts: [contact],
+            sections: [
+              {
+                id: 2,
+                label: "Body",
+                content: `Hello @[Old Name](contact:${CONTACT_ID})`,
+                position: 0,
+              },
+            ],
+          },
+          isLoading: false,
+        };
+      }
+      if (key[0] === "vaults" && key.length === 2) {
+        return {
+          data: { effective_name_order: nameOrder },
+          isLoading: false,
+        };
+      }
+      if (key[0] === "settings") {
+        return { data: {}, isLoading: false };
+      }
+      return { data: [], isLoading: false };
+    },
+  );
+}
+
 describe("PostDetail", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUpdatePost.mockReset();
+    mockUpdatePost.mockResolvedValue({ data: { id: 1 } });
+  });
+
   it("renders loading spinner when loading", () => {
     mockUseQuery.mockReturnValue({ data: undefined, isLoading: true });
     renderPostDetail();
     expect(document.querySelector(".ant-spin")).toBeInTheDocument();
   });
 
-  it("renders post title when loaded", () => {
-    mockUseQuery.mockImplementation((opts: { queryKey: unknown[] }) => {
-      const key = opts.queryKey;
-      if (Array.isArray(key) && key.includes("posts") && !key.includes("tags") && !key.includes("photos") && !key.includes("metrics")) {
-        return {
-          data: {
-            id: 1,
-            title: "My Test Post",
-            written_at: "2025-06-15",
-            sections: [],
-          },
-          isLoading: false,
-        };
-      }
-      return { data: [], isLoading: false };
-    });
+  it("renders current custom-order contact names in post tags and mentions", () => {
+    mockLoadedPostQueries(
+      {
+        id: CONTACT_ID,
+        first_name: "Alice",
+        last_name: "Zephyr",
+        nickname: "Ace",
+      },
+      "%last_name%, %first_name% {nickname? (%nickname%)}",
+    );
     renderPostDetail();
-    const titles = screen.getAllByText("My Test Post");
-    expect(titles.length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByRole("link", { name: "Zephyr, Alice (Ace)" }),
+    ).toHaveLength(2);
+    expect(screen.queryByText("Old Name")).not.toBeInTheDocument();
   });
+
+  it("renders nickname-only post contact tags", () => {
+    mockLoadedPostQueries({ id: CONTACT_ID, nickname: "Ace" }, "%nickname%");
+    renderPostDetail();
+
+    expect(screen.getAllByRole("link", { name: "Ace" })).toHaveLength(2);
+    expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
+  });
+
+  it("preselects post contacts and sends an explicit empty contact array after clearing them", async () => {
+    mockLoadedPostQueries();
+    renderPostDetail();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+    expect(screen.getByText("Renamed Person")).toBeInTheDocument();
+    const updateLastContacted = screen.getByRole("checkbox", {
+      name: /update last contacted/i,
+    });
+    expect(updateLastContacted).not.toBeChecked();
+
+    const removeContact = document.querySelector(
+      ".ant-select-selection-item-remove",
+    );
+    expect(removeContact).not.toBeNull();
+    fireEvent.click(removeContact as Element);
+
+    await waitFor(() => {
+      expect(updateLastContacted).toBeDisabled();
+      expect(updateLastContacted).not.toBeChecked();
+    });
+    await user.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => {
+      expect(mockUpdatePost).toHaveBeenCalledWith("v1", 1, 1, {
+        title: "My Test Post",
+        written_at: "2025-06-15",
+        sections: [
+          {
+            label: "Body",
+            content: `Hello @[Old Name](contact:${CONTACT_ID})`,
+            position: 0,
+          },
+        ],
+        contact_ids: [],
+        update_last_contacted: false,
+      });
+    });
+  });
+
+  it("keeps a newer edit draft open when an older update completes", async () => {
+    const pendingUpdate = createDeferred<{ data: { id: number } }>();
+    mockLoadedPostQueries();
+    mockUpdatePost.mockReturnValueOnce(pendingUpdate.promise);
+    renderPostDetail();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+    const firstDraftTitle = screen.getByPlaceholderText("Post title");
+    fireEvent.change(firstDraftTitle, { target: { value: "Title A" } });
+    await user.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => {
+      expect(mockUpdatePost).toHaveBeenCalledTimes(1);
+    });
+    await user.click(screen.getByRole("button", { name: /cancel/i }));
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    const newerDraftTitle = screen.getByPlaceholderText("Post title");
+    const newerDraftSave = screen.getByRole("button", { name: /save/i });
+    fireEvent.change(newerDraftTitle, { target: { value: "Title B" } });
+
+    expect(mockUpdatePost).toHaveBeenCalledWith("v1", 1, 1, {
+      title: "Title A",
+      written_at: "2025-06-15",
+      sections: [
+        {
+          label: "Body",
+          content: `Hello @[Old Name](contact:${CONTACT_ID})`,
+          position: 0,
+        },
+      ],
+      contact_ids: [CONTACT_ID],
+      update_last_contacted: false,
+    });
+
+    await act(async () => {
+      pendingUpdate.resolve({ data: { id: 1 } });
+      await pendingUpdate.promise;
+    });
+
+    expect(newerDraftSave).toBeInTheDocument();
+    expect(newerDraftTitle).toBeVisible();
+    expect(newerDraftTitle).toHaveValue("Title B");
+  }, 10_000);
 });

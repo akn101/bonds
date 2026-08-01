@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -39,13 +39,25 @@ import type {
   PostMetric,
   JournalMetric,
   SliceOfLifeResponse,
+  GithubComNaibaBondsInternalDtoPostContactResponse,
+  GithubComNaibaBondsInternalDtoUpdatePostRequest,
 } from "@/api";
 import { useTranslation } from "react-i18next";
 import { useDateFormat, formatDate } from "@/utils/dateFormat";
-import LinkifiedText from "@/components/LinkifiedText";
+import ContactMentionEditor from "@/components/journal/ContactMentionEditor";
+import ContactAssociationSelector from "@/components/journal/ContactAssociationSelector";
+import ContactMentionText from "@/components/journal/ContactMentionText";
+import PostContactTags from "@/components/journal/PostContactTags";
+import type { JournalContactReference } from "@/components/journal/contactMentionTypes";
+import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
 
 const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
+
+type UpdatePostVariables = {
+  readonly revision: number;
+  readonly payload: Readonly<GithubComNaibaBondsInternalDtoUpdatePostRequest>;
+};
 
 export default function PostDetail() {
   const { id, journalId, postId } = useParams<{
@@ -62,12 +74,18 @@ export default function PostDetail() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const dateFormats = useDateFormat();
+  const nameOrder = useVaultNameOrder(vaultId);
+  const editRevisionRef = useRef(0);
 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
   const [sections, setSections] = useState<{ label: string; body: string }[]>(
     [],
   );
+  const [selectedContacts, setSelectedContacts] = useState<
+    JournalContactReference[]
+  >([]);
+  const [updateLastContacted, setUpdateLastContacted] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
@@ -89,11 +107,7 @@ export default function PostDetail() {
   const { data: tags } = useQuery({
     queryKey: ["vaults", vaultId, "journals", jId, "posts", pId, "tags"],
     queryFn: async () => {
-      const res = await api.postTags.journalsPostsTagsList(
-        vaultId,
-        jId,
-        pId,
-      );
+      const res = await api.postTags.journalsPostsTagsList(vaultId, jId, pId);
       return res.data ?? [];
     },
     enabled: !!vaultId && !!jId && !!pId,
@@ -158,8 +172,7 @@ export default function PostDetail() {
   });
 
   const removeSliceMutation = useMutation({
-    mutationFn: () =>
-      api.posts.journalsPostsSlicesDelete(vaultId, jId, pId),
+    mutationFn: () => api.posts.journalsPostsSlicesDelete(vaultId, jId, pId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["vaults", vaultId, "journals", jId, "posts", pId],
@@ -184,17 +197,16 @@ export default function PostDetail() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: () =>
-      api.posts.journalsPostsUpdate(String(vaultId), jId, pId, {
-        title,
-        written_at: post!.written_at,
-        sections: sections.map((s, i) => ({ ...s, position: i })),
-      }),
-    onSuccess: () => {
+    mutationFn: ({ payload }: UpdatePostVariables) =>
+      api.posts.journalsPostsUpdate(String(vaultId), jId, pId, payload),
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["vaults", vaultId, "journals", jId, "posts", pId],
       });
-      setEditing(false);
+      // A stale completion must not close a draft that advanced past its saved revision.
+      if (variables.revision === editRevisionRef.current) {
+        setEditing(false);
+      }
       message.success(t("vault.post_detail.post_updated"));
     },
     onError: (e: APIError) => message.error(e.message),
@@ -278,6 +290,7 @@ export default function PostDetail() {
 
   function startEdit() {
     if (!post) return;
+    editRevisionRef.current += 1;
     setTitle(post.title);
     setSections(
       (post.sections ?? []).map((s: PostSection) => ({
@@ -285,10 +298,27 @@ export default function PostDetail() {
         body: s.content,
       })),
     );
+    setSelectedContacts(
+      (post.contacts ?? []).flatMap(
+        (contact: GithubComNaibaBondsInternalDtoPostContactResponse) => {
+          if (!contact.id) return [];
+          return [
+            {
+              id: contact.id,
+              name: formatContactName(nameOrder, contact),
+              firstName: contact.first_name,
+              lastName: contact.last_name,
+            },
+          ];
+        },
+      ),
+    );
+    setUpdateLastContacted(false);
     setEditing(true);
   }
 
   function addSection() {
+    editRevisionRef.current += 1;
     setSections([...sections, { label: "", body: "" }]);
   }
 
@@ -297,13 +327,38 @@ export default function PostDetail() {
     field: "label" | "body",
     value: string,
   ) {
+    editRevisionRef.current += 1;
     setSections((prev) =>
       prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)),
     );
   }
 
   function removeSection(index: number) {
+    editRevisionRef.current += 1;
     setSections((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function cancelEdit() {
+    editRevisionRef.current += 1;
+    setEditing(false);
+  }
+
+  function saveEdit() {
+    if (!post) return;
+    updateMutation.mutate({
+      revision: editRevisionRef.current,
+      payload: {
+        title,
+        written_at: post.written_at,
+        sections: sections.map((section, position) => ({
+          label: section.label,
+          content: section.body,
+          position,
+        })),
+        contact_ids: selectedContacts.map((contact) => contact.id),
+        update_last_contacted: updateLastContacted,
+      },
+    });
   }
 
   if (isLoading) {
@@ -373,7 +428,10 @@ export default function PostDetail() {
               <Space direction="vertical" style={{ width: "100%" }} size={16}>
                 <Input
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => {
+                    editRevisionRef.current += 1;
+                    setTitle(e.target.value);
+                  }}
                   placeholder={t("vault.post_detail.post_title_placeholder")}
                   style={{
                     fontSize: 20,
@@ -413,19 +471,47 @@ export default function PostDetail() {
                       />
                     }
                   >
-                    <Input.TextArea
+                    <ContactMentionEditor
+                      vaultId={vaultId}
                       value={section.body}
-                      onChange={(e) =>
-                        updateSection(index, "body", e.target.value)
+                      onChange={(value) => updateSection(index, "body", value)}
+                      onMentionSelect={(contact) => {
+                        if (
+                          selectedContacts.some(
+                            (selected) => selected.id === contact.id,
+                          )
+                        ) {
+                          return;
+                        }
+                        editRevisionRef.current += 1;
+                        setSelectedContacts([...selectedContacts, contact]);
+                      }}
+                      ariaLabel={
+                        section.label ||
+                        t("vault.post_detail.section_content_placeholder")
                       }
-                      rows={4}
                       placeholder={t(
                         "vault.post_detail.section_content_placeholder",
                       )}
-                      style={{ lineHeight: 1.8 }}
+                      rows={4}
                     />
                   </Card>
                 ))}
+
+                <ContactAssociationSelector
+                  vaultId={vaultId}
+                  contacts={selectedContacts}
+                  updateLastContacted={updateLastContacted}
+                  onContactsChange={(contacts) => {
+                    editRevisionRef.current += 1;
+                    setSelectedContacts(contacts);
+                  }}
+                  onUpdateLastContactedChange={(checked) => {
+                    if (checked === updateLastContacted) return;
+                    editRevisionRef.current += 1;
+                    setUpdateLastContacted(checked);
+                  }}
+                />
 
                 <Button
                   type="dashed"
@@ -439,14 +525,12 @@ export default function PostDetail() {
                 <Space>
                   <Button
                     type="primary"
-                    onClick={() => updateMutation.mutate()}
+                    onClick={saveEdit}
                     loading={updateMutation.isPending}
                   >
                     {t("common.save")}
                   </Button>
-                  <Button onClick={() => setEditing(false)}>
-                    {t("common.cancel")}
-                  </Button>
+                  <Button onClick={cancelEdit}>{t("common.cancel")}</Button>
                 </Space>
               </Space>
             </Card>
@@ -484,7 +568,10 @@ export default function PostDetail() {
                             onChange={(e) => setEditingTagName(e.target.value)}
                             onPressEnter={() => {
                               if (editingTagName.trim()) {
-                                updateTagMutation.mutate({ tagId: tag.id!, name: editingTagName.trim() });
+                                updateTagMutation.mutate({
+                                  tagId: tag.id!,
+                                  name: editingTagName.trim(),
+                                });
                               }
                             }}
                             autoFocus
@@ -495,7 +582,10 @@ export default function PostDetail() {
                             icon={<CheckOutlined />}
                             onClick={() => {
                               if (editingTagName.trim()) {
-                                updateTagMutation.mutate({ tagId: tag.id!, name: editingTagName.trim() });
+                                updateTagMutation.mutate({
+                                  tagId: tag.id!,
+                                  name: editingTagName.trim(),
+                                });
                               }
                             }}
                           />
@@ -503,7 +593,10 @@ export default function PostDetail() {
                             size="small"
                             type="text"
                             icon={<CloseOutlined />}
-                            onClick={() => { setEditingTagId(null); setEditingTagName(""); }}
+                            onClick={() => {
+                              setEditingTagId(null);
+                              setEditingTagName("");
+                            }}
                           />
                         </Space.Compact>
                       ) : (
@@ -513,7 +606,10 @@ export default function PostDetail() {
                           onClose={() => removeTagMutation.mutate(tag.id!)}
                           color="blue"
                           style={{ cursor: "pointer" }}
-                          onClick={() => { setEditingTagId(tag.id!); setEditingTagName(tag.name ?? ""); }}
+                          onClick={() => {
+                            setEditingTagId(tag.id!);
+                            setEditingTagName(tag.name ?? "");
+                          }}
                           title={t("vault.post_detail.edit_tag")}
                         >
                           {tag.name}
@@ -545,6 +641,13 @@ export default function PostDetail() {
                       </Tag>
                     )}
                   </Space>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <PostContactTags
+                    vaultId={vaultId}
+                    contacts={post.contacts ?? []}
+                  />
                 </div>
 
                 {post.sections?.length ? (
@@ -579,7 +682,12 @@ export default function PostDetail() {
                             whiteSpace: "pre-wrap",
                           }}
                         >
-                          <LinkifiedText>{section.content}</LinkifiedText>
+                          <ContactMentionText
+                            vaultId={vaultId}
+                            contacts={post.contacts ?? []}
+                          >
+                            {section.content ?? ""}
+                          </ContactMentionText>
                         </Paragraph>
                       </div>
                     ))
@@ -639,7 +747,9 @@ export default function PostDetail() {
                               size="small"
                               shape="circle"
                               icon={<DeleteOutlined />}
-                              onClick={() => deletePhotoMutation.mutate(photo.id!)}
+                              onClick={() =>
+                                deletePhotoMutation.mutate(photo.id!)
+                              }
                             />
                           </div>
                         </div>
@@ -692,7 +802,9 @@ export default function PostDetail() {
                 style={{ width: "100%" }}
                 placeholder={t("vault.post_detail.select_slice")}
                 allowClear
-                loading={assignSliceMutation.isPending || removeSliceMutation.isPending}
+                loading={
+                  assignSliceMutation.isPending || removeSliceMutation.isPending
+                }
                 onChange={(value) => {
                   if (value) {
                     assignSliceMutation.mutate(value);
@@ -706,7 +818,10 @@ export default function PostDetail() {
                 }))}
               />
               {slices?.length === 0 && (
-                <Text type="secondary" style={{ display: "block", marginTop: 8, fontSize: 12 }}>
+                <Text
+                  type="secondary"
+                  style={{ display: "block", marginTop: 8, fontSize: 12 }}
+                >
                   {t("vault.post_detail.no_slice")}
                 </Text>
               )}
