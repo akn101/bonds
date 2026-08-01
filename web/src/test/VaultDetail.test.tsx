@@ -1,8 +1,23 @@
-import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { App as AntApp, ConfigProvider, Modal } from "antd";
+import { App as AntApp, ConfigProvider } from "antd";
 import VaultDetail from "@/pages/vault/VaultDetail";
 import { api } from "@/api";
 import type { Contact, TimelineEvent, LifeEventCategoryResponse } from "@/api";
@@ -99,30 +114,56 @@ vi.mock("@/components/ContactAvatar", () => ({
 const mockUseQuery = vi.fn();
 const mockInvalidateQueries = vi.fn();
 const mockGetQueryData = vi.fn();
+const mockMutationCompletion = vi.fn<(completion: Promise<void>) => void>();
 
 type MutationOptions<TVariables> = {
   mutationFn?: (variables: TVariables) => Promise<unknown> | unknown;
-  onSuccess?: (data: unknown, variables: TVariables, context: unknown) => void;
-  onError?: (error: Error, variables: TVariables, context: unknown) => void;
+  onSuccess?: (
+    data: unknown,
+    variables: TVariables,
+    context: unknown,
+  ) => Promise<void> | void;
+  onError?: (
+    error: Error,
+    variables: TVariables,
+    context: unknown,
+  ) => Promise<void> | void;
 };
 
-vi.mock("@tanstack/react-query", () => ({
-  useQuery: (...args: unknown[]) => mockUseQuery(...args),
-  useMutation: <TVariables,>(options?: MutationOptions<TVariables>) => ({
-    mutate: vi.fn(async (variables: TVariables) => {
-      try {
-        const data = await options?.mutationFn?.(variables);
-        options?.onSuccess?.(data, variables, undefined);
-        return data;
-      } catch (error) {
-        options?.onError?.(error instanceof Error ? error : new Error(String(error)), variables, undefined);
-        return undefined;
-      }
+vi.mock("@tanstack/react-query", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+
+  return {
+    useQuery: (...args: unknown[]) => mockUseQuery(...args),
+    useMutation: <TVariables,>(options?: MutationOptions<TVariables>) => {
+      const optionsRef = React.useRef(options);
+      optionsRef.current = options;
+      const mutate = React.useRef((variables: TVariables) => {
+        const submittedOptions = optionsRef.current;
+        const completion = (async () => {
+          try {
+            const data = await submittedOptions?.mutationFn?.(variables);
+            await optionsRef.current?.onSuccess?.(data, variables, undefined);
+          } catch (error) {
+            await optionsRef.current?.onError?.(
+              error instanceof Error ? error : new Error(String(error)),
+              variables,
+              undefined,
+            );
+          }
+        })();
+        // React Query tracks async lifecycle callbacks; tests must hold the same completion boundary.
+        mockMutationCompletion(completion);
+      });
+
+      return { mutate: mutate.current, isPending: false };
+    },
+    useQueryClient: () => ({
+      invalidateQueries: mockInvalidateQueries,
+      getQueryData: mockGetQueryData,
     }),
-    isPending: false,
-  }),
-  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries, getQueryData: mockGetQueryData }),
-}));
+  };
+});
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -207,7 +248,10 @@ function mockVaultQueries({
   mockUseQuery.mockImplementation((opts: { queryKey?: unknown[] }) => {
     const key = Array.isArray(opts.queryKey) ? opts.queryKey : [];
     if (key.length === 2 && key[0] === "vaults") {
-      return { data: { ...baseVault, default_activity_tab: defaultTab }, isLoading: false };
+      return {
+        data: { ...baseVault, default_activity_tab: defaultTab },
+        isLoading: false,
+      };
     }
     if (key[0] === "settings" && key[1] === "preferences") {
       return { data: { enable_alternative_calendar: false }, isLoading: false };
@@ -239,11 +283,20 @@ async function chooseSelectOption(selectTestId: string, optionText: string) {
   fireEvent.click(optionByTitle);
 }
 
+async function awaitLatestMutationCompletion() {
+  const completion = mockMutationCompletion.mock.lastCall?.[0];
+  expect(completion).toBeDefined();
+  await act(async () => {
+    await completion;
+  });
+}
+
 describe("VaultDetail", () => {
   beforeEach(() => {
     mockUseQuery.mockReset();
     mockInvalidateQueries.mockReset();
     mockGetQueryData.mockReset();
+    mockMutationCompletion.mockReset();
     Object.values(mockAppMessage).forEach((mockFn) => mockFn.mockReset());
     Object.values(mockAppNotification).forEach((mockFn) => mockFn.mockReset());
     Object.values(mockAppModal).forEach((mockFn) => mockFn.mockReset());
@@ -251,13 +304,15 @@ describe("VaultDetail", () => {
     vi.mocked(api.lifeEvents.dashboardLifeEventsUpdate).mockReset();
     vi.mocked(api.lifeEvents.dashboardLifeEventsDelete).mockReset();
     vi.mocked(api.lifeEvents.contactsTimelineEventsCreate).mockReset();
-    vi.mocked(api.lifeEvents.contactsTimelineEventsLifeEventsCreate).mockReset();
-    vi.mocked(api.lifeEvents.contactsTimelineEventsLifeEventsUpdate).mockReset();
+    vi.mocked(
+      api.lifeEvents.contactsTimelineEventsLifeEventsCreate,
+    ).mockReset();
+    vi.mocked(
+      api.lifeEvents.contactsTimelineEventsLifeEventsUpdate,
+    ).mockReset();
   });
 
-  afterEach(() => {
-    Modal.destroyAll();
-  });
+  afterEach(cleanup);
 
   it("renders loading spinner when loading", () => {
     mockUseQuery.mockReturnValue({ data: undefined, isLoading: true });
@@ -333,10 +388,7 @@ describe("VaultDetail", () => {
           isLoading: false,
         };
       }
-      if (
-        Array.isArray(opts.queryKey) &&
-        opts.queryKey.includes("reminders")
-      ) {
+      if (Array.isArray(opts.queryKey) && opts.queryKey.includes("reminders")) {
         return {
           data: [
             {
@@ -376,10 +428,7 @@ describe("VaultDetail", () => {
           isLoading: false,
         };
       }
-      if (
-        Array.isArray(opts.queryKey) &&
-        opts.queryKey.includes("catchUp")
-      ) {
+      if (Array.isArray(opts.queryKey) && opts.queryKey.includes("catchUp")) {
         return {
           data: [
             {
@@ -400,8 +449,12 @@ describe("VaultDetail", () => {
     renderVaultDetail();
 
     expect(screen.getByText("Catch-Up")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Zephyr, Alice \(Ace\)/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Jane Doe/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Zephyr, Alice \(Ace\)/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Jane Doe/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("12 days overdue")).toBeInTheDocument();
   });
 
@@ -428,7 +481,9 @@ describe("VaultDetail", () => {
 
     renderVaultDetail();
 
-    expect(screen.getByText("No one is due for a catch-up")).toBeInTheDocument();
+    expect(
+      screen.getByText("No one is due for a catch-up"),
+    ).toBeInTheDocument();
   });
 
   it("renders No contacts yet when empty contacts", () => {
@@ -457,18 +512,29 @@ describe("VaultDetail", () => {
 
   it("creates dashboard life events with the vault-scoped API", async () => {
     const user = userEvent.setup();
-    mockVaultQueries({ defaultTab: "life_events", contacts: dashboardContacts, categories: lifeEventCategories });
+    mockVaultQueries({
+      defaultTab: "life_events",
+      contacts: dashboardContacts,
+      categories: lifeEventCategories,
+    });
     vi.mocked(api.lifeEvents.dashboardLifeEventsCreate).mockResolvedValue({});
 
     renderVaultDetail();
 
     await user.click(screen.getByRole("button", { name: /add a life event/i }));
-    await chooseSelectOption("dashboard-life-event-category-select", "Personal");
+    await chooseSelectOption(
+      "dashboard-life-event-category-select",
+      "Personal",
+    );
     await chooseSelectOption("dashboard-life-event-type-select", "Milestone");
     await user.type(screen.getByLabelText("Summary"), "New milestone");
     await user.type(screen.getByLabelText("Description"), "New details");
-    await chooseSelectOption("dashboard-life-event-participants-select", "Ada Lovelace");
+    await chooseSelectOption(
+      "dashboard-life-event-participants-select",
+      "Ada Lovelace",
+    );
     await user.click(screen.getByRole("button", { name: "OK" }));
+    await awaitLatestMutationCompletion();
 
     await waitFor(() => {
       expect(api.lifeEvents.dashboardLifeEventsCreate).toHaveBeenCalledWith(
@@ -486,25 +552,37 @@ describe("VaultDetail", () => {
       );
     });
     await waitFor(() => {
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["vaults", "1", "dashboardLifeEvents"] });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["vaults", "1", "dashboardLifeEvents"],
+      });
     });
     expect(api.lifeEvents.contactsTimelineEventsCreate).not.toHaveBeenCalled();
-    expect(api.lifeEvents.contactsTimelineEventsLifeEventsCreate).not.toHaveBeenCalled();
+    expect(
+      api.lifeEvents.contactsTimelineEventsLifeEventsCreate,
+    ).not.toHaveBeenCalled();
   }, 15000);
 
   it("offers the vault user contact as a dashboard life event participant", async () => {
     const user = userEvent.setup();
-    mockVaultQueries({ defaultTab: "life_events", contacts: dashboardContacts, categories: lifeEventCategories });
+    mockVaultQueries({
+      defaultTab: "life_events",
+      contacts: dashboardContacts,
+      categories: lifeEventCategories,
+    });
     vi.mocked(api.lifeEvents.dashboardLifeEventsCreate).mockResolvedValue({});
 
     renderVaultDetail();
 
     await user.click(screen.getByRole("button", { name: /add a life event/i }));
-    await chooseSelectOption("dashboard-life-event-category-select", "Personal");
+    await chooseSelectOption(
+      "dashboard-life-event-category-select",
+      "Personal",
+    );
     await chooseSelectOption("dashboard-life-event-type-select", "Milestone");
     await user.type(screen.getByLabelText("Summary"), "Self milestone");
     await chooseSelectOption("dashboard-life-event-participants-select", "You");
     await user.click(screen.getByRole("button", { name: "OK" }));
+    await awaitLatestMutationCompletion();
 
     await waitFor(() => {
       expect(api.lifeEvents.dashboardLifeEventsCreate).toHaveBeenCalledWith(
@@ -516,7 +594,9 @@ describe("VaultDetail", () => {
       );
     });
     await waitFor(() => {
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["vaults", "1", "dashboardLifeEvents"] });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["vaults", "1", "dashboardLifeEvents"],
+      });
     });
   }, 15000);
 
@@ -539,6 +619,7 @@ describe("VaultDetail", () => {
     await user.clear(summaryInput);
     await user.type(summaryInput, "Updated milestone");
     await user.click(screen.getByRole("button", { name: "Save" }));
+    await awaitLatestMutationCompletion();
 
     await waitFor(() => {
       expect(api.lifeEvents.dashboardLifeEventsUpdate).toHaveBeenCalledWith(
@@ -554,14 +635,22 @@ describe("VaultDetail", () => {
       );
     });
     await waitFor(() => {
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["vaults", "1", "dashboardLifeEvents"] });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["vaults", "1", "dashboardLifeEvents"],
+      });
     });
-    expect(api.lifeEvents.contactsTimelineEventsLifeEventsUpdate).not.toHaveBeenCalled();
+    expect(
+      api.lifeEvents.contactsTimelineEventsLifeEventsUpdate,
+    ).not.toHaveBeenCalled();
   }, 15000);
 
   it("deletes dashboard life events with the vault-scoped API", async () => {
     const user = userEvent.setup();
-    mockVaultQueries({ defaultTab: "life_events", timelines: dashboardTimelines, categories: lifeEventCategories });
+    mockVaultQueries({
+      defaultTab: "life_events",
+      timelines: dashboardTimelines,
+      categories: lifeEventCategories,
+    });
     vi.mocked(api.lifeEvents.dashboardLifeEventsDelete).mockResolvedValue({});
 
     renderVaultDetail();
@@ -570,16 +659,24 @@ describe("VaultDetail", () => {
     await user.click(screen.getByRole("button", { name: "Actions" }));
     await user.click(await screen.findByText("Delete"));
     await waitFor(() => {
-      expect(screen.getAllByText("Are you sure you want to delete this?").length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText("Are you sure you want to delete this?").length,
+      ).toBeGreaterThan(0);
     });
     const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
     await user.click(deleteButtons[deleteButtons.length - 1]);
+    await awaitLatestMutationCompletion();
 
     await waitFor(() => {
-      expect(api.lifeEvents.dashboardLifeEventsDelete).toHaveBeenCalledWith("1", 77);
+      expect(api.lifeEvents.dashboardLifeEventsDelete).toHaveBeenCalledWith(
+        "1",
+        77,
+      );
     });
     await waitFor(() => {
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["vaults", "1", "dashboardLifeEvents"] });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["vaults", "1", "dashboardLifeEvents"],
+      });
     });
   }, 15000);
 });

@@ -1,7 +1,12 @@
 import { useState, useCallback } from "react";
 import { useParams, useNavigate, Outlet, Link } from "react-router-dom";
 import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
-import { useDateFormat, formatDate, formatMonthYear, formatShortDate } from "@/utils/dateFormat";
+import {
+  useDateFormat,
+  formatDate,
+  formatMonthYear,
+  formatShortDate,
+} from "@/utils/dateFormat";
 import { formatShortDateOnly } from "@/utils/dateOnlyInput";
 import {
   Typography,
@@ -61,6 +66,8 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import CalendarAwareDatePicker from "@/components/CalendarAwareDatePicker";
 import { buildCalendarAwareValue } from "@/components/calendarAwareDateValue";
 import type { CalendarAwareDateValue } from "@/components/calendarAwareDateValue";
+import { queryKeyPrefixes } from "@/utils/queryInvalidation";
+import { mostConsultedQueryKey } from "@/utils/mostConsultedProjection";
 
 dayjs.extend(relativeTime);
 
@@ -130,14 +137,16 @@ export default function VaultDetail() {
   const { data: contacts } = useQuery({
     queryKey: ["vaults", vaultId, "contacts"],
     queryFn: async () => {
-      const res = await api.contacts.contactsList(String(vaultId), { per_page: 9999 });
+      const res = await api.contacts.contactsList(String(vaultId), {
+        per_page: 9999,
+      });
       return res.data ?? [];
     },
     enabled: !!vaultId,
   });
 
   const { data: mostConsulted = [] } = useQuery({
-    queryKey: ["vaults", vaultId, "mostConsulted"],
+    queryKey: mostConsultedQueryKey(vaultId),
     queryFn: async () => {
       const res = await api.search.searchMostConsultedList(String(vaultId));
       return res.data ?? [];
@@ -165,7 +174,8 @@ export default function VaultDetail() {
   });
 
   // ─── Tab State — persisted to backend ─────────────────────────
-  const defaultTab = (vault?.default_activity_tab as DashboardTab) || "activity";
+  const defaultTab =
+    (vault?.default_activity_tab as DashboardTab) || "activity";
   const [activeTab, setActiveTab] = useState<DashboardTab | null>(null);
   const currentTab = activeTab ?? defaultTab;
 
@@ -200,7 +210,10 @@ export default function VaultDetail() {
       icon: <EditOutlined />,
       label: t("vault.detail.edit"),
       onClick: () => {
-        form.setFieldsValue({ name: vault.name, description: vault.description });
+        form.setFieldsValue({
+          name: vault.name,
+          description: vault.description,
+        });
         setEditModalOpen(true);
       },
     },
@@ -227,7 +240,9 @@ export default function VaultDetail() {
           okText={t("common.delete")}
           cancelText={t("common.cancel")}
         >
-          <div onClick={(e) => e.stopPropagation()}>{t("vault.detail.delete")}</div>
+          <div onClick={(e) => e.stopPropagation()}>
+            {t("vault.detail.delete")}
+          </div>
         </Popconfirm>
       ),
     },
@@ -235,8 +250,14 @@ export default function VaultDetail() {
 
   const segmentedOptions = [
     { label: t("vault.dashboard.activity_tab"), value: "activity" as const },
-    { label: t("vault.dashboard.life_events_tab"), value: "life_events" as const },
-    { label: t("vault.dashboard.life_metrics_tab"), value: "life_metrics" as const },
+    {
+      label: t("vault.dashboard.life_events_tab"),
+      value: "life_events" as const,
+    },
+    {
+      label: t("vault.dashboard.life_metrics_tab"),
+      value: "life_metrics" as const,
+    },
   ];
 
   return (
@@ -278,7 +299,10 @@ export default function VaultDetail() {
         className="vault-dashboard-grid"
       >
         {/* ─── Left Sidebar ───────────────────────────────────── */}
-        <div className="vault-dashboard-left" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div
+          className="vault-dashboard-left"
+          style={{ display: "flex", flexDirection: "column", gap: 16 }}
+        >
           <SidebarSection title={t("vault.dashboard.recent_contacts")}>
             {recentContacts.length === 0 ? (
               <Text type="secondary" style={{ fontSize: 13, padding: "8px 0" }}>
@@ -300,7 +324,9 @@ export default function VaultDetail() {
                       transition: "background 0.15s",
                     }}
                     className="vault-sidebar-contact"
-                    onClick={() => navigate(`/vaults/${vaultId}/contacts/${contact.id}`)}
+                    onClick={() =>
+                      navigate(`/vaults/${vaultId}/contacts/${contact.id}`)
+                    }
                   >
                     <ContactAvatar
                       vaultId={vaultId}
@@ -309,7 +335,15 @@ export default function VaultDetail() {
                       lastName={contact.last_name}
                       size={28}
                     />
-                    <Text style={{ fontSize: 13, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        flex: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {formatContactName(nameOrder, contact)}
                     </Text>
                   </div>
@@ -340,7 +374,9 @@ export default function VaultDetail() {
                       transition: "background 0.15s",
                     }}
                     className="vault-sidebar-contact"
-                    onClick={() => navigate(`/vaults/${vaultId}/contacts/${item.contact_id}`)}
+                    onClick={() =>
+                      navigate(`/vaults/${vaultId}/contacts/${item.contact_id}`)
+                    }
                   >
                     <ContactAvatar
                       vaultId={vaultId}
@@ -349,7 +385,15 @@ export default function VaultDetail() {
                       lastName={item.last_name}
                       size={28}
                     />
-                    <Text style={{ fontSize: 13, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        flex: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {formatContactName(nameOrder, item)}
                     </Text>
                   </div>
@@ -378,14 +422,27 @@ export default function VaultDetail() {
             }}
           >
             {currentTab === "activity" && <ActivityTab vaultId={vaultId} />}
-            {currentTab === "life_events" && <LifeEventsTab vaultId={vaultId} userContactId={vault.user_contact_id} />}
-            {currentTab === "life_metrics" && <LifeMetricsTab vaultId={vaultId} />}
+            {currentTab === "life_events" && (
+              <LifeEventsTab
+                vaultId={vaultId}
+                userContactId={vault.user_contact_id}
+              />
+            )}
+            {currentTab === "life_metrics" && (
+              <LifeMetricsTab vaultId={vaultId} />
+            )}
           </div>
         </div>
 
         {/* ─── Right Sidebar ──────────────────────────────────── */}
-        <div className="vault-dashboard-right" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <MoodRecordingWidget vaultId={vaultId} userContactId={vault.user_contact_id} />
+        <div
+          className="vault-dashboard-right"
+          style={{ display: "flex", flexDirection: "column", gap: 16 }}
+        >
+          <MoodRecordingWidget
+            vaultId={vaultId}
+            userContactId={vault.user_contact_id}
+          />
           <CatchUpWidget vaultId={vaultId} />
           <UpcomingRemindersWidget vaultId={vaultId} />
           <DueTasksWidget vaultId={vaultId} />
@@ -402,15 +459,24 @@ export default function VaultDetail() {
         onOk={() => form.submit()}
         confirmLoading={updateMutation.isPending}
       >
-        <Form form={form} layout="vertical" onFinish={(v) => updateMutation.mutate(v)}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={(v) => updateMutation.mutate(v)}
+        >
           <Form.Item
             name="name"
             label={t("vault.create.name_label")}
-            rules={[{ required: true, message: t("vault.create.name_required") }]}
+            rules={[
+              { required: true, message: t("vault.create.name_required") },
+            ]}
           >
             <Input />
           </Form.Item>
-          <Form.Item name="description" label={t("vault.create.description_label")}>
+          <Form.Item
+            name="description"
+            label={t("vault.create.description_label")}
+          >
             <Input.TextArea />
           </Form.Item>
         </Form>
@@ -445,7 +511,13 @@ export default function VaultDetail() {
 }
 
 // ─── Sidebar Section ─────────────────────────────────────────────
-function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
+function SidebarSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   const { token } = theme.useToken();
   return (
     <div
@@ -456,7 +528,15 @@ function SidebarSection({ title, children }: { title: string; children: React.Re
         padding: "14px 16px",
       }}
     >
-      <Text strong style={{ fontSize: 13, display: "block", marginBottom: 10, color: token.colorTextSecondary }}>
+      <Text
+        strong
+        style={{
+          fontSize: 13,
+          display: "block",
+          marginBottom: 10,
+          color: token.colorTextSecondary,
+        }}
+      >
         {title}
       </Text>
       {children}
@@ -481,9 +561,12 @@ function ActivityTab({ vaultId }: { vaultId: string }) {
   }
 
   const { isLoading, isFetching } = useQuery({
-    queryKey: ["vaults", vaultId, "feed", page],
+    queryKey: [...queryKeyPrefixes.feed.vault(vaultId), page],
     queryFn: async () => {
-      const res = await api.feed.feedList(String(vaultId), { page, per_page: 15 });
+      const res = await api.feed.feedList(String(vaultId), {
+        page,
+        per_page: 15,
+      });
       const newItems = (res.data ?? []) as FeedItem[];
       const meta = res.meta as PaginationMeta | undefined;
       setAllItems((prev) => (page === 1 ? newItems : [...prev, ...newItems]));
@@ -527,12 +610,20 @@ function ActivityTab({ vaultId }: { vaultId: string }) {
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: index === 0 ? token.colorPrimary : token.colorBorder,
+                background:
+                  index === 0 ? token.colorPrimary : token.colorBorder,
               }}
             />
             <List.Item.Meta
               title={
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
                   <Tag
                     color={getActionColor(item.action ?? "")}
                     style={{ borderRadius: 12, fontSize: 11, margin: 0 }}
@@ -542,7 +633,11 @@ function ActivityTab({ vaultId }: { vaultId: string }) {
                   {item.contact_id && (
                     <a
                       style={{ fontWeight: 600 }}
-                      onClick={() => navigate(`/vaults/${vaultId}/contacts/${item.contact_id}`)}
+                      onClick={() =>
+                        navigate(
+                          `/vaults/${vaultId}/contacts/${item.contact_id}`,
+                        )
+                      }
                     >
                       {item.contact_name || item.contact_id}
                     </a>
@@ -552,12 +647,24 @@ function ActivityTab({ vaultId }: { vaultId: string }) {
               description={
                 <>
                   {item.description && (
-                    <Text type="secondary" style={{ display: "block", marginTop: 4 }}>
+                    <Text
+                      type="secondary"
+                      style={{ display: "block", marginTop: 4 }}
+                    >
                       {item.description}
                     </Text>
                   )}
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
-                    <ClockCircleOutlined style={{ fontSize: 11, color: token.colorTextQuaternary }} />
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      marginTop: 6,
+                    }}
+                  >
+                    <ClockCircleOutlined
+                      style={{ fontSize: 11, color: token.colorTextQuaternary }}
+                    />
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       {dayjs(item.created_at).fromNow()}
                     </Text>
@@ -580,7 +687,13 @@ function ActivityTab({ vaultId }: { vaultId: string }) {
 }
 
 // ─── Life Events Tab ─────────────────────────────────────────────
-function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContactId?: string }) {
+function LifeEventsTab({
+  vaultId,
+  userContactId,
+}: {
+  vaultId: string;
+  userContactId?: string;
+}) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -602,14 +715,18 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
     },
   });
   const altCalendar = prefs?.enable_alternative_calendar ?? false;
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
+    null,
+  );
   const [contactSearch, setContactSearch] = useState("");
   const nameOrder = useVaultNameOrder(vaultId);
 
   const { data: contactsData = [] } = useQuery({
     queryKey: ["vaults", vaultId, "contacts", "for-le-modal", contactSearch],
     queryFn: async () => {
-      const params: Parameters<typeof api.contacts.contactsList>[1] = { per_page: 200 };
+      const params: Parameters<typeof api.contacts.contactsList>[1] = {
+        per_page: 200,
+      };
       if (contactSearch.length > 2) {
         params.search = contactSearch;
       }
@@ -653,13 +770,20 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
     return Array.from(optionsMap.values());
   })();
 
-  const { data: lifeEventPage, isLoading, isFetching } = useQuery({
+  const {
+    data: lifeEventPage,
+    isLoading,
+    isFetching,
+  } = useQuery({
     queryKey: ["vaults", vaultId, "dashboardLifeEvents", page],
     queryFn: async () => {
-      const res = await api.lifeEvents.dashboardLifeEventsList(String(vaultId), {
-        page,
-        per_page: 15,
-      });
+      const res = await api.lifeEvents.dashboardLifeEventsList(
+        String(vaultId),
+        {
+          page,
+          per_page: 15,
+        },
+      );
       const newItems = (res.data ?? []) as TimelineEvent[];
       const meta = res.meta as PaginationMeta | undefined;
       return { items: newItems, meta, page } satisfies DashboardLifeEventPage;
@@ -671,26 +795,42 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
     if (page === 1) return lifeEventPage?.items ?? [];
     const cachedItems: TimelineEvent[] = [];
     for (let loadedPage = 1; loadedPage <= page; loadedPage += 1) {
-      const cachedPage = queryClient.getQueryData<DashboardLifeEventPage>(["vaults", vaultId, "dashboardLifeEvents", loadedPage]);
+      const cachedPage = queryClient.getQueryData<DashboardLifeEventPage>([
+        "vaults",
+        vaultId,
+        "dashboardLifeEvents",
+        loadedPage,
+      ]);
       if (cachedPage?.items) cachedItems.push(...cachedPage.items);
     }
-    return cachedItems.length > 0 ? cachedItems : lifeEventPage?.items ?? [];
+    return cachedItems.length > 0 ? cachedItems : (lifeEventPage?.items ?? []);
   })();
-  const hasMore = lifeEventPage?.meta ? (lifeEventPage.meta.page ?? page) < (lifeEventPage.meta.total_pages ?? 1) : (lifeEventPage?.items.length ?? 0) >= 15;
+  const hasMore = lifeEventPage?.meta
+    ? (lifeEventPage.meta.page ?? page) < (lifeEventPage.meta.total_pages ?? 1)
+    : (lifeEventPage?.items.length ?? 0) >= 15;
 
   const { data: lifeEventCategories = [] } = useQuery({
     queryKey: ["vaults", vaultId, "settings", "lifeEventCategories"],
     queryFn: async () => {
-      const res = await api.vaultSettings.settingsLifeEventCategoriesList(String(vaultId));
+      const res = await api.vaultSettings.settingsLifeEventCategoriesList(
+        String(vaultId),
+      );
       return (res.data ?? []) as LifeEventCategoryResponse[];
     },
     enabled: !!vaultId && (addModalOpen || !!editingLe),
   });
 
-  const filteredTypes = lifeEventCategories.find((c) => c.id === selectedCategoryId)?.types ?? [];
+  const filteredTypes =
+    lifeEventCategories.find((c) => c.id === selectedCategoryId)?.types ?? [];
 
   const addLifeEventMutation = useMutation({
-    mutationFn: async (values: { life_event_type_id: number; happened_at: CalendarAwareDateValue; summary?: string; description?: string; participants?: string[] }) => {
+    mutationFn: async (values: {
+      life_event_type_id: number;
+      happened_at: CalendarAwareDateValue;
+      summary?: string;
+      description?: string;
+      participants?: string[];
+    }) => {
       const dateStr = values.happened_at.date.toISOString();
       await api.lifeEvents.dashboardLifeEventsCreate(String(vaultId), {
         life_event_type_id: values.life_event_type_id,
@@ -710,7 +850,9 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
       addForm.resetFields();
       setSelectedCategoryId(null);
       setPage(1);
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "dashboardLifeEvents"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "dashboardLifeEvents"],
+      });
     },
   });
 
@@ -718,32 +860,41 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
     mutationFn: async (values: LifeEventFormValues) => {
       if (!editingLe) throw new Error("No editing event");
       const dateStr = values.happened_at.date.toISOString();
-      await api.lifeEvents.dashboardLifeEventsUpdate(String(vaultId), editingLe.le.id!, {
-        life_event_type_id: values.life_event_type_id,
-        happened_at: dateStr,
-        summary: values.summary || undefined,
-        description: values.description || undefined,
-        calendar_type: values.happened_at.calendarType,
-        original_day: values.happened_at.originalDay ?? undefined,
-        original_month: values.happened_at.originalMonth ?? undefined,
-        original_year: values.happened_at.originalYear ?? undefined,
-        participants: values.participants,
-      });
+      await api.lifeEvents.dashboardLifeEventsUpdate(
+        String(vaultId),
+        editingLe.le.id!,
+        {
+          life_event_type_id: values.life_event_type_id,
+          happened_at: dateStr,
+          summary: values.summary || undefined,
+          description: values.description || undefined,
+          calendar_type: values.happened_at.calendarType,
+          original_day: values.happened_at.originalDay ?? undefined,
+          original_month: values.happened_at.originalMonth ?? undefined,
+          original_year: values.happened_at.originalYear ?? undefined,
+          participants: values.participants,
+        },
+      );
     },
     onSuccess: () => {
       message.success(t("modules.life_events.event_updated"));
       setEditingLe(null);
       setPage(1);
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "dashboardLifeEvents"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "dashboardLifeEvents"],
+      });
     },
   });
 
   const deleteLifeEventMutation = useMutation({
-    mutationFn: (lifeEventId: number) => api.lifeEvents.dashboardLifeEventsDelete(String(vaultId), lifeEventId),
+    mutationFn: (lifeEventId: number) =>
+      api.lifeEvents.dashboardLifeEventsDelete(String(vaultId), lifeEventId),
     onSuccess: () => {
       message.success(t("modules.life_events.event_deleted"));
       setPage(1);
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "dashboardLifeEvents"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "dashboardLifeEvents"],
+      });
     },
   });
 
@@ -757,7 +908,13 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
 
   return (
     <div style={{ padding: "16px 20px" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: 12,
+        }}
+      >
         <Button
           type="primary"
           icon={<PlusOutlined />}
@@ -773,12 +930,22 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
       </div>
 
       {allTimelines.length === 0 ? (
-        <Empty description={t("vault.dashboard.no_life_events")} style={{ padding: 16 }} />
+        <Empty
+          description={t("vault.dashboard.no_life_events")}
+          style={{ padding: 16 }}
+        />
       ) : (
         <>
           {allTimelines.map((tl) => (
             <div key={tl.id} style={{ marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
                 <Text strong style={{ fontSize: 14 }}>
                   {tl.label}
                 </Text>
@@ -795,7 +962,10 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
                   }}
                 >
                   {tl.life_events.map((le) => (
-                    <div key={le.id} style={{ marginBottom: 12, position: "relative" }}>
+                    <div
+                      key={le.id}
+                      style={{ marginBottom: 12, position: "relative" }}
+                    >
                       <div
                         style={{
                           position: "absolute",
@@ -807,7 +977,13 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
                           background: token.colorPrimary,
                         }}
                       />
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                        }}
+                      >
                         <div>
                           <Text style={{ fontWeight: 500, fontSize: 13 }}>
                             {le.summary ?? le.description}
@@ -817,15 +993,39 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
                             {formatDate(le.happened_at, dateFormats)}
                           </Text>
                           {le.description && le.summary && (
-                            <div style={{ marginTop: 2, color: token.colorTextSecondary, fontSize: 12 }}>
+                            <div
+                              style={{
+                                marginTop: 2,
+                                color: token.colorTextSecondary,
+                                fontSize: 12,
+                              }}
+                            >
                               {le.description}
                             </div>
                           )}
                           {le.participants && le.participants.length > 0 && (
-                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
-                              {le.participants.map(p => (
-                                <Link key={p.id} to={`/vaults/${vaultId}/contacts/${p.id}`} onClick={(e) => e.stopPropagation()}>
-                                  <Tag bordered={false} style={{ margin: 0, fontSize: 12, cursor: "pointer" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 4,
+                                flexWrap: "wrap",
+                                marginTop: 6,
+                              }}
+                            >
+                              {le.participants.map((p) => (
+                                <Link
+                                  key={p.id}
+                                  to={`/vaults/${vaultId}/contacts/${p.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Tag
+                                    bordered={false}
+                                    style={{
+                                      margin: 0,
+                                      fontSize: 12,
+                                      cursor: "pointer",
+                                    }}
+                                  >
                                     {p.name}
                                   </Tag>
                                 </Link>
@@ -836,7 +1036,12 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
                         <Dropdown
                           menu={{
                             items: [
-                              { key: "edit", label: t("common.edit"), icon: <EditOutlined />, onClick: () => handleEditClick(tl, le) },
+                              {
+                                key: "edit",
+                                label: t("common.edit"),
+                                icon: <EditOutlined />,
+                                onClick: () => handleEditClick(tl, le),
+                              },
                               {
                                 key: "delete",
                                 danger: true,
@@ -848,7 +1053,8 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
                                     okText: t("common.delete"),
                                     okButtonProps: { danger: true },
                                     cancelText: t("common.cancel"),
-                                    onOk: () => deleteLifeEventMutation.mutate(le.id!),
+                                    onOk: () =>
+                                      deleteLifeEventMutation.mutate(le.id!),
                                   });
                                 },
                               },
@@ -856,7 +1062,12 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
                           }}
                           trigger={["click"]}
                         >
-                          <Button type="text" size="small" aria-label={t("common.actions")} style={{ color: token.colorTextSecondary }}>
+                          <Button
+                            type="text"
+                            size="small"
+                            aria-label={t("common.actions")}
+                            style={{ color: token.colorTextSecondary }}
+                          >
                             ···
                           </Button>
                         </Dropdown>
@@ -873,7 +1084,10 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
           ))}
           {hasMore && allTimelines.length > 0 && (
             <div style={{ textAlign: "center", paddingBottom: 8 }}>
-              <Button onClick={() => setPage((p) => p + 1)} loading={isFetching}>
+              <Button
+                onClick={() => setPage((p) => p + 1)}
+                loading={isFetching}
+              >
                 {t("common.load_more")}
               </Button>
             </div>
@@ -895,7 +1109,15 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
         <Form
           form={addForm}
           layout="vertical"
-          initialValues={{ happened_at: buildCalendarAwareValue(dayjs(), "gregorian", null, null, null) }}
+          initialValues={{
+            happened_at: buildCalendarAwareValue(
+              dayjs(),
+              "gregorian",
+              null,
+              null,
+              null,
+            ),
+          }}
           onFinish={(values) => addLifeEventMutation.mutate(values)}
         >
           <Form.Item
@@ -910,7 +1132,10 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
                 setSelectedCategoryId(v);
                 addForm.setFieldValue("life_event_type_id", undefined);
               }}
-              options={lifeEventCategories.map((c) => ({ label: c.label, value: c.id }))}
+              options={lifeEventCategories.map((c) => ({
+                label: c.label,
+                value: c.id,
+              }))}
             />
           </Form.Item>
           <Form.Item
@@ -922,7 +1147,10 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
               data-testid="dashboard-life-event-type-select"
               placeholder={t("vault.dashboard.select_type")}
               disabled={!selectedCategoryId}
-              options={filteredTypes.map((tp) => ({ label: tp.label, value: tp.id }))}
+              options={filteredTypes.map((tp) => ({
+                label: tp.label,
+                value: tp.id,
+              }))}
             />
           </Form.Item>
           <Form.Item
@@ -932,13 +1160,22 @@ function LifeEventsTab({ vaultId, userContactId }: { vaultId: string; userContac
           >
             <CalendarAwareDatePicker enableAlternativeCalendar={altCalendar} />
           </Form.Item>
-          <Form.Item name="summary" label={t("vault.dashboard.life_event_summary")}>
+          <Form.Item
+            name="summary"
+            label={t("vault.dashboard.life_event_summary")}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="description" label={t("vault.dashboard.life_event_description")}>
+          <Form.Item
+            name="description"
+            label={t("vault.dashboard.life_event_description")}
+          >
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="participants" label={t("modules.life_events.participants")}>
+          <Form.Item
+            name="participants"
+            label={t("modules.life_events.participants")}
+          >
             <Select
               data-testid="dashboard-life-event-participants-select"
               mode="multiple"
@@ -1009,10 +1246,15 @@ function LifeEventEditForm({
   const { t } = useTranslation();
   const [form] = Form.useForm<LifeEventFormValues>();
 
-  const initialCategory = categories.find((c) => c.types?.some((type) => type.id === initialData.life_event_type_id))?.id;
-  const [selectedCat, setSelectedCat] = useState<number | undefined>(initialCategory);
+  const initialCategory = categories.find((c) =>
+    c.types?.some((type) => type.id === initialData.life_event_type_id),
+  )?.id;
+  const [selectedCat, setSelectedCat] = useState<number | undefined>(
+    initialCategory,
+  );
 
-  const filteredTypes = categories.find((category) => category.id === selectedCat)?.types ?? [];
+  const filteredTypes =
+    categories.find((category) => category.id === selectedCat)?.types ?? [];
 
   return (
     <Form
@@ -1029,9 +1271,12 @@ function LifeEventEditForm({
           initialData.calendar_type,
           initialData.original_day,
           initialData.original_month,
-          initialData.original_year
+          initialData.original_year,
         ),
-        participants: initialData.participants?.flatMap((participant) => participant.id ? [String(participant.id)] : []) || [],
+        participants:
+          initialData.participants?.flatMap((participant) =>
+            participant.id ? [String(participant.id)] : [],
+          ) || [],
       }}
     >
       <Form.Item
@@ -1058,7 +1303,10 @@ function LifeEventEditForm({
           data-testid="dashboard-life-event-edit-type-select"
           placeholder={t("vault.dashboard.select_type")}
           disabled={!selectedCat}
-          options={filteredTypes.map((type: LifeEventCategoryTypeResponse) => ({ label: type.label, value: type.id }))}
+          options={filteredTypes.map((type: LifeEventCategoryTypeResponse) => ({
+            label: type.label,
+            value: type.id,
+          }))}
         />
       </Form.Item>
       <Form.Item
@@ -1071,10 +1319,16 @@ function LifeEventEditForm({
       <Form.Item name="summary" label={t("vault.dashboard.life_event_summary")}>
         <Input />
       </Form.Item>
-      <Form.Item name="description" label={t("vault.dashboard.life_event_description")}>
+      <Form.Item
+        name="description"
+        label={t("vault.dashboard.life_event_description")}
+      >
         <Input.TextArea rows={3} />
       </Form.Item>
-      <Form.Item name="participants" label={t("modules.life_events.participants")}>
+      <Form.Item
+        name="participants"
+        label={t("modules.life_events.participants")}
+      >
         <Select
           data-testid="dashboard-life-event-edit-participants-select"
           mode="multiple"
@@ -1086,9 +1340,18 @@ function LifeEventEditForm({
           options={contactOptions}
         />
       </Form.Item>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginTop: 24,
+        }}
+      >
         <Button onClick={onCancel}>{t("common.cancel")}</Button>
-        <Button type="primary" htmlType="submit" loading={isPending}>{t("common.save")}</Button>
+        <Button type="primary" htmlType="submit" loading={isPending}>
+          {t("common.save")}
+        </Button>
       </div>
     </Form>
   );
@@ -1122,37 +1385,49 @@ function LifeMetricsTab({ vaultId }: { vaultId: string }) {
       message.success(t("vault.dashboard.metric_created"));
       setCreateOpen(false);
       form.resetFields();
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "lifeMetrics"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "lifeMetrics"],
+      });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (values: { id: number; label: string }) =>
-      api.lifeMetrics.lifeMetricsUpdate(String(vaultId), values.id, { label: values.label }),
+      api.lifeMetrics.lifeMetricsUpdate(String(vaultId), values.id, {
+        label: values.label,
+      }),
     onSuccess: () => {
       message.success(t("vault.dashboard.metric_updated"));
       setCreateOpen(false);
       setEditingMetric(null);
       form.resetFields();
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "lifeMetrics"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "lifeMetrics"],
+      });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.lifeMetrics.lifeMetricsDelete(String(vaultId), id),
+    mutationFn: (id: number) =>
+      api.lifeMetrics.lifeMetricsDelete(String(vaultId), id),
     onSuccess: () => {
       message.success(t("vault.dashboard.metric_deleted"));
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "lifeMetrics"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "lifeMetrics"],
+      });
     },
   });
 
   const incrementMutation = useMutation({
-    mutationFn: (id: number) => api.lifeMetrics.lifeMetricsIncrementCreate(String(vaultId), id),
+    mutationFn: (id: number) =>
+      api.lifeMetrics.lifeMetricsIncrementCreate(String(vaultId), id),
     onSuccess: (_data, id) => {
       message.success(t("vault.dashboard.metric_incremented"));
       setIncrementedId(id);
       setTimeout(() => setIncrementedId(null), 1200);
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "lifeMetrics"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "lifeMetrics"],
+      });
       // Refresh detail if expanded
       if (expandedMetricId === id) {
         queryClient.invalidateQueries({
@@ -1172,7 +1447,13 @@ function LifeMetricsTab({ vaultId }: { vaultId: string }) {
 
   return (
     <div style={{ padding: "16px 20px" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: 12,
+        }}
+      >
         <Button
           type="primary"
           icon={<PlusOutlined />}
@@ -1188,7 +1469,10 @@ function LifeMetricsTab({ vaultId }: { vaultId: string }) {
       </div>
 
       {metrics.length === 0 ? (
-        <Empty description={t("vault.dashboard.no_metrics")} style={{ padding: 24 }} />
+        <Empty
+          description={t("vault.dashboard.no_metrics")}
+          style={{ padding: 24 }}
+        />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {metrics.map((metric) => (
@@ -1201,7 +1485,9 @@ function LifeMetricsTab({ vaultId }: { vaultId: string }) {
               isExpanded={expandedMetricId === metric.id}
               onIncrement={() => incrementMutation.mutate(metric.id!)}
               onToggleExpand={() =>
-                setExpandedMetricId((prev) => (prev === metric.id ? null : metric.id!))
+                setExpandedMetricId((prev) =>
+                  prev === metric.id ? null : metric.id!,
+                )
               }
               onEdit={() => {
                 setEditingMetric(metric);
@@ -1224,7 +1510,11 @@ function LifeMetricsTab({ vaultId }: { vaultId: string }) {
       )}
 
       <Modal
-        title={editingMetric ? t("vault.lifeMetrics.edit") : t("vault.lifeMetrics.create")}
+        title={
+          editingMetric
+            ? t("vault.lifeMetrics.edit")
+            : t("vault.lifeMetrics.create")
+        }
         open={createOpen}
         onCancel={() => {
           setCreateOpen(false);
@@ -1239,7 +1529,10 @@ function LifeMetricsTab({ vaultId }: { vaultId: string }) {
           layout="vertical"
           onFinish={(values) => {
             if (editingMetric) {
-              updateMutation.mutate({ id: editingMetric.id!, label: values.label });
+              updateMutation.mutate({
+                id: editingMetric.id!,
+                label: values.label,
+              });
             } else {
               createMutation.mutate(values);
             }
@@ -1293,22 +1586,42 @@ function MetricCard({
         transition: "box-shadow 0.2s",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
           <Text strong style={{ fontSize: 14 }}>
             {metric.label}
           </Text>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {stats && (
               <>
-                <Tag style={{ margin: 0, cursor: "pointer", fontSize: 11 }} onClick={onToggleExpand}>
-                  {stats.weekly_events ?? 0}/{t("vault.dashboard.events_this_week")}
+                <Tag
+                  style={{ margin: 0, cursor: "pointer", fontSize: 11 }}
+                  onClick={onToggleExpand}
+                >
+                  {stats.weekly_events ?? 0}/
+                  {t("vault.dashboard.events_this_week")}
                 </Tag>
                 <Tag style={{ margin: 0, fontSize: 11 }}>
-                  {stats.monthly_events ?? 0}/{t("vault.dashboard.events_this_month")}
+                  {stats.monthly_events ?? 0}/
+                  {t("vault.dashboard.events_this_month")}
                 </Tag>
                 <Tag style={{ margin: 0, fontSize: 11 }}>
-                  {stats.yearly_events ?? 0}/{t("vault.dashboard.events_this_year")}
+                  {stats.yearly_events ?? 0}/
+                  {t("vault.dashboard.events_this_year")}
                 </Tag>
               </>
             )}
@@ -1332,7 +1645,12 @@ function MetricCard({
           <Dropdown
             menu={{
               items: [
-                { key: "edit", label: t("common.edit"), icon: <EditOutlined />, onClick: onEdit },
+                {
+                  key: "edit",
+                  label: t("common.edit"),
+                  icon: <EditOutlined />,
+                  onClick: onEdit,
+                },
                 {
                   key: "delete",
                   label: t("common.delete"),
@@ -1344,14 +1662,24 @@ function MetricCard({
             }}
             trigger={["click"]}
           >
-            <Button type="text" size="small" style={{ color: themeToken.colorTextSecondary }}>
+            <Button
+              type="text"
+              size="small"
+              style={{ color: themeToken.colorTextSecondary }}
+            >
               ···
             </Button>
           </Dropdown>
         </div>
       </div>
 
-      {isExpanded && <MetricBarChart vaultId={vaultId} metricId={metric.id!} token={themeToken} />}
+      {isExpanded && (
+        <MetricBarChart
+          vaultId={vaultId}
+          metricId={metric.id!}
+          token={themeToken}
+        />
+      )}
     </div>
   );
 }
@@ -1373,33 +1701,64 @@ function MetricBarChart({
   const { data: detail } = useQuery({
     queryKey: ["vaults", vaultId, "lifeMetrics", metricId, "detail", year],
     queryFn: async () => {
-      const res = await api.lifeMetrics.lifeMetricsDetailList(String(vaultId), metricId, { year });
+      const res = await api.lifeMetrics.lifeMetricsDetailList(
+        String(vaultId),
+        metricId,
+        { year },
+      );
       return res.data;
     },
     enabled: !!vaultId && !!metricId,
   });
 
   const months = (detail?.months ?? []) as LifeMetricMonthData[];
-  const maxEvents = detail?.max_events ?? Math.max(...months.map((m) => m.events ?? 0), 1);
+  const maxEvents =
+    detail?.max_events ?? Math.max(...months.map((m) => m.events ?? 0), 1);
 
   return (
-    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${themeToken.colorBorderSecondary}` }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+    <div
+      style={{
+        marginTop: 12,
+        paddingTop: 12,
+        borderTop: `1px solid ${themeToken.colorBorderSecondary}`,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8,
+        }}
+      >
         <Button size="small" type="text" onClick={() => setYear((y) => y - 1)}>
           ←
         </Button>
         <Text strong style={{ fontSize: 12 }}>
           {year}
         </Text>
-        <Button size="small" type="text" onClick={() => setYear((y) => y + 1)} disabled={year >= currentYear}>
+        <Button
+          size="small"
+          type="text"
+          onClick={() => setYear((y) => y + 1)}
+          disabled={year >= currentYear}
+        >
           →
         </Button>
       </div>
-      <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 80 }}>
+      <div
+        style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 80 }}
+      >
         {months.map((m) => {
-          const height = maxEvents > 0 ? Math.max(((m.events ?? 0) / maxEvents) * 100, 2) : 2;
+          const height =
+            maxEvents > 0
+              ? Math.max(((m.events ?? 0) / maxEvents) * 100, 2)
+              : 2;
           return (
-            <Tooltip key={m.month} title={`${m.friendly_name}: ${m.events ?? 0}`}>
+            <Tooltip
+              key={m.month}
+              title={`${m.friendly_name}: ${m.events ?? 0}`}
+            >
               <div
                 style={{
                   flex: 1,
@@ -1415,12 +1774,16 @@ function MetricBarChart({
                     height: `${height}%`,
                     minHeight: 2,
                     background:
-                      (m.events ?? 0) > 0 ? themeToken.colorPrimary : themeToken.colorFillSecondary,
+                      (m.events ?? 0) > 0
+                        ? themeToken.colorPrimary
+                        : themeToken.colorFillSecondary,
                     borderRadius: 2,
                     transition: "height 0.3s",
                   }}
                 />
-                <Text style={{ fontSize: 9, color: themeToken.colorTextQuaternary }}>
+                <Text
+                  style={{ fontSize: 9, color: themeToken.colorTextQuaternary }}
+                >
                   {(m.friendly_name ?? "").slice(0, 3)}
                 </Text>
               </div>
@@ -1433,7 +1796,13 @@ function MetricBarChart({
 }
 
 // ─── Mood Recording Widget ───────────────────────────────────────
-function MoodRecordingWidget({ vaultId, userContactId }: { vaultId: string; userContactId?: string }) {
+function MoodRecordingWidget({
+  vaultId,
+  userContactId,
+}: {
+  vaultId: string;
+  userContactId?: string;
+}) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -1448,15 +1817,26 @@ function MoodRecordingWidget({ vaultId, userContactId }: { vaultId: string; user
   const { data: moodParams = [] } = useQuery({
     queryKey: ["vaults", vaultId, "settings", "moodParams"],
     queryFn: async () => {
-      const res = await api.vaultSettings.settingsMoodParamsList(String(vaultId));
+      const res = await api.vaultSettings.settingsMoodParamsList(
+        String(vaultId),
+      );
       return (res.data ?? []) as MoodTrackingParameterResponse[];
     },
     enabled: !!vaultId,
   });
 
   const recordMutation = useMutation({
-    mutationFn: (data: { mood_tracking_parameter_id: number; rated_at: string; note?: string; number_of_hours_slept?: number }) =>
-      api.moodTracking.contactsMoodTrackingEventsCreate(String(vaultId), userContactId!, data),
+    mutationFn: (data: {
+      mood_tracking_parameter_id: number;
+      rated_at: string;
+      note?: string;
+      number_of_hours_slept?: number;
+    }) =>
+      api.moodTracking.contactsMoodTrackingEventsCreate(
+        String(vaultId),
+        userContactId!,
+        data,
+      ),
     onSuccess: () => {
       message.success(t("vault.dashboard.mood_recorded"));
       setSelectedMoodId(null);
@@ -1471,7 +1851,12 @@ function MoodRecordingWidget({ vaultId, userContactId }: { vaultId: string; user
 
   const handleRecord = () => {
     if (!selectedMoodId || !userContactId) return;
-    const data: { mood_tracking_parameter_id: number; rated_at: string; note?: string; number_of_hours_slept?: number } = {
+    const data: {
+      mood_tracking_parameter_id: number;
+      rated_at: string;
+      note?: string;
+      number_of_hours_slept?: number;
+    } = {
       mood_tracking_parameter_id: selectedMoodId,
       rated_at: (moodDate ?? dayjs()).toISOString(),
     };
@@ -1489,7 +1874,14 @@ function MoodRecordingWidget({ vaultId, userContactId }: { vaultId: string; user
         padding: "14px 16px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 12,
+        }}
+      >
         <SmileOutlined style={{ color: token.colorWarning, fontSize: 15 }} />
         <Text strong style={{ fontSize: 13, color: token.colorTextSecondary }}>
           {t("vault.dashboard.mood_title")}
@@ -1501,8 +1893,22 @@ function MoodRecordingWidget({ vaultId, userContactId }: { vaultId: string; user
           {t("vault.dashboard.mood_not_available")}
         </Text>
       ) : moodParams.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "16px 0", color: token.colorTextSecondary, fontSize: 13 }}>
-          <SmileOutlined style={{ fontSize: 28, opacity: 0.3, display: "block", marginBottom: 8 }} />
+        <div
+          style={{
+            textAlign: "center",
+            padding: "16px 0",
+            color: token.colorTextSecondary,
+            fontSize: 13,
+          }}
+        >
+          <SmileOutlined
+            style={{
+              fontSize: 28,
+              opacity: 0.3,
+              display: "block",
+              marginBottom: 8,
+            }}
+          />
           {t("vault.dashboard.mood_how_are_you")}
         </div>
       ) : (
@@ -1514,7 +1920,13 @@ function MoodRecordingWidget({ vaultId, userContactId }: { vaultId: string; user
           >
             {moodParams.map((param) => (
               <Radio key={param.id} value={param.id} style={{ fontSize: 13 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
                   <span
                     style={{
                       width: 10,
@@ -1533,17 +1945,32 @@ function MoodRecordingWidget({ vaultId, userContactId }: { vaultId: string; user
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {!showDatePicker && (
-              <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setShowDatePicker(true)}>
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, fontSize: 12 }}
+                onClick={() => setShowDatePicker(true)}
+              >
                 {t("vault.dashboard.mood_change_date")}
               </Button>
             )}
             {!showNote && (
-              <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setShowNote(true)}>
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, fontSize: 12 }}
+                onClick={() => setShowNote(true)}
+              >
                 {t("vault.dashboard.mood_add_note")}
               </Button>
             )}
             {!showSleep && (
-              <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setShowSleep(true)}>
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, fontSize: 12 }}
+                onClick={() => setShowSleep(true)}
+              >
                 {t("vault.dashboard.mood_hours_slept")}
               </Button>
             )}
@@ -1613,11 +2040,18 @@ function CatchUpWidget({ vaultId }: { vaultId: string }) {
   });
 
   const markCaughtUpMutation = useMutation({
-    mutationFn: (contactId: string) => api.contacts.contactsCatchUpCreate(String(vaultId), contactId),
+    mutationFn: (contactId: string) =>
+      api.contacts.contactsCatchUpCreate(String(vaultId), contactId),
     onSuccess: (_, contactId) => {
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "catchUp"] });
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["vaults", vaultId, "contacts", contactId] });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "catchUp"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "contacts"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "contacts", contactId],
+      });
       message.success(t("vault.dashboard.catch_up_marked"));
     },
   });
@@ -1631,8 +2065,17 @@ function CatchUpWidget({ vaultId }: { vaultId: string }) {
         padding: "14px 16px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-        <CheckCircleOutlined style={{ color: token.colorPrimary, fontSize: 15 }} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 12,
+        }}
+      >
+        <CheckCircleOutlined
+          style={{ color: token.colorPrimary, fontSize: 15 }}
+        />
         <Text strong style={{ fontSize: 13, color: token.colorTextSecondary }}>
           {t("vault.dashboard.catch_up_title")}
         </Text>
@@ -1652,10 +2095,12 @@ function CatchUpWidget({ vaultId }: { vaultId: string }) {
             const contactId = prompt.contact_id;
             if (!contactId) return null;
             const backendName = prompt.name?.trim();
-            const contactName = backendName || formatContactName(nameOrder, {
-              first_name: prompt.first_name,
-              last_name: prompt.last_name,
-            });
+            const contactName =
+              backendName ||
+              formatContactName(nameOrder, {
+                first_name: prompt.first_name,
+                last_name: prompt.last_name,
+              });
             return (
               <div
                 key={contactId}
@@ -1677,20 +2122,45 @@ function CatchUpWidget({ vaultId }: { vaultId: string }) {
                   <Button
                     type="link"
                     size="small"
-                    style={{ padding: 0, height: "auto", fontWeight: 600, maxWidth: "100%" }}
-                    onClick={() => navigate(`/vaults/${vaultId}/contacts/${contactId}`)}
+                    style={{
+                      padding: 0,
+                      height: "auto",
+                      fontWeight: 600,
+                      maxWidth: "100%",
+                    }}
+                    onClick={() =>
+                      navigate(`/vaults/${vaultId}/contacts/${contactId}`)
+                    }
                   >
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        display: "block",
+                      }}
+                    >
                       {contactName}
                     </span>
                   </Button>
-                  <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
-                    {t("vault.dashboard.catch_up_due", { days: prompt.days_overdue ?? 0 })}
+                  <Text
+                    type="secondary"
+                    style={{ display: "block", fontSize: 12 }}
+                  >
+                    {t("vault.dashboard.catch_up_due", {
+                      days: prompt.days_overdue ?? 0,
+                    })}
                   </Text>
                   {prompt.last_talked_to && (
-                    <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+                    <Text
+                      type="secondary"
+                      style={{ display: "block", fontSize: 12 }}
+                    >
                       {t("vault.dashboard.catch_up_last_talked", {
-                        date: formatShortDateOnly(prompt.last_talked_to, dateFormats),
+                        date: formatShortDateOnly(
+                          prompt.last_talked_to,
+                          dateFormats,
+                        ),
                       })}
                     </Text>
                   )}
@@ -1698,7 +2168,10 @@ function CatchUpWidget({ vaultId }: { vaultId: string }) {
                 <Button
                   size="small"
                   icon={<CheckCircleOutlined />}
-                  loading={markCaughtUpMutation.isPending && markCaughtUpMutation.variables === contactId}
+                  loading={
+                    markCaughtUpMutation.isPending &&
+                    markCaughtUpMutation.variables === contactId
+                  }
                   onClick={() => markCaughtUpMutation.mutate(contactId)}
                 >
                   {t("vault.dashboard.catch_up_mark")}
@@ -1720,7 +2193,7 @@ function UpcomingRemindersWidget({ vaultId }: { vaultId: string }) {
   const dateFormats = useDateFormat();
 
   const { data: reminders = [] } = useQuery<VaultReminderItem[]>({
-    queryKey: ["vaults", vaultId, "reminders"],
+    queryKey: [...queryKeyPrefixes.reminder.vault(vaultId)],
     queryFn: async () => {
       const res = await api.reminders.remindersList(String(vaultId));
       return res.data ?? [];
@@ -1739,7 +2212,14 @@ function UpcomingRemindersWidget({ vaultId }: { vaultId: string }) {
         padding: "14px 16px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 12,
+        }}
+      >
         <BellOutlined style={{ color: token.colorWarning, fontSize: 15 }} />
         <Text strong style={{ fontSize: 13, color: token.colorTextSecondary }}>
           {t("vault.dashboard.upcoming_reminders")}
@@ -1755,13 +2235,35 @@ function UpcomingRemindersWidget({ vaultId }: { vaultId: string }) {
           {upcoming.map((r) => {
             const contactName = getVaultReminderContactName(r);
             return (
-              <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                <Text style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div
+                key={r.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: 13,
+                }}
+              >
+                <Text
+                  style={{
+                    flex: 1,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {contactName ? `${r.label} (${contactName})` : r.label}
                 </Text>
-                <Text type="secondary" style={{ fontSize: 12, flexShrink: 0, marginLeft: 8 }}>
+                <Text
+                  type="secondary"
+                  style={{ fontSize: 12, flexShrink: 0, marginLeft: 8 }}
+                >
                   {/* 使用用户日期格式偏好，而非硬编码 M/D 格式（fix #65） */}
-                  {r.month && r.day ? formatShortDate(`2000-${String(r.month).padStart(2, "0")}-${String(r.day).padStart(2, "0")}`, dateFormats) : ""}
+                  {r.month && r.day
+                    ? formatShortDate(
+                        `2000-${String(r.month).padStart(2, "0")}-${String(r.day).padStart(2, "0")}`,
+                        dateFormats,
+                      )
+                    : ""}
                 </Text>
               </div>
             );
@@ -1801,9 +2303,7 @@ function DueTasksWidget({ vaultId }: { vaultId: string }) {
   const cutoff = now.add(30, "day");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dueTasks = (tasks as any[])
-    .filter(
-      (t) => !t.completed && t.due_at && dayjs(t.due_at).isBefore(cutoff),
-    )
+    .filter((t) => !t.completed && t.due_at && dayjs(t.due_at).isBefore(cutoff))
     .sort((a, b) => dayjs(a.due_at).valueOf() - dayjs(b.due_at).valueOf())
     .slice(0, 5);
 
@@ -1816,8 +2316,17 @@ function DueTasksWidget({ vaultId }: { vaultId: string }) {
         padding: "14px 16px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-        <CheckSquareOutlined style={{ color: token.colorSuccess, fontSize: 15 }} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 12,
+        }}
+      >
+        <CheckSquareOutlined
+          style={{ color: token.colorSuccess, fontSize: 15 }}
+        />
         <Text strong style={{ fontSize: 13, color: token.colorTextSecondary }}>
           {t("vault.dashboard.due_tasks")}
         </Text>
@@ -1831,11 +2340,28 @@ function DueTasksWidget({ vaultId }: { vaultId: string }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {dueTasks.map((task: any) => (
-            <div key={task.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-              <Text style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div
+              key={task.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 13,
+              }}
+            >
+              <Text
+                style={{
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {task.label}
               </Text>
-              <Text type="secondary" style={{ fontSize: 12, flexShrink: 0, marginLeft: 8 }}>
+              <Text
+                type="secondary"
+                style={{ fontSize: 12, flexShrink: 0, marginLeft: 8 }}
+              >
                 {formatShortDate(task.due_at, dateFormats)}
               </Text>
             </div>
