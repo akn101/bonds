@@ -1,17 +1,48 @@
-import { Modal, Form, Input, Select, App, Button, Space, Popconfirm, Tag, theme } from "antd";
+import {
+  Modal,
+  Form,
+  Input,
+  Select,
+  App,
+  Button,
+  Space,
+  Popconfirm,
+  Tag,
+  theme,
+} from "antd";
 import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "@/api";
+import { api, isPlainAPIError } from "@/api";
 import type { VaultTask, Contact, UserPreferences } from "@/api";
-import { useTaskStatuses, defaultStatusSlug, type TaskStatus } from "@/utils/taskStatus";
+import {
+  useTaskStatuses,
+  defaultStatusSlug,
+  type TaskStatus,
+} from "@/utils/taskStatus";
 import CalendarAwareDatePicker from "@/components/CalendarAwareDatePicker";
 import { buildCalendarAwareValue } from "@/components/calendarAwareDateValue";
 import type { CalendarAwareDateValue } from "@/components/calendarAwareDateValue";
 import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
-
-const TASK_QUERY_KEY = (vaultId: string) => ["vaults", vaultId, "all-tasks"];
+import {
+  createVaultTaskOperation,
+  createDeleteVaultTaskRequest,
+  resolveDeleteVaultTaskOperation,
+  updateVaultTaskOperation,
+  vaultTaskDescendantIds,
+  vaultTaskListQueryKey,
+  type CreateVaultTaskOperation,
+  type DeleteVaultTaskOperation,
+  type DeleteVaultTaskRequest,
+  type UpdateVaultTaskOperation,
+  type VaultTaskRequestValues,
+} from "./vaultTaskMutationOperation";
+import {
+  invalidateCreatedVaultTask,
+  invalidateDeletedVaultTask,
+  invalidateUpdatedVaultTask,
+} from "./vaultTaskMutationInvalidation";
 
 interface TaskEditModalProps {
   vaultId: string;
@@ -50,6 +81,11 @@ export default function TaskEditModal({
   onCreateSubTask,
 }: TaskEditModalProps) {
   const { t } = useTranslation();
+  const contentKey = `${vaultId}:${
+    task === null
+      ? `create:${defaultParentTaskId ?? "root"}`
+      : `edit:${task.id ?? "unpersisted"}`
+  }`;
   return (
     <Modal
       title={
@@ -64,7 +100,7 @@ export default function TaskEditModal({
     >
       {open && (
         <TaskEditModalContent
-          key={task?.id ?? `create-${defaultParentTaskId ?? "root"}`}
+          key={contentKey}
           vaultId={vaultId}
           task={task}
           defaultStatus={defaultStatus}
@@ -106,9 +142,23 @@ function TaskEditModalContent({
   const queryClient = useQueryClient();
   const [form] = Form.useForm<FormValues>();
   const nameOrder = useVaultNameOrder(vaultId);
+  const activeRef = useRef(false);
+
+  useLayoutEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+    };
+  }, []);
+
+  const closeActiveInstance = () => {
+    // An earlier async mutation must not close a later modal content instance.
+    if (activeRef.current) onClose();
+  };
 
   const { data: ownStatuses = [] } = useTaskStatuses();
-  const statuses = statusesProp && statusesProp.length > 0 ? statusesProp : ownStatuses;
+  const statuses =
+    statusesProp && statusesProp.length > 0 ? statusesProp : ownStatuses;
 
   const { data: prefs } = useQuery<UserPreferences>({
     queryKey: ["preferences"],
@@ -122,30 +172,31 @@ function TaskEditModalContent({
   const isEdit = task !== null;
   const fallbackSlug = defaultStatus ?? defaultStatusSlug(statuses);
 
-  const initialValues: FormValues = isEdit && task
-    ? {
-        label: task.label ?? "",
-        description: task.description ?? "",
-        contact_ids: (task.contacts ?? []).map((c) => c.id!).filter(Boolean),
-        parent_task_id: task.parent_task_id ?? null,
-        status: task.status || fallbackSlug,
-        due_at: task.due_at
-          ? buildCalendarAwareValue(
-              task.due_at,
-              task.calendar_type,
-              task.original_day ?? null,
-              task.original_month ?? null,
-              task.original_year ?? null,
-            )
-          : null,
-      }
-    : {
-        label: "",
-        contact_ids: [],
-        parent_task_id: defaultParentTaskId ?? null,
-        status: fallbackSlug,
-        due_at: null,
-      };
+  const initialValues: FormValues =
+    isEdit && task
+      ? {
+          label: task.label ?? "",
+          description: task.description ?? "",
+          contact_ids: (task.contacts ?? []).map((c) => c.id!).filter(Boolean),
+          parent_task_id: task.parent_task_id ?? null,
+          status: task.status || fallbackSlug,
+          due_at: task.due_at
+            ? buildCalendarAwareValue(
+                task.due_at,
+                task.calendar_type,
+                task.original_day ?? null,
+                task.original_month ?? null,
+                task.original_year ?? null,
+              )
+            : null,
+        }
+      : {
+          label: "",
+          contact_ids: [],
+          parent_task_id: defaultParentTaskId ?? null,
+          status: fallbackSlug,
+          due_at: null,
+        };
 
   const [contactSearch, setContactSearch] = useState("");
 
@@ -154,7 +205,9 @@ function TaskEditModalContent({
     queryFn: async () => {
       // The dropdown only preloads 200 contacts, so when users search for a contact
       // by prefix we must call the API instead of relying on local option filtering.
-      const params: Parameters<typeof api.contacts.contactsList>[1] = { per_page: 200 };
+      const params: Parameters<typeof api.contacts.contactsList>[1] = {
+        per_page: 200,
+      };
       if (contactSearch.length > 2) {
         params.search = contactSearch;
       }
@@ -165,12 +218,16 @@ function TaskEditModalContent({
 
   const contactOptions = contactsData.flatMap((c) => {
     if (!c.id) return [];
-    return [{
-      value: c.id,
-      label: formatContactName(nameOrder, c),
-    }];
+    return [
+      {
+        value: c.id,
+        label: formatContactName(nameOrder, c),
+      },
+    ];
   });
-  const contactOptionIds = new Set(contactOptions.map((option) => option.value));
+  const contactOptionIds = new Set(
+    contactOptions.map((option) => option.value),
+  );
   for (const selectedContact of task?.contacts ?? []) {
     if (selectedContact.id && !contactOptionIds.has(selectedContact.id)) {
       contactOptions.push({
@@ -182,116 +239,109 @@ function TaskEditModalContent({
   }
 
   const { data: allTasks = [] } = useQuery({
-    queryKey: TASK_QUERY_KEY(vaultId),
+    queryKey: vaultTaskListQueryKey(vaultId),
     queryFn: async () => {
       const res = await api.vaultTasks.tasksList(vaultId, {});
       return (res.data ?? []) as VaultTask[];
     },
   });
 
-  // A task may not become its own descendant's child, so the parent picker
-  // excludes itself AND every transitive descendant. The walk is bounded
-  // by the number of tasks to defend against any pre-existing cycles in
-  // the data.
-  const descendantIds = (() => {
-    if (!task?.id) return new Set<number>();
-    const childrenByParent = new Map<number, number[]>();
-    for (const t of allTasks) {
-      if (t.parent_task_id != null && t.id != null) {
-        const arr = childrenByParent.get(t.parent_task_id) ?? [];
-        arr.push(t.id);
-        childrenByParent.set(t.parent_task_id, arr);
-      }
-    }
-    const out = new Set<number>();
-    const queue: number[] = [task.id];
-    let guard = allTasks.length + 1;
-    while (queue.length > 0 && guard-- > 0) {
-      const current = queue.shift()!;
-      for (const child of childrenByParent.get(current) ?? []) {
-        if (!out.has(child)) {
-          out.add(child);
-          queue.push(child);
-        }
-      }
-    }
-    return out;
-  })();
+  const descendantIds =
+    task?.id === undefined
+      ? new Set<number>()
+      : vaultTaskDescendantIds(task.id, allTasks);
   const parentOptions = allTasks
-    .filter((t) =>
-      t.id != null &&
-      t.id !== task?.id &&
-      !descendantIds.has(t.id),
+    .filter(
+      (t) => t.id != null && t.id !== task?.id && !descendantIds.has(t.id),
     )
     .map((t) => ({ value: t.id, label: t.label }));
 
   // Sub-tasks: children of the currently-edited task. Read from the same
   // task list we already loaded — no extra round-trip.
-  const subTasks: VaultTask[] = isEdit && task?.id != null
-    ? allTasks.filter((t) => t.parent_task_id === task.id)
-    : [];
+  const subTasks: VaultTask[] =
+    isEdit && task?.id != null
+      ? allTasks.filter((t) => t.parent_task_id === task.id)
+      : [];
 
   const statusLabel = (slug?: string) =>
     statuses.find((s) => s.slug === slug)?.label || slug || "";
 
-  const onSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: TASK_QUERY_KEY(vaultId) });
-    onClose();
+  const onError = (): void => {
+    message.error(t("vault.tasks.save_failed"));
   };
-  const onError = () => message.error(t("vault.tasks.save_failed"));
 
   const createMutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      api.vaultTasks.tasksCreate(vaultId, {
-        label: values.label,
-        description: values.description ?? "",
-        contact_ids: values.contact_ids ?? [],
-        parent_task_id: values.parent_task_id ?? undefined,
-        status: values.status ?? fallbackSlug,
-        due_at: values.due_at ? values.due_at.date.toISOString() : undefined,
-        calendar_type: values.due_at?.calendarType,
-        original_day: values.due_at?.originalDay ?? undefined,
-        original_month: values.due_at?.originalMonth ?? undefined,
-        original_year: values.due_at?.originalYear ?? undefined,
+    mutationFn: (operation: CreateVaultTaskOperation) =>
+      api.vaultTasks.tasksCreate(operation.vaultId, {
+        ...operation.request,
+        contact_ids: operation.request.contact_ids
+          ? [...operation.request.contact_ids]
+          : undefined,
       }),
-    onSuccess,
+    onSuccess: async (_data, operation) => {
+      await invalidateCreatedVaultTask(queryClient, operation);
+      closeActiveInstance();
+    },
     onError,
   });
 
   const updateMutation = useMutation({
-    mutationFn: (values: FormValues) => {
-      // parent_task_id is tri-state on the server (NullableUint): preserve
-      // the distinction between cleared (null) and a real number. AntD
-      // Select with allowClear emits `null` for clear and `undefined` for
-      // "field never touched", which maps cleanly to the server contract
-      // once we forward both literally. The generated TS type narrows the
-      // field to `number | undefined`, so we cast through unknown to keep
-      // the explicit null on the wire.
-      const body = {
-        label: values.label,
-        description: values.description ?? "",
-        contact_ids: values.contact_ids ?? [],
-        parent_task_id: values.parent_task_id,
-        status: values.status ?? fallbackSlug,
-        due_at: values.due_at ? values.due_at.date.toISOString() : undefined,
-        calendar_type: values.due_at?.calendarType,
-        original_day: values.due_at?.originalDay ?? undefined,
-        original_month: values.due_at?.originalMonth ?? undefined,
-        original_year: values.due_at?.originalYear ?? undefined,
-      } as unknown as Parameters<typeof api.vaultTasks.tasksPartialUpdate>[2];
-      return api.vaultTasks.tasksPartialUpdate(vaultId, task!.id!, body);
+    mutationFn: (operation: UpdateVaultTaskOperation) =>
+      api.vaultTasks.tasksPartialUpdate(operation.vaultId, operation.taskId, {
+        ...operation.request,
+        contact_ids: operation.request.contact_ids
+          ? [...operation.request.contact_ids]
+          : undefined,
+      }),
+    onSuccess: async (response, operation) => {
+      await invalidateUpdatedVaultTask(queryClient, operation, response.data);
+      closeActiveInstance();
     },
-    onSuccess,
     onError,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.vaultTasks.tasksDelete(vaultId, task!.id!),
-    onSuccess,
+    mutationFn: (operation: DeleteVaultTaskOperation) =>
+      api.vaultTasks.tasksDelete(operation.vaultId, operation.taskId),
+    onSuccess: async (_response, operation) => {
+      await invalidateDeletedVaultTask(queryClient, operation);
+      closeActiveInstance();
+    },
     onError,
   });
 
-  const submitting = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+  const deleteImpactMutation = useMutation({
+    mutationFn: async (request: DeleteVaultTaskRequest) => {
+      const queryKey = vaultTaskListQueryKey(request.vaultId);
+      const cachedTasks =
+        queryClient.getQueryData<readonly VaultTask[]>(queryKey);
+      let impactTasks: readonly VaultTask[] | undefined;
+      if (
+        cachedTasks !== undefined &&
+        queryClient.getQueryState(queryKey)?.isInvalidated === false
+      ) {
+        impactTasks = cachedTasks;
+      } else {
+        try {
+          const response = await api.vaultTasks.tasksList(request.vaultId, {});
+          impactTasks = response.data ?? [];
+        } catch (error) {
+          if (!isPlainAPIError(error)) throw error;
+        }
+      }
+      return resolveDeleteVaultTaskOperation(request, impactTasks);
+    },
+    onSuccess: (operation) => {
+      deleteMutation.mutate(operation);
+    },
+    onError,
+  });
+
+  const submitting =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    deleteImpactMutation.isPending ||
+    deleteMutation.isPending;
 
   return (
     <Form
@@ -299,8 +349,31 @@ function TaskEditModalContent({
       layout="vertical"
       initialValues={initialValues}
       onFinish={(values) => {
-        if (isEdit) updateMutation.mutate(values);
-        else createMutation.mutate(values);
+        const operationValues: VaultTaskRequestValues = {
+          label: values.label,
+          description: values.description ?? "",
+          contactIds: values.contact_ids ?? [],
+          parentTaskId: values.parent_task_id,
+          status: values.status ?? fallbackSlug,
+          dueAt: values.due_at ? values.due_at.date.toISOString() : undefined,
+          calendarType: values.due_at?.calendarType,
+          originalDay: values.due_at?.originalDay ?? undefined,
+          originalMonth: values.due_at?.originalMonth ?? undefined,
+          originalYear: values.due_at?.originalYear ?? undefined,
+        };
+        if (task?.id !== undefined) {
+          updateMutation.mutate(
+            updateVaultTaskOperation({
+              vaultId,
+              task: { ...task, id: task.id },
+              values: operationValues,
+            }),
+          );
+        } else {
+          createMutation.mutate(
+            createVaultTaskOperation({ vaultId, values: operationValues }),
+          );
+        }
       }}
       onFinishFailed={({ errorFields }) => {
         const first = errorFields[0]?.errors?.[0];
@@ -308,7 +381,10 @@ function TaskEditModalContent({
       }}
     >
       <Form.Item name="label" rules={[{ required: true }]}>
-        <Input placeholder={t("vault.tasks.new_task_label_placeholder")} autoFocus />
+        <Input
+          placeholder={t("vault.tasks.new_task_label_placeholder")}
+          autoFocus
+        />
       </Form.Item>
       <Form.Item name="description">
         <Input.TextArea
@@ -363,7 +439,9 @@ function TaskEditModalContent({
               {subTasks.map((st) => (
                 <div
                   key={st.id}
-                  onClick={() => onSelectTask && st.id != null && onSelectTask(st)}
+                  onClick={() =>
+                    onSelectTask && st.id != null && onSelectTask(st)
+                  }
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -374,7 +452,9 @@ function TaskEditModalContent({
                     transition: "background 0.15s",
                   }}
                   onMouseEnter={(e) => {
-                    if (onSelectTask) e.currentTarget.style.background = token.colorFillQuaternary;
+                    if (onSelectTask)
+                      e.currentTarget.style.background =
+                        token.colorFillQuaternary;
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
@@ -388,7 +468,9 @@ function TaskEditModalContent({
                       overflowWrap: "anywhere",
                       wordBreak: "break-word",
                       textDecoration: st.completed ? "line-through" : undefined,
-                      color: st.completed ? token.colorTextSecondary : undefined,
+                      color: st.completed
+                        ? token.colorTextSecondary
+                        : undefined,
                     }}
                   >
                     {st.label}
@@ -418,14 +500,34 @@ function TaskEditModalContent({
         />
       </Form.Item>
       <Form.Item style={{ marginBottom: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           {isEdit ? (
             <Popconfirm
               title={t("vault.tasks.delete_confirm")}
-              onConfirm={() => deleteMutation.mutate()}
+              onConfirm={() => {
+                if (task?.id === undefined) return;
+                deleteImpactMutation.mutate(
+                  createDeleteVaultTaskRequest({
+                    vaultId,
+                    task: { ...task, id: task.id },
+                  }),
+                );
+              }}
               okButtonProps={{ danger: true }}
             >
-              <Button danger icon={<DeleteOutlined />} loading={deleteMutation.isPending}>
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                loading={
+                  deleteImpactMutation.isPending || deleteMutation.isPending
+                }
+              >
                 {t("vault.tasks.delete")}
               </Button>
             </Popconfirm>
