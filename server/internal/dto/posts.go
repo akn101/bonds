@@ -3,26 +3,29 @@ package dto
 import "time"
 
 type CreatePostRequest struct {
-	Title         string             `json:"title" example:"A Wonderful Day"`
-	Published     bool               `json:"published" example:"true"`
-	WrittenAt     time.Time          `json:"written_at" validate:"required" example:"2026-01-15T10:30:00Z"`
-	CalendarType  string             `json:"calendar_type" example:"gregorian"`
-	OriginalDay   *int               `json:"original_day" example:"15"`
-	OriginalMonth *int               `json:"original_month" example:"8"`
-	OriginalYear  *int               `json:"original_year" example:"2026"`
-	Sections      []PostSectionInput `json:"sections"`
+	Title               string             `json:"title" example:"A Wonderful Day"`
+	Published           bool               `json:"published" example:"true"`
+	WrittenAt           time.Time          `json:"written_at" validate:"required" example:"2026-01-15T10:30:00Z"`
+	CalendarType        string             `json:"calendar_type" example:"gregorian"`
+	OriginalDay         *int               `json:"original_day" example:"15"`
+	OriginalMonth       *int               `json:"original_month" example:"8"`
+	OriginalYear        *int               `json:"original_year" example:"2026"`
+	Sections            []PostSectionInput `json:"sections"`
+	ContactIDs          []string           `json:"contact_ids" example:"[\"550e8400-e29b-41d4-a716-446655440000\"]"`
+	UpdateLastContacted bool               `json:"update_last_contacted" example:"false"`
 }
 
 type UpdatePostRequest struct {
-	Title         string             `json:"title" example:"A Wonderful Day"`
-	Published     bool               `json:"published" example:"true"`
-	WrittenAt     time.Time          `json:"written_at" example:"2026-01-15T10:30:00Z"`
-	CalendarType  string             `json:"calendar_type" example:"gregorian"`
-	OriginalDay   *int               `json:"original_day" example:"15"`
-	OriginalMonth *int               `json:"original_month" example:"8"`
-	OriginalYear  *int               `json:"original_year" example:"2026"`
-	Sections      []PostSectionInput `json:"sections"`
-	ContactIDs    []string           `json:"contact_ids" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Title               string             `json:"title" example:"A Wonderful Day"`
+	Published           bool               `json:"published" example:"true"`
+	WrittenAt           time.Time          `json:"written_at" example:"2026-01-15T10:30:00Z"`
+	CalendarType        string             `json:"calendar_type" example:"gregorian"`
+	OriginalDay         *int               `json:"original_day" example:"15"`
+	OriginalMonth       *int               `json:"original_month" example:"8"`
+	OriginalYear        *int               `json:"original_year" example:"2026"`
+	Sections            []PostSectionInput `json:"sections"`
+	ContactIDs          []string           `json:"contact_ids" example:"[\"550e8400-e29b-41d4-a716-446655440000\"]"`
+	UpdateLastContacted bool               `json:"update_last_contacted" example:"false"`
 }
 
 type PostSectionInput struct {
@@ -56,7 +59,12 @@ type PostSectionResponse struct {
 }
 
 type PostContactResponse struct {
-	ID        string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	FirstName string `json:"first_name" example:"John"`
-	LastName  string `json:"last_name" example:"Doe"`
+	ID         string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	FirstName  string `json:"first_name" example:"John"`
+	MiddleName string `json:"middle_name" example:"Michael"`
+	LastName   string `json:"last_name" example:"Doe"`
+	Nickname   string `json:"nickname" example:"Johnny"`
+	MaidenName string `json:"maiden_name" example:"Smith"`
+	Prefix     string `json:"prefix" example:"Mr."`
+	Suffix     string `json:"suffix" example:"Jr."`
 }
