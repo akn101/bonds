@@ -18,19 +18,8 @@ func NewFeedService(db *gorm.DB) *FeedService {
 }
 
 func (s *FeedService) GetFeed(vaultID string, page, perPage int, userID string) ([]dto.FeedItemResponse, response.Meta, error) {
-	var contacts []models.Contact
-	if err := s.db.Where("vault_id = ?", vaultID).Select("id").Find(&contacts).Error; err != nil {
-		return nil, response.Meta{}, err
-	}
-	contactIDs := make([]string, len(contacts))
-	for i, c := range contacts {
-		contactIDs[i] = c.ID
-	}
-	if len(contactIDs) == 0 {
-		return []dto.FeedItemResponse{}, response.Meta{Page: 1, PerPage: perPage}, nil
-	}
-
-	query := s.db.Model(&models.ContactFeedItem{}).Where("contact_id IN ?", contactIDs)
+	// Post-migration blank event vault IDs are excluded to preserve event-time vault boundaries.
+	query := s.db.Model(&models.ContactFeedItem{}).Where("vault_id = ?", vaultID)
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
@@ -46,7 +35,7 @@ func (s *FeedService) GetFeed(vaultID string, page, perPage int, userID string) 
 	offset := (page - 1) * perPage
 
 	var items []models.ContactFeedItem
-	if err := query.Offset(offset).Limit(perPage).Order("created_at DESC").Preload("Contact").Find(&items).Error; err != nil {
+	if err := query.Offset(offset).Limit(perPage).Order("created_at DESC").Find(&items).Error; err != nil {
 		return nil, response.Meta{}, err
 	}
 
@@ -56,27 +45,11 @@ func (s *FeedService) GetFeed(vaultID string, page, perPage int, userID string) 
 	}
 	result := make([]dto.FeedItemResponse, len(items))
 	for i, item := range items {
-		contactName, err := formatter.format(&item.Contact, "")
+		projected, err := s.projectFeedItem(item, formatter)
 		if err != nil {
 			return nil, response.Meta{}, err
 		}
-		authorID := ""
-		if item.AuthorID != nil {
-			authorID = *item.AuthorID
-		}
-		desc := ""
-		if item.Description != nil {
-			desc = *item.Description
-		}
-		result[i] = dto.FeedItemResponse{
-			ID:          item.ID,
-			ContactID:   item.ContactID,
-			ContactName: contactName,
-			AuthorID:    authorID,
-			Action:      item.Action,
-			Description: desc,
-			CreatedAt:   item.CreatedAt,
-		}
+		result[i] = projected
 	}
 
 	meta := response.Meta{
@@ -89,25 +62,32 @@ func (s *FeedService) GetFeed(vaultID string, page, perPage int, userID string) 
 }
 
 func (s *FeedService) ListContactFeed(contactID, vaultID string, page, perPage int, userID string) ([]dto.FeedItemResponse, response.Meta, error) {
-	query := s.db.Model(&models.ContactFeedItem{}).
-		Where("contact_id = ?", contactID).
-		Where("EXISTS (SELECT 1 FROM contacts WHERE contacts.id = contact_feed_items.contact_id AND contacts.vault_id = ?)", vaultID)
-
-	var total int64
-	if err := query.Model(&models.ContactFeedItem{}).Count(&total).Error; err != nil {
-		return nil, response.Meta{}, err
-	}
-
 	if page < 1 {
 		page = 1
 	}
 	if perPage < 1 {
 		perPage = 15
 	}
+	var contact models.Contact
+	if err := s.db.Where("id = ? AND vault_id = ?", contactID, vaultID).First(&contact).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return []dto.FeedItemResponse{}, response.Meta{Page: page, PerPage: perPage}, nil
+		}
+		return nil, response.Meta{}, err
+	}
+	query := s.db.Model(&models.ContactFeedItem{}).
+		Where("contact_id = ?", contactID).
+		Where("(vault_id = ? OR vault_id IS NULL OR vault_id = '')", vaultID)
+
+	var total int64
+	if err := query.Model(&models.ContactFeedItem{}).Count(&total).Error; err != nil {
+		return nil, response.Meta{}, err
+	}
+
 	offset := (page - 1) * perPage
 
 	var items []models.ContactFeedItem
-	if err := query.Offset(offset).Limit(perPage).Order("created_at DESC").Preload("Contact").Find(&items).Error; err != nil {
+	if err := query.Offset(offset).Limit(perPage).Order("created_at DESC").Find(&items).Error; err != nil {
 		return nil, response.Meta{}, err
 	}
 
@@ -117,27 +97,11 @@ func (s *FeedService) ListContactFeed(contactID, vaultID string, page, perPage i
 	}
 	result := make([]dto.FeedItemResponse, len(items))
 	for i, item := range items {
-		contactName, err := formatter.format(&item.Contact, "")
+		projected, err := s.projectFeedItem(item, formatter)
 		if err != nil {
 			return nil, response.Meta{}, err
 		}
-		authorID := ""
-		if item.AuthorID != nil {
-			authorID = *item.AuthorID
-		}
-		desc := ""
-		if item.Description != nil {
-			desc = *item.Description
-		}
-		result[i] = dto.FeedItemResponse{
-			ID:          item.ID,
-			ContactID:   item.ContactID,
-			ContactName: contactName,
-			AuthorID:    authorID,
-			Action:      item.Action,
-			Description: desc,
-			CreatedAt:   item.CreatedAt,
-		}
+		result[i] = projected
 	}
 
 	meta := response.Meta{

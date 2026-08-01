@@ -83,6 +83,7 @@ func TestFeedWithItems(t *testing.T) {
 
 	desc := "Created contact"
 	item := &models.ContactFeedItem{
+		VaultID:     vault.ID,
 		ContactID:   contact.ID,
 		AuthorID:    &resp.User.ID,
 		Action:      "contact_created",
@@ -137,6 +138,7 @@ func TestFeedPagination(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		item := &models.ContactFeedItem{
+			VaultID:   vault.ID,
 			ContactID: contact.ID,
 			Action:    "note_created",
 		}
@@ -201,6 +203,7 @@ func TestFeedContactName(t *testing.T) {
 
 	desc := "Test feed contact name"
 	item := &models.ContactFeedItem{
+		VaultID:     vault.ID,
 		ContactID:   contact.ID,
 		AuthorID:    &resp.User.ID,
 		Action:      "note_created",
