@@ -56,25 +56,23 @@ Monica é um CRM pessoal open-source muito querido com mais de 24k estrelas. Mas
 # Baixe o docker-compose.yml
 curl -O https://raw.githubusercontent.com/naiba/bonds/main/docker-compose.yml
 
+# Gere e exporte um segredo JWT de 256 bits neste shell
+export JWT_SECRET="$(openssl rand -hex 32)"
+
 # Inicie o serviço
 docker compose up -d
 ```
 
 Abra **http://localhost:8080** e crie sua conta.
 
-Para personalizar as configurações, edite `docker-compose.yml`:
-
-```yaml
-environment:
-  - JWT_SECRET=your-secret-key-here   # ⚠️ Altere isto!
-```
+Gere o segredo uma vez, armazene-o em um ambiente protegido ou gerenciador de segredos e reutilize o mesmo valor a cada reinicialização. Planeje a rotação do JWT: ela invalida sessões existentes e pode exigir a reentrada das credenciais de assinaturas DAV, pois a criptografia delas deriva deste segredo.
 
 ### Opção 2: Binário Pré-compilado
 
 Baixe a versão mais recente dos [GitHub Releases](https://github.com/naiba/bonds/releases) e então:
 
 ```bash
-export JWT_SECRET=your-secret-key-here
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./bonds-server
 ```
 
@@ -95,7 +93,7 @@ make setup
 make build-all
 
 # Execute
-export JWT_SECRET=your-secret-key-here
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./server/bin/bonds-server
 ```
 
@@ -117,7 +115,7 @@ cp server/.env.example server/.env
 | Variável | Padrão | Descrição |
 |----------|---------|-------------|
 | `DEBUG` | `false` | Ativa o modo de depuração: registro de requisições Echo, logs SQL do GORM, Swagger UI (ativo por padrão) |
-| `JWT_SECRET` | — | **Obrigatório em produção.** Chave de assinatura para tokens de autenticação |
+| `JWT_SECRET` | — | **Obrigatório em produção.** Gere com `openssl rand -hex 32`, armazene e reutilize a chave de assinatura de 256 bits nas reinicializações. |
 | `SETTINGS_ENC_KEY` | _(vazio)_ | Opcional. Ativa criptografia em repouso AES-256-GCM para segredos SMTP/OAuth/geocodificação. Veja [docs](https://naiba.github.io/bonds/guide/configuration#encrypting-sensitive-settings) |
 | `SERVER_PORT` | `8080` | Porta em que o servidor escuta |
 | `SERVER_HOST` | `0.0.0.0` | Endereço do host ao qual o servidor se vincula |
