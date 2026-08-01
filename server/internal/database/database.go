@@ -56,13 +56,26 @@ func AutoMigrate(db *gorm.DB) error {
 	if err := migrateLegacyContactTasks(db); err != nil {
 		return err
 	}
-	if err := migrateLegacyLifeEventParticipantPivots(db); err != nil {
+	if err := migrateLegacyPivots(db); err != nil {
 		return err
 	}
 	if existingSQLiteSchema {
-		return autoMigrateExistingSQLiteSchema(db)
+		if err := autoMigrateExistingSQLiteSchema(db); err != nil {
+			return err
+		}
+		return runPostAutoMigrateBackfills(db)
 	}
-	return db.AutoMigrate(AllModels()...)
+	if err := db.AutoMigrate(AllModels()...); err != nil {
+		return err
+	}
+	return runPostAutoMigrateBackfills(db)
+}
+
+func runPostAutoMigrateBackfills(db *gorm.DB) error {
+	if err := backfillContactFeedEventContext(db); err != nil {
+		return err
+	}
+	return backfillContactReminderAudience(db)
 }
 
 type participantPivotMigration struct {

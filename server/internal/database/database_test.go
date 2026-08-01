@@ -277,6 +277,43 @@ func TestAutoMigrateMigratesLegacyLifeEventParticipantPivots(t *testing.T) {
 	}
 }
 
+func TestAutoMigrateDeduplicatesLegacyContactGroupAndPostPivots(t *testing.T) {
+	db := openMigrationTestDB(t)
+	if err := db.Migrator().CreateTable(&models.Account{}); err != nil {
+		t.Fatalf("create existing account table: %v", err)
+	}
+	for _, statement := range []string{
+		`CREATE TABLE contact_group (id integer PRIMARY KEY AUTOINCREMENT, group_id integer NOT NULL, contact_id text NOT NULL, created_at datetime, updated_at datetime)`,
+		`CREATE TABLE contact_post (id integer PRIMARY KEY AUTOINCREMENT, post_id integer NOT NULL, contact_id text NOT NULL, created_at datetime, updated_at datetime)`,
+		`INSERT INTO contact_group (group_id, contact_id) VALUES (1, 'contact-1'), (1, 'contact-1')`,
+		`INSERT INTO contact_post (post_id, contact_id) VALUES (1, 'contact-1'), (1, 'contact-1')`,
+	} {
+		if err := db.Exec(statement).Error; err != nil {
+			t.Fatalf("prepare legacy pivot rows: %v", err)
+		}
+	}
+
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("AutoMigrate failed: %v", err)
+	}
+
+	for _, tableName := range []string{"contact_group", "contact_post"} {
+		var count int64
+		if err := db.Table(tableName).Count(&count).Error; err != nil {
+			t.Fatalf("count %s rows: %v", tableName, err)
+		}
+		if count != 1 {
+			t.Fatalf("%s rows = %d, want 1", tableName, count)
+		}
+	}
+	if err := db.Create(&models.ContactGroup{GroupID: 1, ContactID: "contact-1"}).Error; err == nil {
+		t.Fatal("expected duplicate contact_group row to fail")
+	}
+	if err := db.Create(&models.ContactPost{PostID: 1, ContactID: "contact-1"}).Error; err == nil {
+		t.Fatal("expected duplicate contact_post row to fail")
+	}
+}
+
 func openMigrationTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
