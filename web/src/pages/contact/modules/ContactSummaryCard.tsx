@@ -2,15 +2,29 @@ import { Typography, Tag, Space, theme } from "antd";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "@/api";
-import type { Contact } from "@/api";
+import type {
+  Address,
+  Contact,
+  ContactInfo,
+  ContactLabel,
+  PersonalizeItem,
+} from "@/api";
 import { useTranslation } from "react-i18next";
 import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
 import { getReadableLabelTagColors } from "@/utils/labelColor";
 import NetworkGraph from "@/components/NetworkGraph";
 import type { ImportantDate, ImportantDateTypeResponse } from "@/api";
 import { useDateFormat } from "@/utils/dateFormat";
-import { computeAgeAtImportantDate, computeImportantDateAge, formatImportantDateDisplay } from "@/utils/importantDateDisplay";
-import { formatContactFirstMetDisplay, hasContactFirstMetValue } from "@/utils/contactFirstMet";
+import {
+  computeAgeAtImportantDate,
+  computeImportantDateAge,
+  formatImportantDateDisplay,
+} from "@/utils/importantDateDisplay";
+import {
+  formatContactFirstMetDisplay,
+  hasContactFirstMetValue,
+} from "@/utils/contactFirstMet";
+import { queryKeyPrefixes } from "@/utils/queryInvalidation";
 
 const { Text } = Typography;
 
@@ -21,7 +35,12 @@ interface ContactSummaryCardProps {
   readOnly?: boolean;
 }
 
-export default function ContactSummaryCard({ vaultId, contactId, contact, readOnly = false }: ContactSummaryCardProps) {
+export default function ContactSummaryCard({
+  vaultId,
+  contactId,
+  contact,
+  readOnly = false,
+}: ContactSummaryCardProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const nameOrder = useVaultNameOrder(vaultId);
@@ -30,28 +49,37 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
   // --- Data fetching: reuse same query keys as existing modules for deduplication ---
 
   // Labels — same key as LabelsModule
-  const { data: labels = [] } = useQuery({
+  const { data: labels = [] } = useQuery<ContactLabel[]>({
     queryKey: ["vaults", vaultId, "contacts", contactId, "labels"],
     queryFn: async () => {
-      const res = await api.contactLabels.contactsLabelsList(String(vaultId), String(contactId));
+      const res = await api.contactLabels.contactsLabelsList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
 
   // Contact info — same key as ContactInfoModule
-  const { data: contactInfoItems = [] } = useQuery({
+  const { data: contactInfoItems = [] } = useQuery<ContactInfo[]>({
     queryKey: ["vaults", vaultId, "contacts", contactId, "contactInformation"],
     queryFn: async () => {
-      const res = await api.contactInformation.contactsContactInformationList(String(vaultId), String(contactId));
+      const res = await api.contactInformation.contactsContactInformationList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
 
   // Addresses — same key as AddressesModule
-  const { data: addresses = [] } = useQuery({
+  const { data: addresses = [] } = useQuery<Address[]>({
     queryKey: ["vaults", vaultId, "contacts", contactId, "addresses"],
     queryFn: async () => {
-      const res = await api.addresses.contactsAddressesList(String(vaultId), String(contactId));
+      const res = await api.addresses.contactsAddressesList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
@@ -60,7 +88,10 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
   const { data: relationships = [] } = useQuery({
     queryKey: ["vaults", vaultId, "contacts", contactId, "relationships"],
     queryFn: async () => {
-      const res = await api.relationships.contactsRelationshipsList(String(vaultId), String(contactId));
+      const res = await api.relationships.contactsRelationshipsList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
@@ -69,7 +100,9 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
   const { data: contacts = [] } = useQuery({
     queryKey: ["vaults", vaultId, "contacts"],
     queryFn: async () => {
-      const res = await api.contacts.contactsList(String(vaultId), { per_page: 9999 });
+      const res = await api.contacts.contactsList(String(vaultId), {
+        per_page: 9999,
+      });
       return res.data ?? [];
     },
     enabled: relationships.length > 0,
@@ -79,7 +112,10 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
   const { data: groups = [] } = useQuery({
     queryKey: ["vaults", vaultId, "contacts", contactId, "groups"],
     queryFn: async () => {
-      const res = await api.groups.contactsGroupsList(String(vaultId), String(contactId));
+      const res = await api.groups.contactsGroupsList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
@@ -87,7 +123,8 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
   const { data: relationshipTypesWithGroup = [] } = useQuery({
     queryKey: ["personalize", "relationship-types", "all"],
     queryFn: async () => {
-      const res = await api.relationshipTypes.personalizeRelationshipTypesAllList();
+      const res =
+        await api.relationshipTypes.personalizeRelationshipTypesAllList();
       return res.data ?? [];
     },
     enabled: relationships.length > 0,
@@ -97,7 +134,10 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
   const { data: jobs = [] } = useQuery({
     queryKey: ["vaults", vaultId, "contacts", contactId, "jobs"],
     queryFn: async () => {
-      const res = await api.contacts.contactsJobsList(String(vaultId), String(contactId));
+      const res = await api.contacts.contactsJobsList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
@@ -112,7 +152,7 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
   });
 
   // Personalize lookups for ID → label resolution
-  const { data: genders = [] } = useQuery({
+  const { data: genders = [] } = useQuery<PersonalizeItem[]>({
     queryKey: ["vaults", vaultId, "personalize", "genders"],
     queryFn: async () => {
       const res = await api.personalize.personalizeDetail("genders");
@@ -120,7 +160,7 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
     },
   });
 
-  const { data: pronouns = [] } = useQuery({
+  const { data: pronouns = [] } = useQuery<PersonalizeItem[]>({
     queryKey: ["vaults", vaultId, "personalize", "pronouns"],
     queryFn: async () => {
       const res = await api.personalize.personalizeDetail("pronouns");
@@ -128,7 +168,7 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
     },
   });
 
-  const { data: religions = [] } = useQuery({
+  const { data: religions = [] } = useQuery<PersonalizeItem[]>({
     queryKey: ["vaults", vaultId, "personalize", "religions"],
     queryFn: async () => {
       const res = await api.personalize.personalizeDetail("religions");
@@ -136,7 +176,7 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
     },
   });
 
-  const { data: contactInfoTypes = [] } = useQuery({
+  const { data: contactInfoTypes = [] } = useQuery<PersonalizeItem[]>({
     queryKey: ["personalize", "contact-info-types"],
     queryFn: async () => {
       const res = await api.personalize.personalizeDetail("contact-info-types");
@@ -144,18 +184,25 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
     },
   });
 
-  const { data: importantDateTypes = [] } = useQuery<ImportantDateTypeResponse[]>({
+  const { data: importantDateTypes = [] } = useQuery<
+    ImportantDateTypeResponse[]
+  >({
     queryKey: ["vaults", vaultId, "settings", "date-types"],
     queryFn: async () => {
-      const res = await api.vaultSettings.settingsDateTypesList(String(vaultId));
+      const res = await api.vaultSettings.settingsDateTypesList(
+        String(vaultId),
+      );
       return res.data ?? [];
     },
   });
 
   const { data: importantDates = [] } = useQuery<ImportantDate[]>({
-    queryKey: ["vaults", vaultId, "contacts", contactId, "important-dates"],
+    queryKey: queryKeyPrefixes.calendar.contact({ vaultId, contactId }),
     queryFn: async () => {
-      const res = await api.importantDates.contactsDatesList(String(vaultId), String(contactId));
+      const res = await api.importantDates.contactsDatesList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
@@ -167,32 +214,43 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
     if (c.id) contactMap.set(c.id, c);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const genderLabel = contact.gender_id ? (genders as any[]).find((g) => g.id === contact.gender_id)?.label : null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pronounLabel = contact.pronoun_id ? (pronouns as any[]).find((p) => p.id === contact.pronoun_id)?.label : null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const religionLabel = contact.religion_id ? (religions as any[]).find((r) => r.id === contact.religion_id)?.label : null;
+  const genderLabel = contact.gender_id
+    ? genders.find((gender) => gender.id === contact.gender_id)?.label
+    : null;
+  const pronounLabel = contact.pronoun_id
+    ? pronouns.find((pronoun) => pronoun.id === contact.pronoun_id)?.label
+    : null;
+  const religionLabel = contact.religion_id
+    ? religions.find((religion) => religion.id === contact.religion_id)?.label
+    : null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const typeKindById = new Map<number, string>((contactInfoTypes as any[])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((t: any) => [t.id, (t.name || t.label || "").toLowerCase()] as [number, string]));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const matchesKind = (item: any, needle: string) => {
-    const typeKind = item.type_id ? typeKindById.get(item.type_id) ?? "" : "";
+  const typeKindById = new Map<number, string>(
+    contactInfoTypes.flatMap((contactInfoType) =>
+      contactInfoType.id === undefined
+        ? []
+        : [
+            [
+              contactInfoType.id,
+              (
+                contactInfoType.name ||
+                contactInfoType.label ||
+                ""
+              ).toLowerCase(),
+            ] as const,
+          ],
+    ),
+  );
+  const matchesKind = (item: ContactInfo, needle: string) => {
+    const typeKind = item.type_id ? (typeKindById.get(item.type_id) ?? "") : "";
     if (typeKind.includes(needle)) return true;
     return !!item.kind && item.kind.toLowerCase().includes(needle);
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const emails = (contactInfoItems as any[]).filter((item) => matchesKind(item, "email"));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const phones = (contactInfoItems as any[]).filter((item) => matchesKind(item, "phone"));
+  const emails = contactInfoItems.filter((item) => matchesKind(item, "email"));
+  const phones = contactInfoItems.filter((item) => matchesKind(item, "phone"));
   const hasContactInfo = emails.length > 0 || phones.length > 0;
 
   // First non-past address
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const primaryAddress = (addresses as any[]).find((a) => a.is_past_address !== true);
+  const primaryAddress = addresses.find((a) => a.is_past_address !== true);
 
   // Resolve company name for each job
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -203,7 +261,11 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
     return company?.name ?? `#${job.company_id}`;
   };
 
-  const formatAddressLine = (addr: { line_1?: string; city?: string; country?: string }): string => {
+  const formatAddressLine = (addr: {
+    line_1?: string;
+    city?: string;
+    country?: string;
+  }): string => {
     return [addr.line_1, addr.city, addr.country].filter(Boolean).join(", ");
   };
 
@@ -222,17 +284,24 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
   const relationshipGroupByTypeId = new Map<number, string>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const rt of relationshipTypesWithGroup as any[]) {
-    if (rt.id != null && rt.group_name) relationshipGroupByTypeId.set(rt.id, rt.group_name);
+    if (rt.id != null && rt.group_name)
+      relationshipGroupByTypeId.set(rt.id, rt.group_name);
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const relationshipsByGroup = new Map<string, any[]>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const rel of relationships as any[]) {
-    const groupName = relationshipGroupByTypeId.get(rel.relationship_type_id) ?? "";
-    if (!relationshipsByGroup.has(groupName)) relationshipsByGroup.set(groupName, []);
+    const groupName =
+      relationshipGroupByTypeId.get(rel.relationship_type_id) ?? "";
+    if (!relationshipsByGroup.has(groupName))
+      relationshipsByGroup.set(groupName, []);
     relationshipsByGroup.get(groupName)!.push(rel);
   }
-  const familyGroupNames = new Set([t("contact.detail.summary.family_group"), "Family", "家庭"]);
+  const familyGroupNames = new Set([
+    t("contact.detail.summary.family_group"),
+    "Family",
+    "家庭",
+  ]);
 
   const hasRelationships = relationships.length > 0;
   const hasGroups = groups.length > 0;
@@ -242,19 +311,34 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
   const hasReligion = !!religionLabel;
   const hasAddress = !!primaryAddress;
   const metThroughContact = contact.first_met_through_contact;
-  const hasMeetingMetadata = hasContactFirstMetValue(contact) || !!metThroughContact?.id;
-  const getImportantDateByInternalType = (internalType: string): ImportantDate | undefined => (
+  const hasMeetingMetadata =
+    hasContactFirstMetValue(contact) || !!metThroughContact?.id;
+  const getImportantDateByInternalType = (
+    internalType: string,
+  ): ImportantDate | undefined =>
     importantDates.find((date) => {
-      const dateType = importantDateTypes.find((type) => type.id === date.contact_important_date_type_id);
+      const dateType = importantDateTypes.find(
+        (type) => type.id === date.contact_important_date_type_id,
+      );
       return dateType?.internal_type === internalType;
-    })
-  );
+    });
   const birthDate = getImportantDateByInternalType("birthdate");
   const deceasedDate = getImportantDateByInternalType("deceased_date");
-  const birthDateAge = birthDate && !deceasedDate ? computeImportantDateAge(birthDate) : null;
+  const birthDateAge =
+    birthDate && !deceasedDate ? computeImportantDateAge(birthDate) : null;
   const deceasedDateAge = computeAgeAtImportantDate(birthDate, deceasedDate);
   const hasImportantSummaryDates = !!birthDate || !!deceasedDate;
-  const hasSummaryData = hasRelationships || hasGroups || hasGenderOrPronoun || hasLabels || hasJobs || hasReligion || hasContactInfo || hasAddress || hasImportantSummaryDates || hasMeetingMetadata;
+  const hasSummaryData =
+    hasRelationships ||
+    hasGroups ||
+    hasGenderOrPronoun ||
+    hasLabels ||
+    hasJobs ||
+    hasReligion ||
+    hasContactInfo ||
+    hasAddress ||
+    hasImportantSummaryDates ||
+    hasMeetingMetadata;
 
   if (readOnly && !hasSummaryData) return null;
 
@@ -283,7 +367,10 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
                   <a
                     href={`mailto:${item.data}`}
                     rel="noopener noreferrer nofollow"
-                    style={{ color: token.colorPrimary, wordBreak: "break-word" }}
+                    style={{
+                      color: token.colorPrimary,
+                      wordBreak: "break-word",
+                    }}
                   >
                     {item.data}
                   </a>
@@ -298,7 +385,10 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
                   <a
                     href={`tel:${String(item.data).replace(/\s+/g, "")}`}
                     rel="noopener noreferrer nofollow"
-                    style={{ color: token.colorPrimary, wordBreak: "break-word" }}
+                    style={{
+                      color: token.colorPrimary,
+                      wordBreak: "break-word",
+                    }}
                   >
                     {item.data}
                   </a>
@@ -329,13 +419,17 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
           <Space direction="vertical" size={2}>
             {hasContactFirstMetValue(contact) && (
               <Text style={{ fontSize: 13 }}>
-                {t("contact.meeting.first_met_at")}: {formatContactFirstMetDisplay(contact, dateFormats)}
+                {t("contact.meeting.first_met_at")}:{" "}
+                {formatContactFirstMetDisplay(contact, dateFormats)}
               </Text>
             )}
             {metThroughContact?.id && metThroughContact.name && (
               <Text style={{ fontSize: 13 }}>
-                {t("contact.meeting.first_met_through")}: {" "}
-                <Link to={`/vaults/${vaultId}/contacts/${metThroughContact.id}`} style={{ color: token.colorPrimary }}>
+                {t("contact.meeting.first_met_through")}:{" "}
+                <Link
+                  to={`/vaults/${vaultId}/contacts/${metThroughContact.id}`}
+                  style={{ color: token.colorPrimary }}
+                >
                   {metThroughContact.name}
                 </Link>
               </Text>
@@ -344,26 +438,32 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
         </div>
       )}
 
-      {(!readOnly || hasGenderOrPronoun) && <div style={sectionStyle}>
-        <div style={{ display: "flex", gap: 32 }}>
-          {(!readOnly || genderLabel) && <div style={{ flex: 1 }}>
-            <Text type="secondary" style={sectionLabelStyle}>
-              {t("contact.detail.summary.gender")}
-            </Text>
-            <Text style={{ fontSize: 13 }}>
-              {genderLabel ?? t("contact.detail.summary.not_set")}
-            </Text>
-          </div>}
-          {(!readOnly || pronounLabel) && <div style={{ flex: 1 }}>
-            <Text type="secondary" style={sectionLabelStyle}>
-              {t("contact.detail.summary.pronoun")}
-            </Text>
-            <Text style={{ fontSize: 13 }}>
-              {pronounLabel ?? t("contact.detail.summary.not_set")}
-            </Text>
-          </div>}
+      {(!readOnly || hasGenderOrPronoun) && (
+        <div style={sectionStyle}>
+          <div style={{ display: "flex", gap: 32 }}>
+            {(!readOnly || genderLabel) && (
+              <div style={{ flex: 1 }}>
+                <Text type="secondary" style={sectionLabelStyle}>
+                  {t("contact.detail.summary.gender")}
+                </Text>
+                <Text style={{ fontSize: 13 }}>
+                  {genderLabel ?? t("contact.detail.summary.not_set")}
+                </Text>
+              </div>
+            )}
+            {(!readOnly || pronounLabel) && (
+              <div style={{ flex: 1 }}>
+                <Text type="secondary" style={sectionLabelStyle}>
+                  {t("contact.detail.summary.pronoun")}
+                </Text>
+                <Text style={{ fontSize: 13 }}>
+                  {pronounLabel ?? t("contact.detail.summary.not_set")}
+                </Text>
+              </div>
+            )}
+          </div>
         </div>
-      </div>}
+      )}
 
       {hasImportantSummaryDates && (
         <div style={sectionStyle}>
@@ -371,22 +471,40 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
             {birthDate && (
               <div style={{ flex: 1 }}>
                 <Text type="secondary" style={sectionLabelStyle}>
-                  {birthDate.label || t("modules.important_dates.type_birthday")}
+                  {birthDate.label ||
+                    t("modules.important_dates.type_birthday")}
                 </Text>
                 <Space size={[6, 4]} wrap>
-                  <Text style={{ fontSize: 13 }}>{formatImportantDateDisplay(birthDate, dateFormats)}</Text>
-                  {birthDateAge !== null && <Tag>{t("modules.important_dates.age_years", { count: birthDateAge })}</Tag>}
+                  <Text style={{ fontSize: 13 }}>
+                    {formatImportantDateDisplay(birthDate, dateFormats)}
+                  </Text>
+                  {birthDateAge !== null && (
+                    <Tag>
+                      {t("modules.important_dates.age_years", {
+                        count: birthDateAge,
+                      })}
+                    </Tag>
+                  )}
                 </Space>
               </div>
             )}
             {deceasedDate && (
               <div style={{ flex: 1 }}>
                 <Text type="secondary" style={sectionLabelStyle}>
-                  {deceasedDate.label || t("modules.important_dates.type_death")}
+                  {deceasedDate.label ||
+                    t("modules.important_dates.type_death")}
                 </Text>
                 <Space size={[6, 4]} wrap>
-                  <Text style={{ fontSize: 13 }}>{formatImportantDateDisplay(deceasedDate, dateFormats)}</Text>
-                  {deceasedDateAge !== null && <Tag>{t("modules.important_dates.age_years", { count: deceasedDateAge })}</Tag>}
+                  <Text style={{ fontSize: 13 }}>
+                    {formatImportantDateDisplay(deceasedDate, dateFormats)}
+                  </Text>
+                  {deceasedDateAge !== null && (
+                    <Tag>
+                      {t("modules.important_dates.age_years", {
+                        count: deceasedDateAge,
+                      })}
+                    </Tag>
+                  )}
                 </Space>
               </div>
             )}
@@ -395,40 +513,47 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
       )}
 
       {/* 3. Labels */}
-      {(!readOnly || hasLabels) && <div style={sectionStyle} data-testid="summary-labels">
-        <Text type="secondary" style={sectionLabelStyle}>
-          {t("contact.detail.summary.labels")}
-        </Text>
-        {hasLabels ? (
-          <Space size={[6, 6]} wrap>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(labels as any[]).map((label) => {
-              const labelTagColors = getReadableLabelTagColors(label.bg_color, label.text_color);
-              return (
-                <Link key={label.id} to={`/vaults/${vaultId}/contacts?label=${label.id}`}>
-                  <Tag
-                    color={labelTagColors.color}
-                    style={{
-                      ...labelTagColors.style,
-                      margin: 0,
-                      fontSize: 12,
-                      padding: "2px 8px",
-                      borderRadius: 12,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {label.name}
-                  </Tag>
-                </Link>
-              );
-            })}
-          </Space>
-        ) : (
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            {t("contact.detail.summary.not_set")}
+      {(!readOnly || hasLabels) && (
+        <div style={sectionStyle} data-testid="summary-labels">
+          <Text type="secondary" style={sectionLabelStyle}>
+            {t("contact.detail.summary.labels")}
           </Text>
-        )}
-      </div>}
+          {hasLabels ? (
+            <Space size={[6, 6]} wrap>
+              {labels.map((label) => {
+                const labelTagColors = getReadableLabelTagColors(
+                  label.bg_color,
+                  label.text_color,
+                );
+                return (
+                  <Link
+                    key={label.id}
+                    to={`/vaults/${vaultId}/contacts?label=${label.id}`}
+                  >
+                    <Tag
+                      color={labelTagColors.color}
+                      style={{
+                        ...labelTagColors.style,
+                        margin: 0,
+                        fontSize: 12,
+                        padding: "2px 8px",
+                        borderRadius: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {label.name}
+                    </Tag>
+                  </Link>
+                );
+              })}
+            </Space>
+          ) : (
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              {t("contact.detail.summary.not_set")}
+            </Text>
+          )}
+        </div>
+      )}
 
       {/* 4. Job information */}
       {hasJobs && (
@@ -465,46 +590,57 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
       )}
 
       {/* 8. Relationships grouped by type (Family separated from Work/social) */}
-      {hasRelationships && [...relationshipsByGroup.entries()].map(([groupName, rels]) => {
-        const isFamily = groupName !== "" && familyGroupNames.has(groupName);
-        const heading = isFamily
-          ? t("contact.detail.summary.family")
-          : (groupName || t("contact.detail.summary.relationships"));
-        return (
-          <div
-            key={groupName || "ungrouped"}
-            style={sectionStyle}
-            data-testid={isFamily ? "summary-family" : "summary-relationships"}
-          >
-            <Text type="secondary" style={sectionLabelStyle}>
-              {heading}
-            </Text>
-            <Space size={[8, 4]} wrap>
-              {rels.map((rel) => {
-                const relatedContact = contactMap.get(rel.related_contact_id ?? "");
-                const displayName = rel.related_contact_name
-                  || (relatedContact ? formatContactName(nameOrder, relatedContact) : "")
-                  || rel.related_contact_id;
-                return (
-                  <span key={rel.id} style={{ fontSize: 13 }}>
-                    <Link
-                      to={`/vaults/${rel.related_vault_id || vaultId}/contacts/${rel.related_contact_id}`}
-                      style={{ color: token.colorPrimary }}
-                    >
-                      {displayName}
-                    </Link>
-                    {rel.relationship_type_name && (
-                      <Text type="secondary" style={{ fontSize: 12, marginLeft: 4 }}>
-                        ({rel.relationship_type_name})
-                      </Text>
-                    )}
-                  </span>
-                );
-              })}
-            </Space>
-          </div>
-        );
-      })}
+      {hasRelationships &&
+        [...relationshipsByGroup.entries()].map(([groupName, rels]) => {
+          const isFamily = groupName !== "" && familyGroupNames.has(groupName);
+          const heading = isFamily
+            ? t("contact.detail.summary.family")
+            : groupName || t("contact.detail.summary.relationships");
+          return (
+            <div
+              key={groupName || "ungrouped"}
+              style={sectionStyle}
+              data-testid={
+                isFamily ? "summary-family" : "summary-relationships"
+              }
+            >
+              <Text type="secondary" style={sectionLabelStyle}>
+                {heading}
+              </Text>
+              <Space size={[8, 4]} wrap>
+                {rels.map((rel) => {
+                  const relatedContact = contactMap.get(
+                    rel.related_contact_id ?? "",
+                  );
+                  const displayName =
+                    rel.related_contact_name ||
+                    (relatedContact
+                      ? formatContactName(nameOrder, relatedContact)
+                      : "") ||
+                    rel.related_contact_id;
+                  return (
+                    <span key={rel.id} style={{ fontSize: 13 }}>
+                      <Link
+                        to={`/vaults/${rel.related_vault_id || vaultId}/contacts/${rel.related_contact_id}`}
+                        style={{ color: token.colorPrimary }}
+                      >
+                        {displayName}
+                      </Link>
+                      {rel.relationship_type_name && (
+                        <Text
+                          type="secondary"
+                          style={{ fontSize: 12, marginLeft: 4 }}
+                        >
+                          ({rel.relationship_type_name})
+                        </Text>
+                      )}
+                    </span>
+                  );
+                })}
+              </Space>
+            </div>
+          );
+        })}
 
       {/* 9. Groups — clickable, filter the contacts list */}
       {hasGroups && (
@@ -515,10 +651,19 @@ export default function ContactSummaryCard({ vaultId, contactId, contact, readOn
           <Space size={[6, 6]} wrap>
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {(groups as any[]).map((group) => (
-              <Link key={group.id} to={`/vaults/${vaultId}/contacts?group=${group.id}`}>
+              <Link
+                key={group.id}
+                to={`/vaults/${vaultId}/contacts?group=${group.id}`}
+              >
                 <Tag
                   color="blue"
-                  style={{ margin: 0, fontSize: 12, padding: "2px 8px", borderRadius: 12, cursor: "pointer" }}
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    padding: "2px 8px",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                  }}
                 >
                   {group.name}
                 </Tag>

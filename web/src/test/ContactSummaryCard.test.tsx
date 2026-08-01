@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { App as AntApp, ConfigProvider } from "antd";
 import ContactSummaryCard from "@/pages/contact/modules/ContactSummaryCard";
-import type { Contact } from "@/api";
+import type { Address, Contact, ContactLabel } from "@/api";
+import type { QueryKey } from "@tanstack/react-query";
+import { queryKeyPrefixes } from "@/utils/queryInvalidation";
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {
@@ -17,8 +19,8 @@ beforeAll(() => {
 let mockRelationships: unknown[] = [];
 let mockContacts: unknown[] = [];
 let mockContactInfo: unknown[] = [];
-let mockAddresses: unknown[] = [];
-let mockLabels: unknown[] = [];
+let mockAddresses: Address[] = [];
+let mockLabels: ContactLabel[] = [];
 let mockJobs: unknown[] = [];
 let mockCompanies: unknown[] = [];
 let mockGenders: unknown[] = [];
@@ -27,23 +29,37 @@ let mockReligions: unknown[] = [];
 let mockImportantDates: unknown[] = [];
 let mockImportantDateTypes: unknown[] = [];
 let mockPreferences: unknown = { name_order: "%first_name% %last_name%" };
+let capturedQueryKeys: QueryKey[] = [];
+
+vi.mock("@/api", () => ({ api: {} }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: (opts: { queryKey: unknown[] }) => {
+  useQuery: (opts: { queryKey: QueryKey }) => {
+    capturedQueryKeys.push(opts.queryKey);
     const key = JSON.stringify(opts.queryKey);
-    if (key.includes("relationships")) return { data: mockRelationships, isLoading: false };
+    if (key.includes("relationships"))
+      return { data: mockRelationships, isLoading: false };
     if (key.includes("labels")) return { data: mockLabels, isLoading: false };
-    if (key.includes("information") || key.includes("Information")) return { data: mockContactInfo, isLoading: false };
-    if (key.includes("addresses")) return { data: mockAddresses, isLoading: false };
+    if (key.includes("information") || key.includes("Information"))
+      return { data: mockContactInfo, isLoading: false };
+    if (key.includes("addresses"))
+      return { data: mockAddresses, isLoading: false };
     if (key.includes("jobs")) return { data: mockJobs, isLoading: false };
-    if (key.includes("companies")) return { data: mockCompanies, isLoading: false };
+    if (key.includes("companies"))
+      return { data: mockCompanies, isLoading: false };
     if (key.includes("genders")) return { data: mockGenders, isLoading: false };
-    if (key.includes("pronouns")) return { data: mockPronouns, isLoading: false };
-    if (key.includes("religions")) return { data: mockReligions, isLoading: false };
-    if (key.includes("important-dates")) return { data: mockImportantDates, isLoading: false };
-    if (key.includes("date-types")) return { data: mockImportantDateTypes, isLoading: false };
-    if (key.includes("preferences")) return { data: mockPreferences, isLoading: false };
-    if (key.includes("contacts")) return { data: mockContacts, isLoading: false };
+    if (key.includes("pronouns"))
+      return { data: mockPronouns, isLoading: false };
+    if (key.includes("religions"))
+      return { data: mockReligions, isLoading: false };
+    if (key.includes("important-dates"))
+      return { data: mockImportantDates, isLoading: false };
+    if (key.includes("date-types"))
+      return { data: mockImportantDateTypes, isLoading: false };
+    if (key.includes("preferences"))
+      return { data: mockPreferences, isLoading: false };
+    if (key.includes("contacts"))
+      return { data: mockContacts, isLoading: false };
     return { data: [], isLoading: false };
   },
   useMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -64,19 +80,56 @@ function resetMocks() {
   mockImportantDates = [];
   mockImportantDateTypes = [];
   mockPreferences = { name_order: "%first_name% %last_name%" };
+  capturedQueryKeys = [];
 }
 
-function renderCard({ readOnly = false, contact = { id: "c1" } }: { readOnly?: boolean; contact?: Contact } = {}) {
+function renderCard({
+  readOnly = false,
+  contact = { id: "c1" },
+}: { readOnly?: boolean; contact?: Contact } = {}) {
   return render(
     <ConfigProvider>
       <AntApp>
         <MemoryRouter>
-          <ContactSummaryCard vaultId="v1" contactId="c1" contact={contact} readOnly={readOnly} />
+          <ContactSummaryCard
+            vaultId="v1"
+            contactId="c1"
+            contact={contact}
+            readOnly={readOnly}
+          />
         </MemoryRouter>
       </AntApp>
     </ConfigProvider>,
   );
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("ContactSummaryCard query keys", () => {
+  it("registers Important Dates with the centralized Calendar contact key", () => {
+    resetMocks();
+    const centralizedCalendarContactKey = [
+      "vaults",
+      "v1",
+      "contacts",
+      "c1",
+      "important-dates",
+    ] as const satisfies QueryKey;
+    const calendarContactKeyFactory = vi
+      .spyOn(queryKeyPrefixes.calendar, "contact")
+      .mockReturnValue(centralizedCalendarContactKey);
+
+    renderCard();
+
+    expect(calendarContactKeyFactory).toHaveBeenCalledWith({
+      vaultId: "v1",
+      contactId: "c1",
+    });
+    expect(capturedQueryKeys).toContain(centralizedCalendarContactKey);
+  });
+});
 
 describe("ContactSummaryCard — Family Summary (Issue #77)", () => {
   it("displays related_contact_name from API when contact is NOT in contactMap", () => {
@@ -143,7 +196,9 @@ describe("ContactSummaryCard — Family Summary (Issue #77)", () => {
     renderCard();
 
     // Should show UUID when name is empty
-    expect(screen.getByText("deadbeef-0000-0000-0000-000000000000")).toBeInTheDocument();
+    expect(
+      screen.getByText("deadbeef-0000-0000-0000-000000000000"),
+    ).toBeInTheDocument();
   });
 
   it("hides empty summary fields in read mode", () => {
@@ -151,19 +206,60 @@ describe("ContactSummaryCard — Family Summary (Issue #77)", () => {
 
     const { container } = renderCard({ readOnly: true });
 
-    expect(container.querySelector("[data-testid='contact-summary-card']")).not.toBeInTheDocument();
+    expect(
+      container.querySelector("[data-testid='contact-summary-card']"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Not set")).not.toBeInTheDocument();
   });
 
   it("keeps populated summary fields in read mode", () => {
     resetMocks();
-    mockLabels = [{ id: 1, name: "Running club", bg_color: "green", text_color: "#123" }];
+    mockLabels = [
+      { id: 1, name: "Running club", bg_color: "green", text_color: "#123" },
+    ];
 
     renderCard({ readOnly: true });
 
     expect(screen.getByTestId("contact-summary-card")).toBeInTheDocument();
     expect(screen.getByText("Running club")).toBeInTheDocument();
     expect(screen.queryByText("Not set")).not.toBeInTheDocument();
+  });
+
+  it("uses the first current address and renders label filter links", () => {
+    resetMocks();
+    mockAddresses = [
+      {
+        id: 1,
+        line_1: "Former home",
+        city: "London",
+        country: "UK",
+        is_past_address: true,
+      },
+      {
+        id: 2,
+        line_1: "123 Main Street",
+        city: "Boston",
+        country: "US",
+        is_past_address: false,
+      },
+    ];
+    mockLabels = [
+      {
+        id: 3,
+        name: "Close friend",
+        bg_color: "#2563eb",
+        text_color: "#ffffff",
+      },
+    ];
+
+    renderCard({ readOnly: true });
+
+    expect(screen.getByText("123 Main Street, Boston, US")).toBeInTheDocument();
+    expect(screen.queryByText(/Former home/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Close friend" })).toHaveAttribute(
+      "href",
+      "/vaults/v1/contacts?label=3",
+    );
   });
 
   it("shows first-met metadata in read mode", () => {
@@ -181,7 +277,10 @@ describe("ContactSummaryCard — Family Summary (Issue #77)", () => {
     expect(screen.getByTestId("contact-summary-card")).toBeInTheDocument();
     expect(screen.getByText("How you met")).toBeInTheDocument();
     expect(screen.getByText("First met: Jan 15, 2026")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Mary Host" })).toHaveAttribute("href", "/vaults/v1/contacts/c2");
+    expect(screen.getByRole("link", { name: "Mary Host" })).toHaveAttribute(
+      "href",
+      "/vaults/v1/contacts/c2",
+    );
   });
 
   it("shows imprecise first-met month-year metadata in read mode", () => {
@@ -238,8 +337,18 @@ describe("ContactSummaryCard — Family Summary (Issue #77)", () => {
   it("shows birthdate with age in summary mode", () => {
     resetMocks();
     mockImportantDateTypes = [
-      { id: 10, label: "Birthdate", internal_type: "birthdate", can_be_deleted: false },
-      { id: 11, label: "Deceased date", internal_type: "deceased_date", can_be_deleted: false },
+      {
+        id: 10,
+        label: "Birthdate",
+        internal_type: "birthdate",
+        can_be_deleted: false,
+      },
+      {
+        id: 11,
+        label: "Deceased date",
+        internal_type: "deceased_date",
+        can_be_deleted: false,
+      },
     ];
     mockImportantDates = [
       {
@@ -264,8 +373,18 @@ describe("ContactSummaryCard — Family Summary (Issue #77)", () => {
   it("shows age-at-death beside deceased date and not beside birthdate", () => {
     resetMocks();
     mockImportantDateTypes = [
-      { id: 10, label: "Birthdate", internal_type: "birthdate", can_be_deleted: false },
-      { id: 11, label: "Deceased date", internal_type: "deceased_date", can_be_deleted: false },
+      {
+        id: 10,
+        label: "Birthdate",
+        internal_type: "birthdate",
+        can_be_deleted: false,
+      },
+      {
+        id: 11,
+        label: "Deceased date",
+        internal_type: "deceased_date",
+        can_be_deleted: false,
+      },
     ];
     mockImportantDates = [
       {
