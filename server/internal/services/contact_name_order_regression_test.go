@@ -89,6 +89,7 @@ func TestFeedContactNameUsesVaultNameOrder(t *testing.T) {
 	ctx := setupNameOrderRegressionTest(t, "name-order-feed@example.com")
 	desc := "Created note"
 	if err := ctx.db.Create(&models.ContactFeedItem{
+		VaultID:     ctx.vaultID,
 		ContactID:   ctx.contact.ID,
 		AuthorID:    &ctx.userID,
 		Action:      ActionNoteCreated,
