@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -733,24 +734,38 @@ func TestMoveManyReindexesMovedContactsAndNotes(t *testing.T) {
 	}
 }
 
-func TestMoveManyReturnsSearchReindexContactError(t *testing.T) {
+func TestMoveManyReturnsCommittedResponseWhenContactSearchReindexFails(t *testing.T) {
+	// Given
 	svc, contactID, vault1ID, vault2ID, userID := setupContactMoveTest(t)
+	logOutput := captureContactMoveLogs(t)
 	indexErr := errors.New("contact index failed")
-	engine := &contactMoveRecordingSearchEngine{contactVaults: map[string]string{}, noteVaults: map[string]string{}, indexContactErr: indexErr}
+	deleteErr := errors.New("stale contact delete failed")
+	engine := &contactMoveRecordingSearchEngine{contactVaults: map[string]string{}, noteVaults: map[string]string{}, indexContactErr: indexErr, deleteDocumentErr: deleteErr}
 	svc.SetSearchService(NewSearchService(engine))
 
-	_, err := svc.MoveMany([]string{contactID}, vault1ID, vault2ID, userID)
-	if !errors.Is(err, indexErr) {
-		t.Fatalf("expected contact index error, got %v", err)
+	// When
+	response, err := svc.MoveMany([]string{contactID}, vault1ID, vault2ID, userID)
+
+	// Then
+	if err != nil {
+		t.Fatalf("move contact after committed search reindex failure: %v", err)
+	}
+	if response.MovedCount != 1 || len(response.Contacts) != 1 || response.Contacts[0].ID != contactID || response.Contacts[0].VaultID != vault2ID {
+		t.Fatalf("move response = %+v, want committed target contact", response)
 	}
 	if len(engine.deletedDocuments) != 1 || engine.deletedDocuments[0] != "contact:"+contactID {
 		t.Fatalf("expected failed contact index to delete stale document, got %#v", engine.deletedDocuments)
 	}
 	assertMoveContactRemainsInVault(t, svc, contactID, vault2ID)
+	if logText := logOutput.String(); !strings.Contains(logText, "[contact-move] failed to reindex moved search documents for target vault "+vault2ID+" contacts ["+contactID+"]:") || !strings.Contains(logText, indexErr.Error()) || !strings.Contains(logText, deleteErr.Error()) {
+		t.Fatalf("contact reindex failure log = %q, want target identity and both errors", logText)
+	}
 }
 
-func TestMoveManyReturnsSearchReindexNoteError(t *testing.T) {
+func TestMoveManyReturnsCommittedResponseWhenNoteSearchReindexFails(t *testing.T) {
+	// Given
 	svc, contactID, vault1ID, vault2ID, userID := setupContactMoveTest(t)
+	logOutput := captureContactMoveLogs(t)
 	indexErr := errors.New("note index failed")
 	engine := &contactMoveRecordingSearchEngine{contactVaults: map[string]string{}, noteVaults: map[string]string{}, indexNoteErr: indexErr}
 	svc.SetSearchService(NewSearchService(engine))
@@ -760,15 +775,24 @@ func TestMoveManyReturnsSearchReindexNoteError(t *testing.T) {
 		t.Fatalf("create note failed: %v", err)
 	}
 
-	_, err := svc.MoveMany([]string{contactID}, vault1ID, vault2ID, userID)
-	if !errors.Is(err, indexErr) {
-		t.Fatalf("expected note index error, got %v", err)
+	// When
+	response, err := svc.MoveMany([]string{contactID}, vault1ID, vault2ID, userID)
+
+	// Then
+	if err != nil {
+		t.Fatalf("move contact after committed note search reindex failure: %v", err)
+	}
+	if response.MovedCount != 1 || len(response.Contacts) != 1 || response.Contacts[0].ID != contactID || response.Contacts[0].VaultID != vault2ID {
+		t.Fatalf("move response = %+v, want committed target contact", response)
 	}
 	noteDocumentID := fmt.Sprintf("note:%d", note.ID)
 	if len(engine.deletedDocuments) != 1 || engine.deletedDocuments[0] != noteDocumentID {
 		t.Fatalf("expected failed note index to delete stale document %s, got %#v", noteDocumentID, engine.deletedDocuments)
 	}
 	assertMoveContactRemainsInVault(t, svc, contactID, vault2ID)
+	if logText := logOutput.String(); !strings.Contains(logText, "[contact-move] failed to reindex moved search documents for target vault "+vault2ID+" contacts ["+contactID+"]:") || !strings.Contains(logText, indexErr.Error()) {
+		t.Fatalf("note reindex failure log = %q, want target identity and index error", logText)
+	}
 }
 
 func TestMoveManyDeletesMissingQuickFactFileFromDiskAndDB(t *testing.T) {
@@ -928,11 +952,12 @@ func getMoveTestUserVault(t *testing.T, svc *ContactMoveService, userID, vaultID
 }
 
 type contactMoveRecordingSearchEngine struct {
-	contactVaults    map[string]string
-	noteVaults       map[string]string
-	deletedDocuments []string
-	indexContactErr  error
-	indexNoteErr     error
+	contactVaults     map[string]string
+	noteVaults        map[string]string
+	deletedDocuments  []string
+	indexContactErr   error
+	indexNoteErr      error
+	deleteDocumentErr error
 }
 
 func (e *contactMoveRecordingSearchEngine) IndexContact(id, vaultID, firstName, lastName, nickname, jobPosition string) error {
@@ -953,7 +978,7 @@ func (e *contactMoveRecordingSearchEngine) IndexNote(id string, vaultID, contact
 
 func (e *contactMoveRecordingSearchEngine) DeleteDocument(id string) error {
 	e.deletedDocuments = append(e.deletedDocuments, id)
-	return nil
+	return e.deleteDocumentErr
 }
 
 func (e *contactMoveRecordingSearchEngine) Search(vaultID, query string, limit, offset int) (*search.SearchResponse, error) {
