@@ -7,6 +7,14 @@ type AddContactToGroupRequest struct {
 	GroupTypeRoleID *uint `json:"group_type_role_id" example:"1"`
 }
 
+type GroupMembersRequest struct {
+	ContactIDs []string `json:"contact_ids" example:"[\"550e8400-e29b-41d4-a716-446655440000\"]"`
+}
+
+type GroupMembersResponse struct {
+	AffectedCount int64 `json:"affected_count" example:"2"`
+}
+
 type CreateGroupRequest struct {
 	Name        string `json:"name" validate:"required" example:"Close Friends"`
 	GroupTypeID *uint  `json:"group_type_id" example:"1"`

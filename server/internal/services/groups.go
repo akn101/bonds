@@ -6,6 +6,7 @@ import (
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrGroupNotFound = errors.New("group not found")
@@ -103,7 +104,7 @@ func (s *GroupService) AddContactToGroup(contactID, vaultID string, req dto.AddC
 		ContactID:       contactID,
 		GroupTypeRoleID: req.GroupTypeRoleID,
 	}
-	return s.db.Create(&cg).Error
+	return s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&cg).Error
 }
 
 func (s *GroupService) RemoveContactFromGroup(contactID, vaultID string, groupID uint) error {
@@ -138,18 +139,15 @@ func (s *GroupService) Update(id uint, vaultID string, req dto.UpdateGroupReques
 }
 
 func (s *GroupService) Delete(id uint, vaultID string) error {
-	var group models.Group
-	if err := s.db.Where("id = ? AND vault_id = ?", id, vaultID).First(&group).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrGroupNotFound
-		}
-		return err
-	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Lock the group before pivot cleanup so concurrent member mutations cannot insert after cleanup.
+		if err := lockGroupBelongsToVault(tx, id, vaultID); err != nil {
+			return err
+		}
 		if err := tx.Where("group_id = ?", id).Delete(&models.ContactGroup{}).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&group).Error
+		return tx.Where("id = ? AND vault_id = ?", id, vaultID).Delete(&models.Group{}).Error
 	})
 }
 
