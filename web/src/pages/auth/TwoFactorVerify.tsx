@@ -26,9 +26,20 @@ export default function TwoFactorVerify() {
   async function onFinish(values: { code: string }) {
     setLoading(true);
     try {
-      await verifyTwoFactor(values.code);
-      setVerified(true);
-      navigate("/vaults", { replace: true });
+      const completion = await verifyTwoFactor(values.code);
+      switch (completion.status) {
+        case "authenticated":
+          setVerified(true);
+          navigate("/vaults", { replace: true });
+          return;
+        case "two_factor_required":
+        case "stale":
+          return;
+        default: {
+          const exhaustiveCompletion: never = completion;
+          return exhaustiveCompletion;
+        }
+      }
     } catch (err) {
       const apiErr = err as APIError;
       message.error(apiErr.message || t("auth.two_factor_verify.failed"));

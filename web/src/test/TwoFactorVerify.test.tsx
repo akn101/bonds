@@ -78,6 +78,7 @@ describe("TwoFactorVerify", () => {
       // sets twoFactorPending=false and tempToken=null
       mockTwoFactorPending = false;
       mockTempToken = null;
+      return { status: "authenticated" } as const;
     });
 
     const user = userEvent.setup();
