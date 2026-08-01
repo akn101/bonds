@@ -1,6 +1,6 @@
 import { act } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App as AntApp, ConfigProvider } from "antd";
 import {
@@ -85,7 +85,7 @@ function callsView(
 ) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider>
+      <ConfigProvider theme={{ token: { motion: false } }}>
         <AntApp>
           <CallsModule vaultId={vaultId} contactId={contactId} />
         </AntApp>
@@ -106,6 +106,17 @@ function renderModule() {
   const view = render(callsView(queryClient, 101, 202));
 
   return { queryClient, view };
+}
+
+function renderModuleWithRealInvalidation(): QueryClient {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+  render(callsView(queryClient, 101, 202));
+  return queryClient;
 }
 
 function expectOnlyInvalidatedKeys(
@@ -129,8 +140,8 @@ async function submitCreate(
   const dateInput = within(dialog).getByRole("textbox", {
     name: "Date & Time",
   });
-  await user.type(dateInput, "2026-04-10 09:30:00");
-  await user.keyboard("{Enter}");
+  fireEvent.change(dateInput, { target: { value: "2026-04-10 09:30:00" } });
+  fireEvent.keyDown(dateInput, { key: "Enter", code: "Enter" });
   await user.click(within(dialog).getByRole("combobox", { name: "Type" }));
   await user.click(await screen.findByTitle("Outgoing"));
   await user.click(within(dialog).getByRole("button", { name: "OK" }));
@@ -147,6 +158,44 @@ describe("CallsModule mutation invalidation", () => {
     vi.mocked(api.calls.contactsCallsUpdate).mockResolvedValue({ data: {} });
     vi.mocked(api.calls.contactsCallsDelete).mockResolvedValue({ data: {} });
     vi.mocked(api.preferences.preferencesList).mockResolvedValue({ data: {} });
+  });
+
+  it("keeps the refetched first page visible after create success closes the modal", async () => {
+    const user = userEvent.setup();
+    const createdCall = {
+      id: 2,
+      type: "outgoing",
+      called_at: "2026-04-10T09:30:00Z",
+      duration: 15,
+      description: "New outgoing call",
+    };
+    vi.mocked(api.calls.contactsCallsList)
+      .mockResolvedValueOnce({
+        data: [],
+        meta: { page: 1, per_page: 15, total: 0, total_pages: 1 },
+      })
+      .mockResolvedValue({
+        data: [createdCall],
+        meta: { page: 1, per_page: 15, total: 1, total_pages: 1 },
+      });
+    const queryClient = renderModuleWithRealInvalidation();
+    await screen.findByText("No calls logged");
+
+    await submitCreate(user);
+
+    await waitFor(() =>
+      expect(api.calls.contactsCallsList).toHaveBeenCalledTimes(2),
+    );
+    await waitFor(() =>
+      expect(appMessageMock.success).toHaveBeenCalledWith("Call logged"),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("outgoing")).toBeVisible();
+    expect(
+      queryClient.getQueryState([...callsKey, 1, undefined])?.isInvalidated,
+    ).toBe(false);
   });
 
   it("keeps the submitted route for the API and invalidations when a pending create finishes after route drift", async () => {
@@ -215,7 +264,7 @@ describe("CallsModule mutation invalidation", () => {
     await waitFor(() =>
       expect(appMessageMock.success).toHaveBeenCalledWith("Call logged"),
     );
-    expect(screen.getByRole("dialog")).toHaveClass("ant-zoom-leave");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
       screen.queryByDisplayValue("2026-04-10 09:30:00"),
     ).not.toBeInTheDocument();
@@ -276,7 +325,7 @@ describe("CallsModule mutation invalidation", () => {
     await waitFor(() =>
       expect(appMessageMock.success).toHaveBeenCalledWith("Call updated"),
     );
-    expect(screen.getByRole("dialog")).toHaveClass("ant-zoom-leave");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
       screen.queryByDisplayValue("2026-03-01 10:00:00"),
     ).not.toBeInTheDocument();

@@ -226,6 +226,8 @@ export default function CallsModule({
       }
     },
     onSuccess: async (_data, operation) => {
+      // Reset before invalidation so the refetched first page is not cleared after it writes into allCalls.
+      resetPagination();
       switch (operation.kind) {
         case "create": {
           await Promise.all([
@@ -235,7 +237,6 @@ export default function CallsModule({
               contacts: [operation.scope],
             }),
           ]);
-          resetPagination();
           message.success(t("modules.calls.logged"));
           break;
         }
@@ -243,7 +244,6 @@ export default function CallsModule({
           await queryClient.invalidateQueries({
             queryKey: operation.listQueryKey,
           });
-          resetPagination();
           message.success(t("modules.calls.updated"));
           break;
         default: {
@@ -269,6 +269,7 @@ export default function CallsModule({
       ),
     onSuccess: async (_data, operation) => {
       // Historical Feed rows query source availability, so deletion must refresh both projections.
+      resetPagination();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: operation.listQueryKey }),
         invalidateFeedQueries(queryClient, {
@@ -276,7 +277,6 @@ export default function CallsModule({
           contacts: [operation.source],
         }),
       ]);
-      resetPagination();
       message.success(t("modules.calls.deleted"));
     },
     onError: (e: APIError) => message.error(e.message),
