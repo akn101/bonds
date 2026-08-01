@@ -8,8 +8,42 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
 import type { User, LoginRequest, RegisterRequest, InstanceInfo } from "@/api";
+import {
+  advanceAuthenticationAttemptRevision,
+  advanceAuthenticationSubjectRevision,
+  captureAuthenticationSubjectRevision,
+  isAuthenticationAttemptRevisionCurrent,
+  isAuthenticationSubjectRevisionCurrent,
+  subscribeAuthenticationSubjectTermination,
+  subscribeAuthenticationTokenReplacement,
+  terminateCurrentAuthenticationSubject,
+} from "@/utils/authenticationSubjectRevision";
+
+export type AuthenticationCompletion =
+  | { readonly status: "authenticated" }
+  | { readonly status: "two_factor_required" }
+  | { readonly status: "stale" };
+
+export type WebAuthnAuthentication = Readonly<{
+  token: string;
+  user: User;
+}>;
+
+const AUTHENTICATED_COMPLETION = { status: "authenticated" } as const;
+const TWO_FACTOR_REQUIRED_COMPLETION = {
+  status: "two_factor_required",
+} as const;
+const STALE_COMPLETION = { status: "stale" } as const;
+
+function requireAuthenticationData<Data>(data: Data | undefined): Data {
+  if (data === undefined) {
+    throw new Error("Authentication response did not include data");
+  }
+  return data;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -18,16 +52,20 @@ interface AuthContextType {
   isLoading: boolean;
   twoFactorPending: boolean;
   tempToken: string | null;
-  login: (data: LoginRequest) => Promise<boolean>;
-  register: (data: RegisterRequest) => Promise<void>;
+  login: (data: LoginRequest) => Promise<AuthenticationCompletion>;
+  loginWithWebAuthn: (
+    authenticate: () => Promise<WebAuthnAuthentication>,
+  ) => Promise<AuthenticationCompletion>;
+  register: (data: RegisterRequest) => Promise<AuthenticationCompletion>;
   logout: () => void;
   setExternalToken: (jwt: string) => void;
-  verifyTwoFactor: (code: string) => Promise<void>;
+  verifyTwoFactor: (code: string) => Promise<AuthenticationCompletion>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(
     () => localStorage.getItem("token"),
@@ -38,28 +76,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [twoFactorPending, setTwoFactorPending] = useState(false);
   const [tempToken, setTempToken] = useState<string | null>(null);
 
+  const retireAuthenticationSubject = useCallback(() => {
+    // Subject transitions must remove account-scoped cache data and any pending authentication challenge.
+    queryClient.clear();
+    setUser(null);
+    setTwoFactorPending(false);
+    setTempToken(null);
+  }, [queryClient]);
+
+  const commitAuthenticationSubject = useCallback(() => {
+    // A successful commit starts a new subject lifetime, invalidating work begun while the request was in flight.
+    advanceAuthenticationSubjectRevision();
+    retireAuthenticationSubject();
+  }, [retireAuthenticationSubject]);
+
+  const handleAuthenticationSubjectTermination = useCallback(() => {
+    retireAuthenticationSubject();
+    setIsLoading(false);
+    setToken(null);
+  }, [retireAuthenticationSubject]);
+
+  useEffect(
+    () =>
+      subscribeAuthenticationSubjectTermination(
+        handleAuthenticationSubjectTermination,
+      ),
+    [handleAuthenticationSubjectTermination],
+  );
+
+  useEffect(() => subscribeAuthenticationTokenReplacement(setToken), []);
+
   useEffect(() => {
     if (!token) {
       return;
     }
     let cancelled = false;
+    const validationRevision = captureAuthenticationSubjectRevision();
+    const validationIsCurrent = () =>
+      !cancelled && isAuthenticationSubjectRevisionCurrent(validationRevision);
     api.auth
       .getAuth()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then((res: any) => {
-        if (!cancelled && res.data) {
+      .then((res) => {
+        if (validationIsCurrent() && res.data) {
           setUser(res.data);
         }
       })
       .catch(() => {
-        if (!cancelled) {
-          setToken(null);
-          setUser(null);
-          localStorage.removeItem("token");
+        if (validationIsCurrent()) {
+          terminateCurrentAuthenticationSubject();
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (validationIsCurrent()) {
           setIsLoading(false);
         }
       });
@@ -68,60 +136,142 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [token]);
 
-  const login = useCallback(async (data: LoginRequest): Promise<boolean> => {
-    const res = await api.auth.loginCreate(data);
-    const auth = res.data!;
-    if (auth.requires_two_factor) {
-      setTwoFactorPending(true);
-      setTempToken(auth.temp_token ?? null);
-      setUser(auth.user ?? null);
-      localStorage.removeItem("token");
-      setToken(null);
-      return true;
-    }
-    localStorage.setItem("token", auth.token);
-    setToken(auth.token);
-    setUser(auth.user);
-    return false;
-  }, []);
+  const login = useCallback(
+    async (data: LoginRequest): Promise<AuthenticationCompletion> => {
+      const revision = advanceAuthenticationAttemptRevision();
+      try {
+        const res = await api.auth.loginCreate(data);
+        if (!isAuthenticationAttemptRevisionCurrent(revision)) {
+          return STALE_COMPLETION;
+        }
+        const auth = requireAuthenticationData(res.data);
+        commitAuthenticationSubject();
+        setIsLoading(false);
+        if (auth.requires_two_factor) {
+          setTwoFactorPending(true);
+          setTempToken(auth.temp_token ?? null);
+          setUser(auth.user ?? null);
+          localStorage.removeItem("token");
+          setToken(null);
+          return TWO_FACTOR_REQUIRED_COMPLETION;
+        }
+        localStorage.setItem("token", auth.token);
+        setToken(auth.token);
+        setUser(auth.user);
+        return AUTHENTICATED_COMPLETION;
+      } catch (error) {
+        if (!isAuthenticationAttemptRevisionCurrent(revision)) {
+          return STALE_COMPLETION;
+        }
+        setIsLoading(false);
+        throw error;
+      }
+    },
+    [commitAuthenticationSubject],
+  );
 
-  const register = useCallback(async (data: RegisterRequest) => {
-    const res = await api.auth.registerCreate(data);
-    const auth = res.data!;
-    localStorage.setItem("token", auth.token);
-    setToken(auth.token);
-    setUser(auth.user);
-  }, []);
+  const loginWithWebAuthn = useCallback(
+    async (
+      authenticate: () => Promise<WebAuthnAuthentication>,
+    ): Promise<AuthenticationCompletion> => {
+      const revision = advanceAuthenticationAttemptRevision();
+      try {
+        const auth = await authenticate();
+        if (!isAuthenticationAttemptRevisionCurrent(revision)) {
+          return STALE_COMPLETION;
+        }
+        commitAuthenticationSubject();
+        localStorage.setItem("token", auth.token);
+        setIsLoading(false);
+        setToken(auth.token);
+        setUser(auth.user);
+        return AUTHENTICATED_COMPLETION;
+      } catch (error) {
+        if (!isAuthenticationAttemptRevisionCurrent(revision)) {
+          return STALE_COMPLETION;
+        }
+        setIsLoading(false);
+        throw error;
+      }
+    },
+    [commitAuthenticationSubject],
+  );
+
+  const register = useCallback(
+    async (data: RegisterRequest): Promise<AuthenticationCompletion> => {
+      const revision = advanceAuthenticationAttemptRevision();
+      try {
+        const res = await api.auth.registerCreate(data);
+        if (!isAuthenticationAttemptRevisionCurrent(revision)) {
+          return STALE_COMPLETION;
+        }
+        const auth = requireAuthenticationData(res.data);
+        commitAuthenticationSubject();
+        localStorage.setItem("token", auth.token);
+        setIsLoading(false);
+        setToken(auth.token);
+        setUser(auth.user);
+        return AUTHENTICATED_COMPLETION;
+      } catch (error) {
+        if (!isAuthenticationAttemptRevisionCurrent(revision)) {
+          return STALE_COMPLETION;
+        }
+        setIsLoading(false);
+        throw error;
+      }
+    },
+    [commitAuthenticationSubject],
+  );
 
   const logout = useCallback(() => {
-    localStorage.removeItem("token");
-    setToken(null);
-    setUser(null);
-    setTwoFactorPending(false);
-    setTempToken(null);
+    terminateCurrentAuthenticationSubject();
   }, []);
 
-  const verifyTwoFactor = useCallback(async (code: string) => {
-    if (!tempToken) {
-      throw new Error("No temp token available");
-    }
-    const res = await api.auth["2FaVerifyCreate"]({
-      temp_token: tempToken,
-      code,
-    });
-    const auth = res.data!;
-    localStorage.setItem("token", auth.token);
-    setToken(auth.token);
-    setUser(auth.user);
-    setTwoFactorPending(false);
-    setTempToken(null);
-  }, [tempToken]);
+  const verifyTwoFactor = useCallback(
+    async (code: string): Promise<AuthenticationCompletion> => {
+      if (!tempToken) {
+        throw new Error("No temp token available");
+      }
+      const revision = advanceAuthenticationAttemptRevision();
+      try {
+        const res = await api.auth["2FaVerifyCreate"]({
+          temp_token: tempToken,
+          code,
+        });
+        if (!isAuthenticationAttemptRevisionCurrent(revision)) {
+          return STALE_COMPLETION;
+        }
+        const auth = requireAuthenticationData(res.data);
+        commitAuthenticationSubject();
+        localStorage.setItem("token", auth.token);
+        setIsLoading(false);
+        setToken(auth.token);
+        setUser(auth.user);
+        return AUTHENTICATED_COMPLETION;
+      } catch (error) {
+        if (!isAuthenticationAttemptRevisionCurrent(revision)) {
+          return STALE_COMPLETION;
+        }
+        setIsLoading(false);
+        throw error;
+      }
+    },
+    [tempToken, commitAuthenticationSubject],
+  );
 
-  const setExternalToken = useCallback((jwt: string) => {
-    localStorage.setItem("token", jwt);
-    setIsLoading(true);
-    setToken(jwt);
-  }, []);
+  const setExternalToken = useCallback(
+    (jwt: string) => {
+      if (jwt === token) {
+        return;
+      }
+      advanceAuthenticationSubjectRevision();
+      retireAuthenticationSubject();
+      localStorage.setItem("token", jwt);
+      setIsLoading(true);
+      setToken(jwt);
+    },
+    [token, retireAuthenticationSubject],
+  );
 
   const value = useMemo(
     () => ({
@@ -132,12 +282,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       twoFactorPending,
       tempToken,
       login,
+      loginWithWebAuthn,
       register,
       logout,
       setExternalToken,
       verifyTwoFactor,
     }),
-    [user, token, isLoading, twoFactorPending, tempToken, login, register, logout, setExternalToken, verifyTwoFactor],
+    [
+      user,
+      token,
+      isLoading,
+      twoFactorPending,
+      tempToken,
+      login,
+      loginWithWebAuthn,
+      register,
+      logout,
+      setExternalToken,
+      verifyTwoFactor,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
