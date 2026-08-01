@@ -98,8 +98,19 @@ export default function Register() {
   async function onFinish(values: RegisterRequest) {
     setLoading(true);
     try {
-      await register(values);
-      navigate("/vaults", { replace: true });
+      const completion = await register(values);
+      switch (completion.status) {
+        case "authenticated":
+          navigate("/vaults", { replace: true });
+          return;
+        case "two_factor_required":
+        case "stale":
+          return;
+        default: {
+          const exhaustiveCompletion: never = completion;
+          return exhaustiveCompletion;
+        }
+      }
     } catch (err) {
       const apiErr = err as APIError;
       message.error(apiErr.message || t("auth.register.failed"));
