@@ -3,11 +3,11 @@ package services
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var (
@@ -54,9 +54,16 @@ func (s *ContactMoveService) MoveMany(contactIDs []string, currentVaultID, targe
 	if len(uniqueContactIDs) == 0 {
 		return nil, ErrContactMoveEmpty
 	}
+	if s.davPushService != nil && currentVaultID != targetVaultID {
+		releaseDAVOperations := lockMovedContactDAVOperations(&s.davPushService.operationLocks, uniqueContactIDs)
+		defer releaseDAVOperations()
+	}
 
 	var movedContacts []models.Contact
 	var quickFactFilesToDelete []models.File
+	var sourceDAVDeleteTargets []contactRemoteDeletionTarget
+	var responses []dto.ContactResponse
+	var reindexedContacts []models.Contact
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := validateMoveVaultsAndTargetAccess(tx, currentVaultID, targetVaultID, userID); err != nil {
 			return err
@@ -65,80 +72,86 @@ func (s *ContactMoveService) MoveMany(contactIDs []string, currentVaultID, targe
 		if err != nil {
 			return err
 		}
-		if currentVaultID == targetVaultID {
-			movedContacts = contacts
-			return nil
+		if currentVaultID != targetVaultID {
+			sourceTargets, err := captureMovedContactSourceDAVDeleteTargets(tx, uniqueContactIDs, currentVaultID)
+			if err != nil {
+				return err
+			}
+			sourceDAVDeleteTargets = sourceTargets
+			if err := updateBatchFirstMetThrough(tx, uniqueContactIDs); err != nil {
+				return err
+			}
+			if err := moveAllContactRows(tx, uniqueContactIDs, currentVaultID, targetVaultID); err != nil {
+				return err
+			}
+			if err := moveContactAddresses(tx, uniqueContactIDs, currentVaultID, targetVaultID); err != nil {
+				return err
+			}
+			if err := remapMovedImportantDateTypes(tx, uniqueContactIDs, currentVaultID, targetVaultID); err != nil {
+				return err
+			}
+			filesToDelete, err := remapMovedQuickFacts(tx, uniqueContactIDs, currentVaultID, targetVaultID, s.fileService != nil)
+			if err != nil {
+				return err
+			}
+			quickFactFilesToDelete = filesToDelete
+			if err := remapMovedMoodTrackingEvents(tx, uniqueContactIDs, currentVaultID, targetVaultID); err != nil {
+				return err
+			}
+			if err := rescheduleMovedContactReminders(tx, uniqueContactIDs); err != nil {
+				return err
+			}
+			if err := moveFullyOwnedTasks(tx, uniqueContactIDs, targetVaultID); err != nil {
+				return err
+			}
+			if err := moveFullyOwnedLoans(tx, uniqueContactIDs, targetVaultID); err != nil {
+				return err
+			}
+			if err := cleanSourceScopedMovePivots(tx, uniqueContactIDs, currentVaultID); err != nil {
+				return err
+			}
+			if err := cleanMovedContactsFromLifeEvents(tx, uniqueContactIDs); err != nil {
+				return err
+			}
 		}
-		if err := updateBatchFirstMetThrough(tx, uniqueContactIDs); err != nil {
-			return err
-		}
-		if err := moveAllContactRows(tx, uniqueContactIDs, currentVaultID, targetVaultID); err != nil {
-			return err
-		}
-		if err := moveContactAddresses(tx, uniqueContactIDs, currentVaultID, targetVaultID); err != nil {
-			return err
-		}
-		if err := remapMovedImportantDateTypes(tx, uniqueContactIDs, currentVaultID, targetVaultID); err != nil {
-			return err
-		}
-		filesToDelete, err := remapMovedQuickFacts(tx, uniqueContactIDs, currentVaultID, targetVaultID, s.fileService != nil)
+		movedContacts = contacts
+
+		// Response hydration is transactional so a hydration failure cannot commit a partial move.
+		formatter, err := newContactNameFormatter(tx, userID)
 		if err != nil {
 			return err
 		}
-		quickFactFilesToDelete = filesToDelete
-		if err := remapMovedMoodTrackingEvents(tx, uniqueContactIDs, currentVaultID, targetVaultID); err != nil {
-			return err
+		responses = make([]dto.ContactResponse, 0, len(movedContacts))
+		reindexedContacts = make([]models.Contact, 0, len(movedContacts))
+		for _, movedContact := range movedContacts {
+			var contact models.Contact
+			if err := tx.Preload("FirstMetThrough", "vault_id = ?", targetVaultID).
+				First(&contact, "id = ? AND vault_id = ?", movedContact.ID, targetVaultID).Error; err != nil {
+				return err
+			}
+			resp, err := toContactResponse(&contact, false, formatter)
+			if err != nil {
+				return err
+			}
+			responses = append(responses, resp)
+			reindexedContacts = append(reindexedContacts, contact)
 		}
-		if err := rescheduleMovedContactReminders(tx, uniqueContactIDs); err != nil {
-			return err
-		}
-		if err := moveFullyOwnedTasks(tx, uniqueContactIDs, targetVaultID); err != nil {
-			return err
-		}
-		if err := moveFullyOwnedLoans(tx, uniqueContactIDs, targetVaultID); err != nil {
-			return err
-		}
-		if err := cleanSourceScopedMovePivots(tx, uniqueContactIDs, currentVaultID); err != nil {
-			return err
-		}
-		if err := cleanMovedContactsFromLifeEvents(tx, uniqueContactIDs); err != nil {
-			return err
-		}
-		movedContacts = contacts
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 	for i := range quickFactFilesToDelete {
 		if err := s.fileService.deleteFileRecord(&quickFactFilesToDelete[i]); err != nil {
-			return nil, fmt.Errorf("failed to delete moved quick fact file %d: %w", quickFactFilesToDelete[i].ID, err)
+			// Post-commit maintenance cannot change the result of an already committed move.
+			log.Printf("[contact-move] failed to delete moved quick fact file %d: %v", quickFactFilesToDelete[i].ID, err)
 		}
 	}
 
-	formatter, err := newContactNameFormatter(s.db, userID)
-	if err != nil {
-		return nil, err
-	}
-	responses := make([]dto.ContactResponse, 0, len(movedContacts))
-	reindexedContacts := make([]models.Contact, 0, len(movedContacts))
-	for _, movedContact := range movedContacts {
-		var contact models.Contact
-		if err := s.db.Preload("FirstMetThrough", "vault_id = ?", targetVaultID).
-			First(&contact, "id = ? AND vault_id = ?", movedContact.ID, targetVaultID).Error; err != nil {
-			return nil, err
-		}
-		resp, err := toContactResponse(&contact, false, formatter)
-		if err != nil {
-			return nil, err
-		}
-		responses = append(responses, resp)
-		reindexedContacts = append(reindexedContacts, contact)
-	}
 	if currentVaultID != targetVaultID {
+		s.runMovedContactDAVLifecycle(uniqueContactIDs, sourceDAVDeleteTargets, targetVaultID)
 		if err := s.reindexMovedSearchDocuments(uniqueContactIDs, reindexedContacts, targetVaultID); err != nil {
-			return nil, err
+			log.Printf("[contact-move] failed to reindex moved search documents for target vault %s contacts %v: %v", targetVaultID, uniqueContactIDs, err)
 		}
-		s.pushMovedContactsToDav(uniqueContactIDs, targetVaultID)
 	}
 	return &dto.BulkMoveContactsResponse{MovedCount: len(responses), Contacts: responses}, nil
 }
@@ -147,33 +160,26 @@ func (s *ContactMoveService) reindexMovedSearchDocuments(contactIDs []string, co
 	if s.searchService == nil {
 		return nil
 	}
+	errs := make([]error, 0)
 	for i := range contacts {
 		contacts[i].VaultID = targetVaultID
 		if err := s.searchService.IndexContact(&contacts[i]); err != nil {
-			_ = s.searchService.DeleteContact(contacts[i].ID)
-			return fmt.Errorf("failed to reindex moved contact %s: %w", contacts[i].ID, err)
+			deleteErr := s.searchService.DeleteContact(contacts[i].ID)
+			errs = append(errs, fmt.Errorf("failed to reindex moved contact %s: %w", contacts[i].ID, errors.Join(err, deleteErr)))
 		}
 	}
 	var notes []models.Note
 	if err := s.db.Where("contact_id IN ? AND vault_id = ?", contactIDs, targetVaultID).Find(&notes).Error; err != nil {
-		return fmt.Errorf("failed to load moved notes for search reindex: %w", err)
+		errs = append(errs, fmt.Errorf("failed to load moved notes for search reindex: %w", err))
+		return errors.Join(errs...)
 	}
 	for i := range notes {
 		if err := s.searchService.IndexNote(&notes[i]); err != nil {
-			_ = s.searchService.DeleteNote(notes[i].ID)
-			return fmt.Errorf("failed to reindex moved note %d: %w", notes[i].ID, err)
+			deleteErr := s.searchService.DeleteNote(notes[i].ID)
+			errs = append(errs, fmt.Errorf("failed to reindex moved note %d: %w", notes[i].ID, errors.Join(err, deleteErr)))
 		}
 	}
-	return nil
-}
-
-func (s *ContactMoveService) pushMovedContactsToDav(contactIDs []string, targetVaultID string) {
-	if s.davPushService == nil {
-		return
-	}
-	for _, contactID := range contactIDs {
-		go s.davPushService.PushContactChange(contactID, targetVaultID)
-	}
+	return errors.Join(errs...)
 }
 
 func validateMoveVaultsAndTargetAccess(tx *gorm.DB, currentVaultID, targetVaultID, userID string) error {
@@ -195,19 +201,6 @@ func validateMoveVaultsAndTargetAccess(tx *gorm.DB, currentVaultID, targetVaultI
 		return ErrVaultForbidden
 	}
 	return NewVaultService(tx).CheckUserVaultAccess(userID, targetVaultID, models.PermissionEditor)
-}
-
-func loadMovableContacts(tx *gorm.DB, contactIDs []string, currentVaultID string) ([]models.Contact, error) {
-	var contacts []models.Contact
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id IN ? AND vault_id = ? AND NOT (can_be_deleted = ? AND listed = ?)", contactIDs, currentVaultID, false, false).
-		Find(&contacts).Error; err != nil {
-		return nil, err
-	}
-	if len(contacts) != len(contactIDs) {
-		return nil, ErrContactNotFound
-	}
-	return contacts, nil
 }
 
 func updateBatchFirstMetThrough(tx *gorm.DB, contactIDs []string) error {
@@ -492,7 +485,9 @@ func rescheduleMovedContactReminders(tx *gorm.DB, contactIDs []string) error {
 		return err
 	}
 	for i := range reminders {
-		scheduleReminderForVaultUsers(tx, &reminders[i])
+		if err := scheduleReminderForVaultUsers(tx, &reminders[i]); err != nil {
+			return err
+		}
 	}
 	return nil
 }
