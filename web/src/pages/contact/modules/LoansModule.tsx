@@ -15,28 +15,48 @@ import {
   theme,
   DatePicker,
 } from "antd";
-import { PlusOutlined, DeleteOutlined, CheckOutlined, EditOutlined } from "@ant-design/icons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  CheckOutlined,
+  EditOutlined,
+} from "@ant-design/icons";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryKey,
+} from "@tanstack/react-query";
 import { api } from "@/api";
 import type { Loan, APIError, Currency } from "@/api";
 import { useTranslation } from "react-i18next";
 import { useDateFormat, formatDate } from "@/utils/dateFormat";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
+import type { NormalizedFeedSource } from "@/utils/feedSourceLink";
+import {
+  invalidateFeedQueries,
+  type ContactQueryScope,
+} from "@/utils/queryInvalidation";
+import { sourceRecordKey, useSourceRecordReveal } from "../contactSourceRecord";
+import {
+  createContactSaveMutationOperation,
+  type ContactSaveMutationOperation,
+} from "./contactSaveMutationOperation";
 
 type LoanCategory = "money" | "item";
 type LoanDirection = "lender" | "borrower";
 
 type LoanFormValues = {
-  category: LoanCategory;
-  type: LoanDirection;
-  name: string;
-  description?: string;
-  amount_lent?: number;
-  currency_id?: number;
-  item_name?: string;
-  quantity?: number;
-  due_at?: Dayjs | null;
+  readonly category: LoanCategory;
+  readonly type: LoanDirection;
+  readonly name: string;
+  readonly description?: string;
+  readonly amount_lent?: number;
+  readonly currency_id?: number;
+  readonly item_name?: string;
+  readonly quantity?: number;
+  readonly due_at?: Dayjs | null;
 };
 
 type LoanRequest = {
@@ -51,12 +71,27 @@ type LoanRequest = {
   due_at?: string;
 };
 
+type LoanSaveMutationOperation =
+  ContactSaveMutationOperation<LoanFormValues> & {
+    readonly scope: ContactQueryScope;
+    // Route props can change while the request is pending, so success must use the submitted list identity.
+    readonly listQueryKey: QueryKey;
+  };
+
+type LoanDeleteMutationOperation = {
+  readonly source: ContactQueryScope;
+  readonly listQueryKey: QueryKey;
+  readonly id: number;
+};
+
 export default function LoansModule({
   vaultId,
   contactId,
+  target,
 }: {
   vaultId: string | number;
   contactId: string | number;
+  target?: Extract<NormalizedFeedSource, { readonly module: "loans" }>;
 }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -66,16 +101,34 @@ export default function LoansModule({
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const dateFormats = useDateFormat();
-  const qk = ["vaults", vaultId, "contacts", contactId, "loans"];
-  const activeCategory = (Form.useWatch("category", form) as LoanCategory | undefined) ?? "money";
+  const scope = {
+    vaultId: String(vaultId),
+    contactId: String(contactId),
+  } as const satisfies ContactQueryScope;
+  const qk = [
+    "vaults",
+    vaultId,
+    "contacts",
+    contactId,
+    "loans",
+  ] as const satisfies QueryKey;
+  const activeCategory =
+    (Form.useWatch("category", form) as LoanCategory | undefined) ?? "money";
 
   const { data: loans = [], isLoading } = useQuery({
     queryKey: qk,
-    queryFn: async () => {
-      const res = await api.loans.contactsLoansList(String(vaultId), String(contactId));
+    queryFn: async (): Promise<Loan[]> => {
+      const res = await api.loans.contactsLoansList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
+  const targetAvailable =
+    target !== undefined && loans.some((loan: Loan) => loan.id === target.id);
+
+  useSourceRecordReveal(target, targetAvailable);
 
   const { data: currencies = [] } = useQuery({
     queryKey: ["currencies"],
@@ -87,10 +140,16 @@ export default function LoansModule({
 
   const currencyOptions = currencies.flatMap((currency) => {
     if (currency.id == null) return [];
-    return [{ value: currency.id, label: currency.code ?? String(currency.id) }];
+    return [
+      { value: currency.id, label: currency.code ?? String(currency.id) },
+    ];
   });
-  const defaultCurrencyId = currencyOptions.find((currency) => currency.label === "USD")?.value ?? currencyOptions[0]?.value;
-  const currencyCodeById = new Map(currencyOptions.map((currency) => [currency.value, currency.label]));
+  const defaultCurrencyId =
+    currencyOptions.find((currency) => currency.label === "USD")?.value ??
+    currencyOptions[0]?.value;
+  const currencyCodeById = new Map(
+    currencyOptions.map((currency) => [currency.value, currency.label]),
+  );
 
   function buildLoanRequest(values: LoanFormValues): LoanRequest {
     const category = values.category ?? "money";
@@ -155,7 +214,9 @@ export default function LoansModule({
   }
 
   function getDirectionLabel(type?: string) {
-    return type === "borrower" ? t("modules.loans.i_borrowed") : t("modules.loans.i_lent");
+    return type === "borrower"
+      ? t("modules.loans.i_borrowed")
+      : t("modules.loans.i_lent");
   }
 
   function renderLoanDescription(loan: Loan) {
@@ -163,41 +224,110 @@ export default function LoansModule({
     const parts: string[] = [];
 
     if (category === "item") {
-      if (loan.item_name) parts.push(`${t("modules.loans.item_name")}: ${loan.item_name}`);
-      if (loan.quantity != null) parts.push(t("modules.loans.quantity_value", { count: loan.quantity }));
-      if (loan.due_at) parts.push(t("modules.loans.due_at", { date: formatDate(loan.due_at, dateFormats) }));
-      if (loan.returned_at) parts.push(t("modules.loans.returned_at", { date: formatDate(loan.returned_at, dateFormats) }));
+      if (loan.item_name)
+        parts.push(`${t("modules.loans.item_name")}: ${loan.item_name}`);
+      if (loan.quantity != null)
+        parts.push(t("modules.loans.quantity_value", { count: loan.quantity }));
+      if (loan.due_at)
+        parts.push(
+          t("modules.loans.due_at", {
+            date: formatDate(loan.due_at, dateFormats),
+          }),
+        );
+      if (loan.returned_at)
+        parts.push(
+          t("modules.loans.returned_at", {
+            date: formatDate(loan.returned_at, dateFormats),
+          }),
+        );
     } else {
       if (loan.amount_lent != null) {
-        const currency = loan.currency_id != null ? currencyCodeById.get(loan.currency_id) : undefined;
-        parts.push(currency ? `${loan.amount_lent} ${currency}` : String(loan.amount_lent));
+        const currency =
+          loan.currency_id != null
+            ? currencyCodeById.get(loan.currency_id)
+            : undefined;
+        parts.push(
+          currency
+            ? `${loan.amount_lent} ${currency}`
+            : String(loan.amount_lent),
+        );
       }
-      if (loan.settled_at) parts.push(t("modules.loans.settled_at", { date: formatDate(loan.settled_at, dateFormats) }));
+      if (loan.settled_at)
+        parts.push(
+          t("modules.loans.settled_at", {
+            date: formatDate(loan.settled_at, dateFormats),
+          }),
+        );
     }
 
     if (loan.description) parts.push(loan.description);
     return parts.join(" · ");
   }
 
-  const createMutation = useMutation({
-    mutationFn: (values: LoanFormValues) => {
-      const request = buildLoanRequest(values);
-      if (editingId) {
-        return api.loans.contactsLoansUpdate(String(vaultId), String(contactId), editingId, request);
+  const saveMutation = useMutation({
+    mutationFn: (operation: LoanSaveMutationOperation) => {
+      const request = buildLoanRequest(operation.values);
+
+      switch (operation.kind) {
+        case "create":
+          return api.loans.contactsLoansCreate(
+            operation.scope.vaultId,
+            operation.scope.contactId,
+            request,
+          );
+        case "update":
+          return api.loans.contactsLoansUpdate(
+            operation.scope.vaultId,
+            operation.scope.contactId,
+            operation.id,
+            request,
+          );
+        default: {
+          const unreachableOperation: never = operation;
+          throw new Error(
+            `Unexpected loan save operation: ${String(unreachableOperation)}`,
+          );
+        }
       }
-      return api.loans.contactsLoansCreate(String(vaultId), String(contactId), request);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
+    onSuccess: async (_data, operation) => {
+      switch (operation.kind) {
+        case "create": {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: operation.listQueryKey }),
+            invalidateFeedQueries(queryClient, {
+              vaultIds: [operation.scope.vaultId],
+              contacts: [operation.scope],
+            }),
+          ]);
+          message.success(t("modules.loans.added"));
+          break;
+        }
+        case "update":
+          await queryClient.invalidateQueries({
+            queryKey: operation.listQueryKey,
+          });
+          message.success(t("modules.loans.updated"));
+          break;
+        default: {
+          const unreachableOperation: never = operation;
+          throw new Error(
+            `Unexpected loan save operation: ${String(unreachableOperation)}`,
+          );
+        }
+      }
       closeModal();
-      message.success(editingId ? t("modules.loans.updated") : t("modules.loans.added"));
     },
     onError: (e: APIError) => message.error(e.message),
   });
 
   const toggleMutation = useMutation({
     mutationFn: (loan: Loan) =>
-      api.loans.contactsLoansToggleUpdate(String(vaultId), String(contactId), loan.id!),
+      api.loans.contactsLoansToggleUpdate(
+        String(vaultId),
+        String(contactId),
+        loan.id!,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk });
     },
@@ -205,9 +335,21 @@ export default function LoansModule({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.loans.contactsLoansDelete(String(vaultId), String(contactId), id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
+    mutationFn: (operation: LoanDeleteMutationOperation) =>
+      api.loans.contactsLoansDelete(
+        operation.source.vaultId,
+        operation.source.contactId,
+        operation.id,
+      ),
+    onSuccess: async (_data, operation) => {
+      // Historical Feed rows query source availability, so deletion must refresh both projections.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: operation.listQueryKey }),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [operation.source.vaultId],
+          contacts: [operation.source],
+        }),
+      ]);
       message.success(t("modules.loans.deleted"));
     },
     onError: (e: APIError) => message.error(e.message),
@@ -215,10 +357,12 @@ export default function LoansModule({
 
   return (
     <Card
-      title={<span style={{ fontWeight: 500 }}>{t("modules.loans.title")}</span>}
+      title={
+        <span style={{ fontWeight: 500 }}>{t("modules.loans.title")}</span>
+      }
       styles={{
         header: { borderBottom: `1px solid ${token.colorBorderSecondary}` },
-        body: { padding: '16px 24px' },
+        body: { padding: "16px 24px" },
       }}
       extra={
         <Button
@@ -234,18 +378,27 @@ export default function LoansModule({
       <List
         loading={isLoading}
         dataSource={loans}
-        locale={{ emptyText: <Empty description={t("modules.loans.no_loans")} /> }}
+        locale={{
+          emptyText: <Empty description={t("modules.loans.no_loans")} />,
+        }}
         split={false}
         renderItem={(loan: Loan) => (
           <List.Item
+            data-source-record={
+              loan.id ? sourceRecordKey("Loan", loan.id) : undefined
+            }
             style={{
               borderRadius: token.borderRadius,
-              padding: '10px 12px',
+              padding: "10px 12px",
               marginBottom: 4,
-              transition: 'background 0.2s',
+              transition: "background 0.2s",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = token.colorFillQuaternary; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = token.colorFillQuaternary;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
             actions={[
               <Button
                 key="edit"
@@ -267,8 +420,24 @@ export default function LoansModule({
                     ? t("modules.loans.mark_returned")
                     : t("modules.loans.settle")}
               </Button>,
-              <Popconfirm key="d" title={t("modules.loans.delete_confirm")} onConfirm={() => deleteMutation.mutate(loan.id!)}>
-                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+              <Popconfirm
+                key="d"
+                title={t("modules.loans.delete_confirm")}
+                onConfirm={() => {
+                  if (loan.id === undefined) return;
+                  deleteMutation.mutate({
+                    source: scope,
+                    listQueryKey: qk,
+                    id: loan.id,
+                  });
+                }}
+              >
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                />
               </Popconfirm>,
             ]}
           >
@@ -276,9 +445,21 @@ export default function LoansModule({
               title={
                 <span style={{ fontWeight: 500 }}>
                   {loan.name}{" "}
-                  <Tag color={getLoanCategory(loan) === "item" ? "blue" : "purple"}>{t(`modules.loans.category_${getLoanCategory(loan)}`)}</Tag>
-                  <Tag color={loan.type === "lender" ? "green" : "orange"}>{getDirectionLabel(loan.type)}</Tag>
-                  {loan.settled && <Tag color="default">{getLoanCategory(loan) === "item" ? t("modules.loans.returned") : t("modules.loans.settled")}</Tag>}
+                  <Tag
+                    color={getLoanCategory(loan) === "item" ? "blue" : "purple"}
+                  >
+                    {t(`modules.loans.category_${getLoanCategory(loan)}`)}
+                  </Tag>
+                  <Tag color={loan.type === "lender" ? "green" : "orange"}>
+                    {getDirectionLabel(loan.type)}
+                  </Tag>
+                  {loan.settled && (
+                    <Tag color="default">
+                      {getLoanCategory(loan) === "item"
+                        ? t("modules.loans.returned")
+                        : t("modules.loans.settled")}
+                    </Tag>
+                  )}
                 </span>
               }
               description={
@@ -292,14 +473,30 @@ export default function LoansModule({
       />
 
       <Modal
-        title={editingId ? t("modules.loans.edit") : t("modules.loans.modal_title")}
+        title={
+          editingId ? t("modules.loans.edit") : t("modules.loans.modal_title")
+        }
         open={open}
         onCancel={closeModal}
         onOk={() => form.submit()}
-        confirmLoading={createMutation.isPending}
+        confirmLoading={saveMutation.isPending}
       >
-        <Form form={form} layout="vertical" onFinish={(v: LoanFormValues) => createMutation.mutate(v)}>
-          <Form.Item name="category" label={t("modules.loans.category")} rules={[{ required: true }]}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={(values: LoanFormValues) =>
+            saveMutation.mutate({
+              ...createContactSaveMutationOperation(editingId, values),
+              scope,
+              listQueryKey: qk,
+            })
+          }
+        >
+          <Form.Item
+            name="category"
+            label={t("modules.loans.category")}
+            rules={[{ required: true }]}
+          >
             <Select
               options={[
                 { value: "money", label: t("modules.loans.category_money") },
@@ -307,17 +504,33 @@ export default function LoansModule({
               ]}
               onChange={(category: LoanCategory) => {
                 if (category === "item") {
-                  form.setFieldsValue({ amount_lent: undefined, currency_id: undefined, quantity: 1 });
+                  form.setFieldsValue({
+                    amount_lent: undefined,
+                    currency_id: undefined,
+                    quantity: 1,
+                  });
                 } else {
-                  form.setFieldsValue({ item_name: undefined, due_at: null, currency_id: defaultCurrencyId });
+                  form.setFieldsValue({
+                    item_name: undefined,
+                    due_at: null,
+                    currency_id: defaultCurrencyId,
+                  });
                 }
               }}
             />
           </Form.Item>
-          <Form.Item name="name" label={t("modules.loans.name")} rules={[{ required: true }]}>
+          <Form.Item
+            name="name"
+            label={t("modules.loans.name")}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="type" label={t("modules.loans.direction")} rules={[{ required: true }]}>
+          <Form.Item
+            name="type"
+            label={t("modules.loans.direction")}
+            rules={[{ required: true }]}
+          >
             <Select
               options={[
                 { value: "lender", label: t("modules.loans.i_lent") },
@@ -327,7 +540,11 @@ export default function LoansModule({
           </Form.Item>
           {activeCategory === "money" ? (
             <>
-              <Form.Item name="amount_lent" label={t("modules.loans.amount")} rules={[{ required: true }]}>
+              <Form.Item
+                name="amount_lent"
+                label={t("modules.loans.amount")}
+                rules={[{ required: true }]}
+              >
                 <InputNumber min={0} style={{ width: "100%" }} />
               </Form.Item>
               <Form.Item name="currency_id" label={t("modules.loans.currency")}>
@@ -342,7 +559,11 @@ export default function LoansModule({
             </>
           ) : (
             <>
-              <Form.Item name="item_name" label={t("modules.loans.item_name")} rules={[{ required: true }]}>
+              <Form.Item
+                name="item_name"
+                label={t("modules.loans.item_name")}
+                rules={[{ required: true }]}
+              >
                 <Input />
               </Form.Item>
               <Form.Item name="quantity" label={t("modules.loans.quantity")}>
