@@ -2947,7 +2947,7 @@ func TestCrossAccountCompanyGetBlocked(t *testing.T) {
 
 func TestNonInstanceAdminCannotListAdminUsers(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-list-users@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-list-users@example.com")
 	// Account admin but NOT instance admin
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
@@ -2959,7 +2959,7 @@ func TestNonInstanceAdminCannotListAdminUsers(t *testing.T) {
 
 func TestNonInstanceAdminCannotToggleUser(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-toggle@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-toggle@example.com")
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
 	rec := ts.doRequest(http.MethodPut, "/api/admin/users/fake-id/toggle", "", token)
@@ -2970,7 +2970,7 @@ func TestNonInstanceAdminCannotToggleUser(t *testing.T) {
 
 func TestNonInstanceAdminCannotSetAdmin(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-setadmin@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-setadmin@example.com")
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
 	rec := ts.doRequest(http.MethodPut, "/api/admin/users/fake-id/admin", `{"is_instance_admin":true}`, token)
@@ -2981,7 +2981,7 @@ func TestNonInstanceAdminCannotSetAdmin(t *testing.T) {
 
 func TestNonInstanceAdminCannotDeleteUser(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-deluser@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-deluser@example.com")
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
 	rec := ts.doRequest(http.MethodDelete, "/api/admin/users/fake-id", "", token)
@@ -2990,9 +2990,21 @@ func TestNonInstanceAdminCannotDeleteUser(t *testing.T) {
 	}
 }
 
+func registerNonInstanceAdminTestUser(t *testing.T, ts *testServer, email string) authData {
+	t.Helper()
+	_, auth := ts.registerTestUser(t, email)
+	// The first registered test user is bootstrapped as instance admin; revoke it in DB because authorization uses current DB privileges.
+	if err := ts.db.Model(&models.User{}).
+		Where("id = ?", auth.User.ID).
+		Update("is_instance_administrator", false).Error; err != nil {
+		t.Fatalf("revoke test user instance administrator privilege: %v", err)
+	}
+	return auth
+}
+
 func TestNonInstanceAdminCannotGetAdminSettings(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-settings@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-settings@example.com")
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
 	rec := ts.doRequest(http.MethodGet, "/api/admin/settings", "", token)
@@ -3003,7 +3015,7 @@ func TestNonInstanceAdminCannotGetAdminSettings(t *testing.T) {
 
 func TestNonInstanceAdminCannotUpdateAdminSettings(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-upd-settings@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-upd-settings@example.com")
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
 	rec := ts.doRequest(http.MethodPut, "/api/admin/settings", `{"key":"value"}`, token)
@@ -3014,7 +3026,7 @@ func TestNonInstanceAdminCannotUpdateAdminSettings(t *testing.T) {
 
 func TestNonInstanceAdminCannotSetStorageLimit(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-storage@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-storage@example.com")
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
 	rec := ts.doRequest(http.MethodPut, "/api/admin/users/fake-id/storage-limit", `{"limit":1000}`, token)
@@ -3025,7 +3037,7 @@ func TestNonInstanceAdminCannotSetStorageLimit(t *testing.T) {
 
 func TestNonInstanceAdminCannotManageOAuthProviders(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-oauth@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-oauth@example.com")
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
 	rec := ts.doRequest(http.MethodGet, "/api/admin/oauth-providers", "", token)
@@ -3041,7 +3053,7 @@ func TestNonInstanceAdminCannotManageOAuthProviders(t *testing.T) {
 
 func TestNonInstanceAdminCannotManageBackups(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-backup@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-backup@example.com")
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
 	rec := ts.doRequest(http.MethodGet, "/api/admin/backups", "", token)
@@ -3057,7 +3069,7 @@ func TestNonInstanceAdminCannotManageBackups(t *testing.T) {
 
 func TestNonInstanceAdminCannotRebuildSearchIndex(t *testing.T) {
 	ts := setupTestServer(t)
-	_, auth := ts.registerTestUser(t, "non-ia-search@example.com")
+	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-search@example.com")
 	token := generateJWTFull(auth.User.ID, auth.User.AccountID, auth.User.Email, true, false, false)
 
 	rec := ts.doRequest(http.MethodPost, "/api/admin/search/rebuild", "", token)

@@ -37,7 +37,7 @@ const patPrefix = "bonds_"
 const ScopeCalendarRead = "calendar:read"
 
 const (
-	ctxPATScopes  = "pat_scopes"
+	ctxPATScopes   = "pat_scopes"
 	ctxIsScopedPAT = "is_scoped_pat"
 )
 
@@ -85,7 +85,7 @@ func (m *AuthMiddleware) authenticateWithJWT(c echo.Context, next echo.HandlerFu
 	}
 
 	user := &models.User{}
-	if err := m.db.Select("disabled, email_verified_at").Where("id = ?", claims.UserID).First(user).Error; err != nil {
+	if err := m.db.Select("disabled, email_verified_at, is_account_administrator, is_instance_administrator").Where("id = ?", claims.UserID).First(user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return response.Unauthorized(c, "err.user_not_found")
 		}
@@ -98,8 +98,9 @@ func (m *AuthMiddleware) authenticateWithJWT(c echo.Context, next echo.HandlerFu
 	c.Set("user_id", claims.UserID)
 	c.Set("account_id", claims.AccountID)
 	c.Set("email", claims.Email)
-	c.Set("is_admin", claims.IsAdmin)
-	c.Set("is_instance_admin", claims.IsInstanceAdmin)
+	// Database privileges are authoritative so promotions and revocations take effect before JWT expiry.
+	c.Set("is_admin", user.IsAccountAdministrator)
+	c.Set("is_instance_admin", user.IsInstanceAdministrator)
 	c.Set("email_verified", user.EmailVerifiedAt != nil)
 	c.Set("claims", claims)
 
