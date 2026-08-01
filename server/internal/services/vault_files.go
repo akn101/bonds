@@ -160,7 +160,9 @@ func (s *VaultFileService) ForceDeleteFile(id uint, vaultID string) error {
 
 func (s *VaultFileService) deleteFileRecord(file *models.File) error {
 	destPath := filepath.Join(s.uploadDir, file.UUID)
-	os.Remove(destPath)
+	if err := os.Remove(destPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove file %s: %w", file.UUID, err)
+	}
 	return s.db.Delete(file).Error
 }
 
