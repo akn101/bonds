@@ -11,11 +11,16 @@ import (
 var ErrJournalNotFound = errors.New("journal not found")
 
 type JournalService struct {
-	db *gorm.DB
+	db        *gorm.DB
+	uploadDir string
 }
 
 func NewJournalService(db *gorm.DB) *JournalService {
 	return &JournalService{db: db}
+}
+
+func (s *JournalService) SetUploadDir(uploadDir string) {
+	s.uploadDir = uploadDir
 }
 
 func (s *JournalService) List(vaultID string) ([]dto.JournalResponse, error) {
@@ -79,19 +84,42 @@ func (s *JournalService) Update(id uint, vaultID string, req dto.UpdateJournalRe
 }
 
 func (s *JournalService) Delete(id uint, vaultID string) error {
-	var journal models.Journal
-	if err := s.db.Where("id = ? AND vault_id = ?", id, vaultID).First(&journal).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrJournalNotFound
-		}
+	if err := validateJournalBelongsToVault(s.db, id, vaultID); err != nil {
 		return err
 	}
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	var files []models.File
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := lockPostJournal(tx, id, vaultID); err != nil {
+			return err
+		}
+		posts, err := lockJournalPosts(tx, id)
+		if err != nil {
+			return err
+		}
+		postIDs := make([]uint, len(posts))
+		for index := range posts {
+			postIDs[index] = posts[index].ID
+		}
+		postFiles, err := deletePostDependents(tx, vaultID, postIDs)
+		if err != nil {
+			return err
+		}
+		files = postFiles
 		if err := tx.Where("journal_id = ?", id).Delete(&models.Post{}).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&journal).Error
-	})
+		if err := tx.Where("journal_id = ?", id).Delete(&models.JournalMetric{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("journal_id = ?", id).Delete(&models.SliceOfLife{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&models.Journal{}, id).Error
+	}); err != nil {
+		return err
+	}
+	removeCommittedPostFiles(s.uploadDir, files)
+	return nil
 }
 
 func toJournalResponse(j *models.Journal, postCount int) dto.JournalResponse {

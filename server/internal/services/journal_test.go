@@ -2,12 +2,20 @@ package services
 
 import (
 	"testing"
+	"time"
 
 	"github.com/naiba/bonds/internal/dto"
+	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/internal/testutil"
+	"gorm.io/gorm"
 )
 
 func setupJournalTest(t *testing.T) (*JournalService, string) {
+	_, service, vaultID := setupJournalTestWithDB(t)
+	return service, vaultID
+}
+
+func setupJournalTestWithDB(t *testing.T) (*gorm.DB, *JournalService, string) {
 	t.Helper()
 	db := testutil.SetupTestDB(t)
 	cfg := testutil.TestJWTConfig()
@@ -29,7 +37,7 @@ func setupJournalTest(t *testing.T) (*JournalService, string) {
 		t.Fatalf("CreateVault failed: %v", err)
 	}
 
-	return NewJournalService(db), vault.ID
+	return db, NewJournalService(db), vault.ID
 }
 
 func TestCreateJournal(t *testing.T) {
@@ -141,6 +149,93 @@ func TestDeleteJournal(t *testing.T) {
 	}
 	if len(journals) != 0 {
 		t.Errorf("Expected 0 journals after delete, got %d", len(journals))
+	}
+}
+
+func TestJournalGetByYearReturnsPostContacts(t *testing.T) {
+	db, svc, vaultID := setupJournalTestWithDB(t)
+	journal, err := svc.Create(vaultID, dto.CreateJournalRequest{Name: "Yearly journal"})
+	if err != nil {
+		t.Fatalf("create journal: %v", err)
+	}
+	contact := models.Contact{VaultID: vaultID, FirstName: strPtrOrNil("Alice")}
+	if err := db.Create(&contact).Error; err != nil {
+		t.Fatalf("create contact: %v", err)
+	}
+	post := models.Post{
+		JournalID: journal.ID,
+		Title:     strPtrOrNil("Lunch with Alice"),
+		WrittenAt: time.Date(2025, time.January, 15, 0, 0, 0, 0, time.UTC),
+	}
+	if err := db.Create(&post).Error; err != nil {
+		t.Fatalf("create post: %v", err)
+	}
+	if err := db.Create(&models.ContactPost{PostID: post.ID, ContactID: contact.ID}).Error; err != nil {
+		t.Fatalf("associate contact with post: %v", err)
+	}
+
+	posts, err := svc.GetByYear(journal.ID, vaultID, 2025)
+	if err != nil {
+		t.Fatalf("get posts by year: %v", err)
+	}
+	if len(posts) != 1 {
+		t.Fatalf("posts = %d, want 1", len(posts))
+	}
+	if len(posts[0].Contacts) != 1 || posts[0].Contacts[0].ID != contact.ID {
+		t.Fatalf("post contacts = %+v, want only %q", posts[0].Contacts, contact.ID)
+	}
+}
+
+func TestJournalDeleteRemovesPostChildren(t *testing.T) {
+	db, svc, vaultID := setupJournalTestWithDB(t)
+	journal, err := svc.Create(vaultID, dto.CreateJournalRequest{Name: "Delete children"})
+	if err != nil {
+		t.Fatalf("create journal: %v", err)
+	}
+	contact := models.Contact{VaultID: vaultID, FirstName: strPtrOrNil("Alice")}
+	if err := db.Create(&contact).Error; err != nil {
+		t.Fatalf("create contact: %v", err)
+	}
+	posts := []models.Post{
+		{JournalID: journal.ID, WrittenAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)},
+		{JournalID: journal.ID, WrittenAt: time.Date(2025, time.January, 2, 0, 0, 0, 0, time.UTC)},
+	}
+	if err := db.Create(&posts).Error; err != nil {
+		t.Fatalf("create posts: %v", err)
+	}
+	postIDs := []uint{posts[0].ID, posts[1].ID}
+	sections := []models.PostSection{
+		{PostID: posts[0].ID, Position: 1, Label: "First"},
+		{PostID: posts[1].ID, Position: 1, Label: "Second"},
+	}
+	if err := db.Create(&sections).Error; err != nil {
+		t.Fatalf("create post sections: %v", err)
+	}
+	associations := []models.ContactPost{
+		{PostID: posts[0].ID, ContactID: contact.ID},
+		{PostID: posts[1].ID, ContactID: contact.ID},
+	}
+	if err := db.Create(&associations).Error; err != nil {
+		t.Fatalf("associate contacts with posts: %v", err)
+	}
+
+	if err := svc.Delete(journal.ID, vaultID); err != nil {
+		t.Fatalf("delete journal: %v", err)
+	}
+
+	var associationCount int64
+	if err := db.Model(&models.ContactPost{}).Where("post_id IN ?", postIDs).Count(&associationCount).Error; err != nil {
+		t.Fatalf("count contact post associations: %v", err)
+	}
+	if associationCount != 0 {
+		t.Fatalf("contact post associations = %d, want 0", associationCount)
+	}
+	var sectionCount int64
+	if err := db.Model(&models.PostSection{}).Where("post_id IN ?", postIDs).Count(&sectionCount).Error; err != nil {
+		t.Fatalf("count post sections: %v", err)
+	}
+	if sectionCount != 0 {
+		t.Fatalf("post sections = %d, want 0", sectionCount)
 	}
 }
 

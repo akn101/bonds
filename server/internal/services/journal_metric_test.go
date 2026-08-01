@@ -104,7 +104,7 @@ func TestPostMetricCreateDelete(t *testing.T) {
 	journal, _ := journalSvc.Create(vault.ID, dto.CreateJournalRequest{Name: "Test Journal"})
 
 	postSvc := NewPostService(db)
-	post, _ := postSvc.Create(journal.ID, dto.CreatePostRequest{
+	post, _ := postSvc.Create(journal.ID, vault.ID, dto.CreatePostRequest{
 		Title: "Test Post", WrittenAt: time.Now(),
 	})
 
@@ -144,7 +144,7 @@ func TestPostMetricList(t *testing.T) {
 	journal, _ := journalSvc.Create(vault.ID, dto.CreateJournalRequest{Name: "Test Journal"})
 
 	postSvc := NewPostService(db)
-	post, _ := postSvc.Create(journal.ID, dto.CreatePostRequest{
+	post, _ := postSvc.Create(journal.ID, vault.ID, dto.CreatePostRequest{
 		Title: "Test Post", WrittenAt: time.Now(),
 	})
 
