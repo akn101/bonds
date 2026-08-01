@@ -1209,6 +1209,30 @@ func TestCrossVaultGroupMembershipDeleteBlocked(t *testing.T) {
 	}
 }
 
+func TestCrossVaultGroupBulkMembersAddBlocked(t *testing.T) {
+	ts := setupTestServer(t)
+
+	token, _ := ts.registerTestUser(t, "cross-vault-group-bulk-membership@example.com")
+	vault := ts.createTestVault(t, token, "Group Members Vault")
+	foreignVault := ts.createTestVault(t, token, "Foreign Group Vault")
+	contact := ts.createTestContact(t, token, vault.ID, "Grouped")
+	groupID := createTestGroup(t, ts, vault.ID, "Grouped Contacts")
+
+	path := fmt.Sprintf("/api/vaults/%s/groups/%d/members", foreignVault.ID, groupID)
+	rec := ts.doRequest(http.MethodPost, path, fmt.Sprintf(`{"contact_ids":["%s"]}`, contact.ID), token)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for cross-vault bulk member add, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var memberCount int64
+	if err := ts.db.Model(&models.ContactGroup{}).Where("group_id = ?", groupID).Count(&memberCount).Error; err != nil {
+		t.Fatalf("count group members after blocked add: %v", err)
+	}
+	if memberCount != 0 {
+		t.Fatalf("blocked group member count = %d, want 0", memberCount)
+	}
+}
+
 // ==================== L. Cross-Vault IDOR Tests for Files ====================
 
 func TestCrossVaultFileDownloadBlocked(t *testing.T) {
@@ -2860,6 +2884,27 @@ func TestViewerCannotAddContactToGroup(t *testing.T) {
 	}
 }
 
+func TestViewerCannotManageGroupMembers(t *testing.T) {
+	ts, adminToken, viewerToken, vaultID, contactID := setupViewerTest(t)
+	groupID := createTestGroup(t, ts, vaultID, "Viewer Group Members")
+	path := fmt.Sprintf("/api/vaults/%s/groups/%d/members", vaultID, groupID)
+	body := fmt.Sprintf(`{"contact_ids":["%s"]}`, contactID)
+
+	rec := ts.doRequest(http.MethodPost, path, body, viewerToken)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for Viewer adding group members, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if rec := ts.doRequest(http.MethodPost, path, body, adminToken); rec.Code != http.StatusOK {
+		t.Fatalf("expected admin to add group members, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = ts.doRequest(http.MethodDelete, path, body, viewerToken)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for Viewer removing group members, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestViewerCannotDeleteDavSubscription(t *testing.T) {
 	ts, _, viewerToken, vaultID, _ := setupViewerTest(t)
 	path := fmt.Sprintf("/api/vaults/%s/dav/subscriptions/999", vaultID)
@@ -2945,6 +2990,18 @@ func TestCrossAccountCompanyGetBlocked(t *testing.T) {
 
 // ==================== AK. Instance Admin Route Protection ====================
 
+func registerNonInstanceAdminTestUser(t *testing.T, ts *testServer, email string) authData {
+	t.Helper()
+	_, auth := ts.registerTestUser(t, email)
+	// The first registered test user is bootstrapped as instance admin; revoke it in DB because authorization uses current DB privileges.
+	if err := ts.db.Model(&models.User{}).
+		Where("id = ?", auth.User.ID).
+		Update("is_instance_administrator", false).Error; err != nil {
+		t.Fatalf("revoke test user instance administrator privilege: %v", err)
+	}
+	return auth
+}
+
 func TestNonInstanceAdminCannotListAdminUsers(t *testing.T) {
 	ts := setupTestServer(t)
 	auth := registerNonInstanceAdminTestUser(t, ts, "non-ia-list-users@example.com")
@@ -2988,18 +3045,6 @@ func TestNonInstanceAdminCannotDeleteUser(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected 403 for non-instance-admin DELETE /api/admin/users/:id, got %d: %s", rec.Code, rec.Body.String())
 	}
-}
-
-func registerNonInstanceAdminTestUser(t *testing.T, ts *testServer, email string) authData {
-	t.Helper()
-	_, auth := ts.registerTestUser(t, email)
-	// The first registered test user is bootstrapped as instance admin; revoke it in DB because authorization uses current DB privileges.
-	if err := ts.db.Model(&models.User{}).
-		Where("id = ?", auth.User.ID).
-		Update("is_instance_administrator", false).Error; err != nil {
-		t.Fatalf("revoke test user instance administrator privilege: %v", err)
-	}
-	return auth
 }
 
 func TestNonInstanceAdminCannotGetAdminSettings(t *testing.T) {
