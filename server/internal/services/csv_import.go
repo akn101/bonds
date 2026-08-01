@@ -211,7 +211,7 @@ func (s *CSVImportService) importRow(
 		for _, groupName := range splitCSVList(groupsVal) {
 			var group models.Group
 			if s.db.Where("vault_id = ? AND name = ?", vaultID, groupName).First(&group).Error == nil {
-				if err := s.db.Create(&models.ContactGroup{GroupID: group.ID, ContactID: contact.ID}).Error; err != nil {
+				if err := s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&models.ContactGroup{GroupID: group.ID, ContactID: contact.ID}).Error; err != nil {
 					resp.Errors = append(resp.Errors, fmt.Sprintf("row %d: group %q link: %v", rowNum, groupName, err))
 				}
 			} else {
