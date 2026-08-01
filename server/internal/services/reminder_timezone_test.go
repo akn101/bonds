@@ -38,6 +38,13 @@ func TestRescheduleRecurringReminderRespectsUserTimezone(t *testing.T) {
 	if err := db.Create(&vault).Error; err != nil {
 		t.Fatalf("vault: %v", err)
 	}
+	if err := db.Create(&models.UserVault{
+		VaultID:    vault.ID,
+		UserID:     resp.User.ID,
+		Permission: models.PermissionManager,
+	}).Error; err != nil {
+		t.Fatalf("vault membership: %v", err)
+	}
 	first, last := "Anniversary", "Person"
 	contact := models.Contact{VaultID: vault.ID, FirstName: &first, LastName: &last}
 	if err := db.Create(&contact).Error; err != nil {
