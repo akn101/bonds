@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"time"
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
@@ -64,7 +65,12 @@ func (s *VaultUsersService) Add(vaultID string, req dto.AddVaultUserRequest) (*d
 		VaultID:    vaultID,
 		Permission: req.Permission,
 	}
-	if err := s.db.Create(&uv).Error; err != nil {
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&uv).Error; err != nil {
+			return err
+		}
+		return scheduleAllVaultUserRemindersForNewMember(tx, vaultID, user.ID, time.Now())
+	}); err != nil {
 		return nil, err
 	}
 	resp := toVaultUserResponse(&uv, &user)
