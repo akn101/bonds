@@ -1,10 +1,25 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { httpClient } from "@/api";
 
+type AvatarRequestIdentity = {
+  readonly vaultId: string;
+  readonly contactId: string;
+  readonly updatedAt?: string;
+};
+
 const AVATAR_COLORS = [
-  "#f56a00", "#7265e6", "#ffbf00", "#00a2ae",
-  "#87d068", "#1677ff", "#722ed1", "#eb2f96",
-  "#fa8c16", "#13c2c2", "#2f54eb", "#52c41a",
+  "#f56a00",
+  "#7265e6",
+  "#ffbf00",
+  "#00a2ae",
+  "#87d068",
+  "#1677ff",
+  "#722ed1",
+  "#eb2f96",
+  "#fa8c16",
+  "#13c2c2",
+  "#2f54eb",
+  "#52c41a",
 ];
 
 function getAvatarColor(name: string): string {
@@ -30,38 +45,61 @@ export default function ContactAvatar({
   size?: number;
   updatedAt?: string;
 }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const requestIdentity = useMemo<AvatarRequestIdentity>(
+    () => ({ vaultId, contactId, updatedAt }),
+    [vaultId, contactId, updatedAt],
+  );
+  const ownedObjectUrlRef = useRef<string | null>(null);
+  const [avatar, setAvatar] = useState<{
+    readonly url: string;
+    readonly requestIdentity: AvatarRequestIdentity;
+  } | null>(null);
 
-  const initials = `${(firstName ?? "").charAt(0)}${(lastName ?? "").charAt(0)}`.toUpperCase() || "?";
+  const initials =
+    `${(firstName ?? "").charAt(0)}${(lastName ?? "").charAt(0)}`.toUpperCase() ||
+    "?";
   const bgColor = getAvatarColor((firstName ?? "") + (lastName ?? ""));
 
   useEffect(() => {
-    let revoke: string | null = null;
-    let cancelled = false;
+    let active = true;
+    const {
+      vaultId: requestVaultId,
+      contactId: requestContactId,
+      updatedAt: requestUpdatedAt,
+    } = requestIdentity;
 
     httpClient.instance
-      .get(`/vaults/${vaultId}/contacts/${contactId}/avatar`, {
-        responseType: "blob",
-        params: updatedAt ? { t: updatedAt } : undefined,
-      })
-      .then((response) => {
-        if (cancelled) return;
-        const blob = response.data as Blob;
-        if (blob.size > 0) {
+      .get<Blob>(
+        `/vaults/${requestVaultId}/contacts/${requestContactId}/avatar`,
+        {
+          responseType: "blob",
+          params: requestUpdatedAt ? { t: requestUpdatedAt } : undefined,
+        },
+      )
+      .then(
+        (response) => {
+          if (!active) return;
+          const blob = response.data;
+          if (blob.size === 0) {
+            setAvatar(null);
+            return;
+          }
           const url = URL.createObjectURL(blob);
-          revoke = url;
-          setBlobUrl(url);
-        }
-      })
-      .catch(() => {
-        // Fall back to initials
-      });
+          ownedObjectUrlRef.current = url;
+          setAvatar({ url, requestIdentity });
+        },
+        () => {
+          if (active) setAvatar(null);
+        },
+      );
 
     return () => {
-      cancelled = true;
-      if (revoke) URL.revokeObjectURL(revoke);
+      active = false;
+      const ownedUrl = ownedObjectUrlRef.current;
+      ownedObjectUrlRef.current = null;
+      if (ownedUrl) URL.revokeObjectURL(ownedUrl);
     };
-  }, [vaultId, contactId, updatedAt]);
+  }, [requestIdentity]);
 
   const containerStyle: React.CSSProperties = {
     width: size,
@@ -79,11 +117,11 @@ export default function ContactAvatar({
     letterSpacing: 0.5,
   };
 
-  if (blobUrl) {
+  if (avatar?.requestIdentity === requestIdentity) {
     return (
       <div style={containerStyle}>
         <img
-          src={blobUrl}
+          src={avatar.url}
           alt={initials}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
