@@ -1,18 +1,52 @@
-import { App as AntApp, ConfigProvider } from "antd";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { useRef } from "react";
 import { beforeAll, beforeEach, vi } from "vitest";
-import { render } from "@testing-library/react";
-import ImportantDatesModule from "@/pages/contact/modules/ImportantDatesModule";
-import type { CalendarDatePickerValue } from "@/components/CalendarDatePicker";
-
-type MockCalendarDatePickerProps = {
-  readonly value?: CalendarDatePickerValue;
-  readonly onChange?: (value: CalendarDatePickerValue) => void;
-};
+import { act, render } from "@testing-library/react";
+import { ImportantDatesModuleTestView } from "./importantDatesModuleTestView";
 
 type MutationOptions<TVariables> = {
   readonly mutationFn: (values: TVariables) => unknown;
+  readonly onSuccess?: (
+    data: unknown,
+    variables: TVariables,
+  ) => void | Promise<void>;
+  readonly onError?: (error: Error, variables: TVariables) => void;
+};
+
+type MutationController<TVariables> = {
+  options: MutationOptions<TVariables>;
+};
+
+async function completeMutation<TVariables>(
+  request: unknown,
+  variables: TVariables,
+  controller: MutationController<TVariables>,
+): Promise<void> {
+  try {
+    const data = await request;
+    await controller.options.onSuccess?.(data, variables);
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    controller.options.onError?.(error, variables);
+  }
+}
+
+function isDeleteOperation(
+  value: unknown,
+): value is { readonly kind: "delete" } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "kind" in value &&
+    value.kind === "delete"
+  );
+}
+
+type ImportantDatesModuleTestProps = {
+  readonly vaultId?: string | number;
+  readonly contactId?: string | number;
+  readonly datesReturn?: unknown;
 };
 
 const hoistedMocks = vi.hoisted(() => ({
@@ -22,12 +56,50 @@ const hoistedMocks = vi.hoisted(() => ({
     contactsDatesDelete: vi.fn(),
   },
   mutationMock: {
-    mutate: vi.fn(),
+    saveExecution: vi.fn(),
+    deleteExecution: vi.fn(),
+  },
+  queryKeyMock: vi.fn(),
+  invalidateQueriesMock: vi
+    .fn<(filters: { readonly queryKey: readonly unknown[] }) => Promise<void>>()
+    .mockResolvedValue(undefined),
+  pendingSaveCompletion: undefined as (() => Promise<void>) | undefined,
+  pendingDeleteCompletion: undefined as (() => Promise<void>) | undefined,
+  appMessageMock: {
+    success: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
 export const apiMock = hoistedMocks.apiMock;
 export const mutationMock = hoistedMocks.mutationMock;
+export const queryKeyMock = hoistedMocks.queryKeyMock;
+export const invalidateQueriesMock = hoistedMocks.invalidateQueriesMock;
+export const appMessageMock = hoistedMocks.appMessageMock;
+
+export async function completePendingSave(): Promise<void> {
+  if (hoistedMocks.pendingSaveCompletion === undefined) {
+    throw new Error("expected a pending important date save mutation");
+  }
+  await act(hoistedMocks.pendingSaveCompletion);
+}
+
+export async function completePendingDelete(): Promise<void> {
+  if (hoistedMocks.pendingDeleteCompletion === undefined) {
+    throw new Error("expected a pending important date delete mutation");
+  }
+  await act(hoistedMocks.pendingDeleteCompletion);
+}
+
+vi.mock("antd", async () => {
+  const actual = await vi.importActual<typeof import("antd")>("antd");
+  return {
+    ...actual,
+    App: Object.assign(actual.App, {
+      useApp: () => ({ message: hoistedMocks.appMessageMock }),
+    }),
+  };
+});
 
 export let mockDatesReturn: unknown = { data: [], isLoading: false };
 export let mockPrefsReturn: unknown = { data: undefined };
@@ -58,45 +130,10 @@ vi.mock("@/api", () => ({
   },
 }));
 
-vi.mock("@/components/CalendarDatePicker", () => ({
-  default: ({ value, onChange }: MockCalendarDatePickerProps) => (
-    <div data-testid="calendar-date-picker">
-      <output data-testid="calendar-picker-value">
-        {JSON.stringify(value ?? null)}
-      </output>
-      <button
-        data-testid="mock-calendar-change-full"
-        onClick={() => onChange?.({ calendarType: "gregorian", day: 15, month: 8, year: 2025, datePrecision: "full" })}
-      >
-        Set Full Date
-      </button>
-      <button
-        data-testid="mock-calendar-change-month"
-        onClick={() => onChange?.({ calendarType: "gregorian", day: null, month: 8, year: 2025, datePrecision: "month" })}
-      >
-        Set Month And Year
-      </button>
-      <button
-        data-testid="mock-calendar-change-year"
-        onClick={() => onChange?.({ calendarType: "gregorian", day: null, month: null, year: 2025, datePrecision: "year" })}
-      >
-        Set Year Only
-      </button>
-      <button
-        data-testid="mock-calendar-change-month-day"
-        onClick={() => onChange?.({ calendarType: "gregorian", day: 15, month: 8, year: null, datePrecision: "month_day" })}
-      >
-        Set Month And Day
-      </button>
-      <button
-        data-testid="mock-calendar-change-lunar-full"
-        onClick={() => onChange?.({ calendarType: "lunar", day: 15, month: 1, year: 2025, datePrecision: "full" })}
-      >
-        Set Lunar Full Date
-      </button>
-    </div>
-  ),
-}));
+vi.mock(
+  "@/components/CalendarDatePicker",
+  async () => import("./importantDatesCalendarDatePickerMock"),
+);
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-query")>();
@@ -106,16 +143,31 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
       const key = JSON.stringify(opts.queryKey);
       if (key.includes("preferences")) return mockPrefsReturn;
       if (key.includes("date-types")) return mockDateTypesReturn;
+      hoistedMocks.queryKeyMock(opts.queryKey);
       return mockDatesReturn;
     },
-    useMutation: <TVariables,>(options: MutationOptions<TVariables>) => ({
-      mutate: (values: TVariables) => {
-        hoistedMocks.mutationMock.mutate(values);
-        void options.mutationFn(values);
-      },
-      isPending: false,
+    useMutation: <TVariables,>(options: MutationOptions<TVariables>) => {
+      const controller = useRef<MutationController<TVariables>>({ options });
+      controller.current.options = options;
+      return {
+        mutate: (values: TVariables) => {
+          const request = options.mutationFn(values);
+          if (isDeleteOperation(values)) {
+            hoistedMocks.mutationMock.deleteExecution(values);
+            hoistedMocks.pendingDeleteCompletion = () =>
+              completeMutation(request, values, controller.current);
+            return;
+          }
+          hoistedMocks.mutationMock.saveExecution(values);
+          hoistedMocks.pendingSaveCompletion = () =>
+            completeMutation(request, values, controller.current);
+        },
+        isPending: false,
+      };
+    },
+    useQueryClient: () => ({
+      invalidateQueries: hoistedMocks.invalidateQueriesMock,
     }),
-    useQueryClient: () => ({ invalidateQueries: vi.fn() }),
   };
 });
 
@@ -156,22 +208,33 @@ beforeEach(() => {
   mockDatesReturn = { data: [], isLoading: false };
   mockPrefsReturn = { data: undefined };
   mockDateTypesReturn = { data: [], isLoading: false };
-  mutationMock.mutate.mockClear();
-  apiMock.contactsDatesCreate.mockClear();
-  apiMock.contactsDatesUpdate.mockClear();
-  apiMock.contactsDatesDelete.mockClear();
+  mutationMock.saveExecution.mockClear();
+  mutationMock.deleteExecution.mockClear();
+  queryKeyMock.mockClear();
+  invalidateQueriesMock.mockReset();
+  invalidateQueriesMock.mockResolvedValue(undefined);
+  hoistedMocks.pendingSaveCompletion = undefined;
+  hoistedMocks.pendingDeleteCompletion = undefined;
+  appMessageMock.success.mockClear();
+  appMessageMock.error.mockClear();
+  apiMock.contactsDatesCreate.mockReset();
+  apiMock.contactsDatesCreate.mockResolvedValue({ data: {} });
+  apiMock.contactsDatesUpdate.mockReset();
+  apiMock.contactsDatesUpdate.mockResolvedValue({ data: {} });
+  apiMock.contactsDatesDelete.mockReset();
+  apiMock.contactsDatesDelete.mockResolvedValue({ data: {} });
 });
 
-export function renderImportantDatesModule() {
-  return render(
-    <QueryClientProvider client={new QueryClient()}>
-      <ConfigProvider>
-        <AntApp>
-          <MemoryRouter>
-            <ImportantDatesModule vaultId="v1" contactId="c1" />
-          </MemoryRouter>
-        </AntApp>
-      </ConfigProvider>
-    </QueryClientProvider>,
-  );
+export function renderImportantDatesModule(
+  props: ImportantDatesModuleTestProps = {},
+) {
+  if (props.datesReturn !== undefined) {
+    mockDatesReturn = props.datesReturn;
+  }
+  const renderResult = render(<ImportantDatesModuleTestView {...props} />);
+  return {
+    ...renderResult,
+    rerenderModule: (nextProps: ImportantDatesModuleTestProps) =>
+      renderResult.rerender(<ImportantDatesModuleTestView {...nextProps} />),
+  };
 }
