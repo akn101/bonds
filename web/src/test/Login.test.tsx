@@ -1,13 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { App as AntApp, ConfigProvider } from "antd";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Login from "@/pages/auth/Login";
 import { api, httpClient } from "@/api";
+import type { User } from "@/api";
 import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
 import type { AuthenticationResponseJSON, PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import { RouteLocationProbe } from "@/test/authCompletionRouteProbe";
+import type { AuthenticationCompletion } from "@/stores/auth";
+
+const mockLogin = vi.fn();
+const mockWebAuthnLogin = vi.fn<
+  (
+    authenticate: () => Promise<{ readonly token: string; readonly user: User }>,
+  ) => Promise<AuthenticationCompletion>
+>();
 
 vi.mock("@/api", () => ({
   api: {
@@ -31,7 +41,8 @@ vi.mock("@simplewebauthn/browser", () => ({
 
 vi.mock("@/stores/auth", () => ({
   useAuth: () => ({
-    login: vi.fn(),
+    login: mockLogin,
+    loginWithWebAuthn: mockWebAuthnLogin,
     user: null,
     token: null,
     isAuthenticated: false,
@@ -49,7 +60,7 @@ vi.mock("@/stores/theme", () => ({
   }),
 }));
 
-function renderLogin() {
+function renderLogin(initialEntry = "/login") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -58,8 +69,23 @@ function renderLogin() {
     <ConfigProvider>
       <AntApp>
         <QueryClientProvider client={queryClient}>
-          <MemoryRouter>
-            <Login />
+          <MemoryRouter initialEntries={[initialEntry]}>
+            <RouteLocationProbe />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/login/2fa"
+                element={<div data-testid="two-factor-page" />}
+              />
+              <Route
+                path="/vaults"
+                element={<div data-testid="vaults-page" />}
+              />
+              <Route
+                path="/vaults/expected"
+                element={<div data-testid="expected-page" />}
+              />
+            </Routes>
           </MemoryRouter>
         </QueryClientProvider>
       </AntApp>
@@ -83,8 +109,13 @@ function mockInstanceInfo(webauthnEnabled = false) {
 describe("Login", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mockInstanceInfo();
     vi.mocked(browserSupportsWebAuthn).mockReturnValue(false);
+    mockWebAuthnLogin.mockImplementation(async (authenticate) => {
+      await authenticate();
+      return { status: "stale" };
+    });
   });
 
   it("shows validation errors on empty submit", async () => {
@@ -106,6 +137,18 @@ describe("Login", () => {
 
     const publicKey: PublicKeyCredentialRequestOptionsJSON = {
       challenge: "login-challenge",
+      timeout: 60000,
+      rpId: "localhost",
+      allowCredentials: [
+        {
+          id: "credential-id",
+          type: "public-key",
+          transports: ["internal", "usb"],
+        },
+      ],
+      userVerification: "preferred",
+      hints: ["client-device"],
+      extensions: { appid: "https://localhost" },
     };
     vi.mocked(api.webauthn.webauthnLoginBeginCreate).mockResolvedValue({
       data: { publicKey },
@@ -140,6 +183,33 @@ describe("Login", () => {
     );
   });
 
+  it("rejects invalid passkey options before invoking the browser API", async () => {
+    // Given
+    const user = userEvent.setup();
+    mockInstanceInfo(true);
+    vi.mocked(browserSupportsWebAuthn).mockReturnValue(true);
+    vi.mocked(api.webauthn.webauthnLoginBeginCreate).mockResolvedValue({
+      data: {
+        publicKey: {
+          challenge: "login-challenge",
+          timeout: "invalid-timeout",
+        },
+      },
+    } satisfies Awaited<ReturnType<typeof api.webauthn.webauthnLoginBeginCreate>>);
+    renderLogin();
+    await user.type(screen.getByPlaceholderText("Email"), "webauthn@example.com");
+
+    // When
+    await user.click(
+      await screen.findByRole("button", { name: /sign in with passkey/i }),
+    );
+
+    // Then
+    await waitFor(() => expect(mockWebAuthnLogin).toHaveBeenCalledTimes(1));
+    expect(startAuthentication).not.toHaveBeenCalled();
+    expect(httpClient.instance.post).not.toHaveBeenCalled();
+  });
+
   it("validates email before starting passkey login", async () => {
     const user = userEvent.setup();
     mockInstanceInfo(true);
@@ -151,5 +221,87 @@ describe("Login", () => {
 
     expect(await screen.findByText("Please enter your email")).toBeInTheDocument();
     expect(api.webauthn.webauthnLoginBeginCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps a newer authentication subject when an older passkey login completes", async () => {
+    // Given
+    const user = userEvent.setup();
+    mockInstanceInfo(true);
+    vi.mocked(browserSupportsWebAuthn).mockReturnValue(true);
+    const publicKey: PublicKeyCredentialRequestOptionsJSON = {
+      challenge: "stale-login-challenge",
+    };
+    vi.mocked(api.webauthn.webauthnLoginBeginCreate).mockResolvedValue({
+      data: { publicKey },
+    } satisfies Awaited<ReturnType<typeof api.webauthn.webauthnLoginBeginCreate>>);
+    const assertionResponse: AuthenticationResponseJSON = {
+      id: "stale-credential-id",
+      rawId: "stale-credential-raw-id",
+      type: "public-key",
+      response: {
+        authenticatorData: "stale-authenticator-data",
+        clientDataJSON: "stale-client-data-json",
+        signature: "stale-signature",
+      },
+      clientExtensionResults: {},
+    };
+    vi.mocked(startAuthentication).mockResolvedValue(assertionResponse);
+    vi.mocked(httpClient.instance.post).mockResolvedValue({
+      data: {
+        success: true,
+        data: { token: "older-passkey-token", user: { id: "older-user" } },
+      },
+    });
+    localStorage.setItem("token", "newer-subject-token");
+    renderLogin();
+    await user.type(screen.getByPlaceholderText("Email"), "passkey@example.com");
+
+    // When
+    await user.click(
+      await screen.findByRole("button", { name: /sign in with passkey/i }),
+    );
+
+    // Then
+    await waitFor(() => expect(mockWebAuthnLogin).toHaveBeenCalledTimes(1));
+    expect(localStorage.getItem("token")).toBe("newer-subject-token");
+    expect(screen.getByTestId("route-location")).toHaveTextContent("/login");
+  });
+
+  it("preserves the requested authenticated navigation behavior", async () => {
+    // Given
+    mockLogin.mockResolvedValue({ status: "authenticated" });
+    const user = userEvent.setup();
+    renderLogin("/login?redirect=%2Fvaults%2Fexpected");
+    await user.type(screen.getByPlaceholderText("Email"), "user@example.com");
+    await user.type(screen.getByPlaceholderText("Password"), "password");
+
+    // When
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    // Then
+    await waitFor(() =>
+      expect(screen.getByTestId("route-location")).toHaveTextContent(
+        "/vaults/expected",
+      ),
+    );
+  });
+
+  it("preserves the two-factor-required navigation behavior", async () => {
+    // Given
+    mockLogin.mockResolvedValue({ status: "two_factor_required" });
+    const user = userEvent.setup();
+    renderLogin();
+    await user.type(screen.getByPlaceholderText("Email"), "user@example.com");
+    await user.type(screen.getByPlaceholderText("Password"), "password");
+
+    // When
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    // Then
+    await waitFor(() =>
+      expect(screen.getByTestId("route-location")).toHaveTextContent(
+        "/login/2fa",
+      ),
+    );
   });
 });

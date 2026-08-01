@@ -10,9 +10,9 @@ import type { ThemeMode } from "@/stores/theme";
 import { api } from "@/api";
 import type { LoginRequest, APIError, InstanceInfo } from "@/api";
 import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
-import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { httpClient } from "@/api";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { parseWebAuthnAuthenticationOptions } from "@/utils/webauthnAuthenticationOptions";
 
 const { Title, Text } = Typography;
 
@@ -56,7 +56,7 @@ if (typeof document !== "undefined" && !document.getElementById(styleId)) {
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loginWithWebAuthn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { message } = App.useApp();
@@ -101,11 +101,20 @@ export default function Login() {
   async function onFinish(values: LoginRequest) {
     setLoading(true);
     try {
-      const requiresTwoFactor = await login(values);
-      if (requiresTwoFactor) {
-        navigate("/login/2fa", { replace: true });
-      } else {
-        navigate(from, { replace: true });
+      const completion = await login(values);
+      switch (completion.status) {
+        case "authenticated":
+          navigate(from, { replace: true });
+          return;
+        case "two_factor_required":
+          navigate("/login/2fa", { replace: true });
+          return;
+        case "stale":
+          return;
+        default: {
+          const exhaustiveCompletion: never = completion;
+          return exhaustiveCompletion;
+        }
       }
     } catch (err) {
       const apiErr = err as APIError;
@@ -118,22 +127,26 @@ export default function Login() {
   async function handleWebAuthnLogin() {
     try {
       const { email } = await form.validateFields(["email"]);
-      const beginRes = await api.webauthn.webauthnLoginBeginCreate({ email });
-      const options = beginRes.data!.publicKey;
+      const completion = await loginWithWebAuthn(async () => {
+        const beginRes = await api.webauthn.webauthnLoginBeginCreate({ email });
+        const options = parseWebAuthnAuthenticationOptions(beginRes.data);
+        const assertionResponse = await startAuthentication({
+          optionsJSON: options,
+        });
 
-      const asseResp = await startAuthentication({ optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON });
-
-      // Keep email out of the assertion body so go-webauthn can parse it unchanged.
-      const verifyRes = await httpClient.instance.post<{
-        success: boolean;
-        data: { token: string; user: { id: string; email: string } };
-      }>(`/auth/webauthn/login/finish?email=${encodeURIComponent(email)}`, asseResp);
-      
-      const auth = verifyRes.data.data;
-      localStorage.setItem("token", auth.token);
-      // Force reload to update auth state since we bypassed the store login method
-      window.location.href = from;
-      
+        // Keep email out of the assertion body so go-webauthn can parse it unchanged.
+        const verifyRes = await httpClient.instance.post<{
+          success: boolean;
+          data: { token: string; user: { id: string; email: string } };
+        }>(
+          `/auth/webauthn/login/finish?email=${encodeURIComponent(email)}`,
+          assertionResponse,
+        );
+        return verifyRes.data.data;
+      });
+      if (completion.status === "authenticated") {
+        navigate(from, { replace: true });
+      }
     } catch (error) {
       if (isFormValidationError(error)) {
         return;
