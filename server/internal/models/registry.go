@@ -23,6 +23,7 @@ func AllModels() []interface{} {
 		&ContactImportantDateType{},
 		&ContactImportantDate{},
 		&ContactReminder{},
+		&ContactReminderSelectedUser{},
 		&ContactReminderScheduled{},
 		&ContactTask{},
 		&TaskContact{},
