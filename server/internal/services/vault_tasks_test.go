@@ -1,12 +1,14 @@
 package services
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/internal/testutil"
+	"gorm.io/gorm"
 )
 
 func setupVaultTaskTest(t *testing.T) (*VaultTaskService, *TaskService, string, string, string) {
@@ -269,6 +271,195 @@ func TestVaultTaskUpdatePositionMovesAcrossColumns(t *testing.T) {
 	}
 	if updated.Status != models.TaskStatusInProgress {
 		t.Errorf("status not updated, got %q", updated.Status)
+	}
+}
+
+func TestVaultTaskUpdatePositionCompletesWhenMovingToDone(t *testing.T) {
+	// Given
+	svc, _, vaultID, _, userID := setupVaultTaskTest(t)
+	task, err := svc.Create(vaultID, userID, dto.CreateVaultTaskRequest{Label: "finish report"})
+	if err != nil {
+		t.Fatalf("create task: %v", err)
+	}
+
+	// When
+	updated, err := svc.UpdatePosition(task.ID, vaultID, dto.UpdateTaskPositionRequest{
+		Position: 0,
+		Status:   models.TaskStatusDone,
+	}, userID)
+	if err != nil {
+		t.Fatalf("UpdatePosition: %v", err)
+	}
+
+	// Then
+	if updated.Status != models.TaskStatusDone {
+		t.Errorf("response status = %q, want %q", updated.Status, models.TaskStatusDone)
+	}
+	if !updated.Completed {
+		t.Error("response completed = false, want true")
+	}
+	if updated.CompletedAt == nil {
+		t.Error("response completed_at = nil, want completion timestamp")
+	}
+	var persisted models.ContactTask
+	if err := svc.db.Where("id = ?", task.ID).First(&persisted).Error; err != nil {
+		t.Fatalf("load moved task: %v", err)
+	}
+	if persisted.Status != models.TaskStatusDone {
+		t.Errorf("database status = %q, want %q", persisted.Status, models.TaskStatusDone)
+	}
+	if !persisted.Completed {
+		t.Error("database completed = false, want true")
+	}
+	if persisted.CompletedAt == nil {
+		t.Error("database completed_at = nil, want completion timestamp")
+	}
+}
+
+func TestVaultTaskUpdatePositionClearsCompletionWhenLeavingDone(t *testing.T) {
+	// Given
+	svc, _, vaultID, _, userID := setupVaultTaskTest(t)
+	task, err := svc.Create(vaultID, userID, dto.CreateVaultTaskRequest{Label: "reopen report"})
+	if err != nil {
+		t.Fatalf("create task: %v", err)
+	}
+	if _, err := svc.UpdateStatus(task.ID, vaultID, dto.UpdateTaskStatusRequest{Status: models.TaskStatusDone}, userID); err != nil {
+		t.Fatalf("complete task: %v", err)
+	}
+
+	// When
+	updated, err := svc.UpdatePosition(task.ID, vaultID, dto.UpdateTaskPositionRequest{
+		Position: 0,
+		Status:   models.TaskStatusInProgress,
+	}, userID)
+	if err != nil {
+		t.Fatalf("UpdatePosition: %v", err)
+	}
+
+	// Then
+	if updated.Status != models.TaskStatusInProgress {
+		t.Errorf("response status = %q, want %q", updated.Status, models.TaskStatusInProgress)
+	}
+	if updated.Completed {
+		t.Error("response completed = true, want false")
+	}
+	if updated.CompletedAt != nil {
+		t.Errorf("response completed_at = %v, want nil", updated.CompletedAt)
+	}
+	var persisted models.ContactTask
+	if err := svc.db.Where("id = ?", task.ID).First(&persisted).Error; err != nil {
+		t.Fatalf("load moved task: %v", err)
+	}
+	if persisted.Status != models.TaskStatusInProgress {
+		t.Errorf("database status = %q, want %q", persisted.Status, models.TaskStatusInProgress)
+	}
+	if persisted.Completed {
+		t.Error("database completed = true, want false")
+	}
+	if persisted.CompletedAt != nil {
+		t.Errorf("database completed_at = %v, want nil", persisted.CompletedAt)
+	}
+}
+
+func TestVaultTaskUpdatePositionRollsBackStatusCompletionAndPositionOnResequenceFailure(t *testing.T) {
+	// Given
+	svc, _, vaultID, _, userID := setupVaultTaskTest(t)
+	sourceTask, err := svc.Create(vaultID, userID, dto.CreateVaultTaskRequest{Label: "source task"})
+	if err != nil {
+		t.Fatalf("create source task: %v", err)
+	}
+	movedTask, err := svc.Create(vaultID, userID, dto.CreateVaultTaskRequest{Label: "moved task"})
+	if err != nil {
+		t.Fatalf("create moved task: %v", err)
+	}
+	destinationTask, err := svc.Create(vaultID, userID, dto.CreateVaultTaskRequest{
+		Label:  "destination task",
+		Status: models.TaskStatusDone,
+	})
+	if err != nil {
+		t.Fatalf("create destination task: %v", err)
+	}
+	if _, err := svc.UpdateStatus(destinationTask.ID, vaultID, dto.UpdateTaskStatusRequest{Status: models.TaskStatusDone}, userID); err != nil {
+		t.Fatalf("complete destination task: %v", err)
+	}
+	for _, taskPosition := range []struct {
+		id       uint
+		position int
+	}{
+		{id: sourceTask.ID, position: 4},
+		{id: movedTask.ID, position: 7},
+		{id: destinationTask.ID, position: 6},
+	} {
+		if err := svc.db.Model(&models.ContactTask{}).Where("id = ?", taskPosition.id).Update("position", taskPosition.position).Error; err != nil {
+			t.Fatalf("set task %d position: %v", taskPosition.id, err)
+		}
+	}
+	forcedErr := errors.New("forced destination position resequence failure")
+	const callbackName = "vault_task_position_resequence_failure"
+	positionUpdates := 0
+	if err := svc.db.Callback().Update().Before("gorm:update").Register(callbackName, func(tx *gorm.DB) {
+		if tx.Statement.Table != "contact_tasks" {
+			return
+		}
+		updates, isMapUpdate := tx.Statement.Dest.(map[string]interface{})
+		if !isMapUpdate {
+			return
+		}
+		if _, updatesPosition := updates["position"]; !updatesPosition {
+			return
+		}
+		positionUpdates++
+		if positionUpdates == 2 {
+			tx.AddError(forcedErr)
+		}
+	}); err != nil {
+		t.Fatalf("register position failure callback: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := svc.db.Callback().Update().Remove(callbackName); err != nil {
+			t.Errorf("remove position failure callback: %v", err)
+		}
+	})
+
+	// When
+	_, err = svc.UpdatePosition(movedTask.ID, vaultID, dto.UpdateTaskPositionRequest{
+		Position: 1,
+		Status:   models.TaskStatusDone,
+	}, userID)
+
+	// Then
+	if !errors.Is(err, forcedErr) {
+		t.Fatalf("UpdatePosition error = %v, want wrapped %v", err, forcedErr)
+	}
+	var persistedMovedTask models.ContactTask
+	if err := svc.db.Where("id = ?", movedTask.ID).First(&persistedMovedTask).Error; err != nil {
+		t.Fatalf("load moved task after rollback: %v", err)
+	}
+	if persistedMovedTask.Status != models.TaskStatusTodo {
+		t.Errorf("moved task status = %q, want %q", persistedMovedTask.Status, models.TaskStatusTodo)
+	}
+	if persistedMovedTask.Completed {
+		t.Error("moved task completed = true, want false after rollback")
+	}
+	if persistedMovedTask.CompletedAt != nil {
+		t.Errorf("moved task completed_at = %v, want nil after rollback", persistedMovedTask.CompletedAt)
+	}
+	if persistedMovedTask.Position != 7 {
+		t.Errorf("moved task position = %d, want 7 after rollback", persistedMovedTask.Position)
+	}
+	var persistedSourceTask models.ContactTask
+	if err := svc.db.Where("id = ?", sourceTask.ID).First(&persistedSourceTask).Error; err != nil {
+		t.Fatalf("load source task after rollback: %v", err)
+	}
+	if persistedSourceTask.Position != 4 {
+		t.Errorf("source task position = %d, want 4 after rollback", persistedSourceTask.Position)
+	}
+	var persistedDestinationTask models.ContactTask
+	if err := svc.db.Where("id = ?", destinationTask.ID).First(&persistedDestinationTask).Error; err != nil {
+		t.Fatalf("load destination task after rollback: %v", err)
+	}
+	if persistedDestinationTask.Position != 6 {
+		t.Errorf("destination task position = %d, want 6 after rollback", persistedDestinationTask.Position)
 	}
 }
 

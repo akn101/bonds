@@ -267,11 +267,12 @@ func (s *VaultTaskService) UpdatePosition(id uint, vaultID string, req dto.Updat
 	if err := s.resequenceTaskPositions(task, destinationStatus, req.Position); err != nil {
 		return nil, err
 	}
-	if err := s.db.Where("id = ? AND vault_id = ?", id, vaultID).First(&task).Error; err != nil {
+	var updatedTask models.ContactTask
+	if err := s.db.Where("id = ? AND vault_id = ?", id, vaultID).First(&updatedTask).Error; err != nil {
 		return nil, err
 	}
 
-	resps, err := s.buildResponses([]models.ContactTask{task}, userID)
+	resps, err := s.buildResponses([]models.ContactTask{updatedTask}, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -280,9 +281,20 @@ func (s *VaultTaskService) UpdatePosition(id uint, vaultID string, req dto.Updat
 
 func (s *VaultTaskService) resequenceTaskPositions(task models.ContactTask, destinationStatus string, destinationPosition int) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		updates := map[string]interface{}{"status": destinationStatus}
+		// Status, completion, and positions form one kanban transition; splitting
+		// them would let a failed resequence persist an impossible task state.
+		if destinationStatus == models.TaskStatusDone && !task.Completed {
+			now := time.Now()
+			updates["completed"] = true
+			updates["completed_at"] = &now
+		} else if destinationStatus != models.TaskStatusDone && task.Completed {
+			updates["completed"] = false
+			updates["completed_at"] = nil
+		}
 		if err := tx.Model(&models.ContactTask{}).
 			Where("id = ? AND vault_id = ?", task.ID, task.VaultID).
-			Updates(map[string]interface{}{"status": destinationStatus}).Error; err != nil {
+			Updates(updates).Error; err != nil {
 			return err
 		}
 
