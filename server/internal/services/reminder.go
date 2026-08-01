@@ -2,16 +2,17 @@ package services
 
 import (
 	"errors"
-	"log"
-	"time"
 
-	calendarPkg "github.com/naiba/bonds/internal/calendar"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
 	"gorm.io/gorm"
 )
 
-var ErrReminderNotFound = errors.New("reminder not found")
+var (
+	ErrReminderNotFound               = errors.New("reminder not found")
+	ErrReminderInvalidAudience        = errors.New("invalid reminder audience")
+	ErrReminderAudienceUserNotInVault = errors.New("reminder audience user is not in vault")
+)
 
 type ReminderService struct {
 	db           *gorm.DB
@@ -31,7 +32,7 @@ func (s *ReminderService) List(contactID, vaultID string) ([]dto.ReminderRespons
 		return nil, err
 	}
 	var reminders []models.ContactReminder
-	if err := s.db.Where("contact_id = ?", contactID).Order("created_at DESC").Find(&reminders).Error; err != nil {
+	if err := s.db.Preload("SelectedUsers").Where("contact_id = ?", contactID).Order("created_at DESC").Find(&reminders).Error; err != nil {
 		return nil, err
 	}
 	result := make([]dto.ReminderResponse, len(reminders))
@@ -54,11 +55,27 @@ func (s *ReminderService) Create(contactID, vaultID string, req dto.CreateRemind
 		Type:            req.Type,
 		FrequencyNumber: req.FrequencyNumber,
 	}
+	audience, selectedUserIDs, err := normalizeReminderAudience(req.Audience, req.SelectedUserIDs)
+	if err != nil {
+		return nil, err
+	}
+	reminder.Audience = audience
 	if err := validateAndApplyReminderDate(&reminder.Day, &reminder.Month, &reminder.Year, &reminder.CalendarType, &reminder.OriginalDay, &reminder.OriginalMonth, &reminder.OriginalYear,
 		req.CalendarType, req.OriginalDay, req.OriginalMonth, req.OriginalYear); err != nil {
 		return nil, err
 	}
-	if err := s.db.Create(&reminder).Error; err != nil {
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := validateReminderAudienceUsers(tx, vaultID, audience, selectedUserIDs); err != nil {
+			return err
+		}
+		if err := tx.Create(&reminder).Error; err != nil {
+			return err
+		}
+		if err := replaceReminderSelectedUsers(tx, reminder.ID, selectedUserIDs); err != nil {
+			return err
+		}
+		return scheduleReminderForVaultUsers(tx, &reminder)
+	}); err != nil {
 		return nil, err
 	}
 
@@ -67,9 +84,8 @@ func (s *ReminderService) Create(contactID, vaultID string, req dto.CreateRemind
 		s.feedRecorder.Record(contactID, "", ActionReminderCreated, "Created reminder: "+req.Label, &reminder.ID, &entityType)
 	}
 
-	s.scheduleReminder(&reminder)
-
 	resp := toReminderResponse(&reminder)
+	resp.SelectedUserIDs = selectedUserIDs
 	return &resp, nil
 }
 
@@ -78,10 +94,14 @@ func (s *ReminderService) Update(id uint, contactID, vaultID string, req dto.Upd
 		return nil, err
 	}
 	var reminder models.ContactReminder
-	if err := s.db.Where("id = ? AND contact_id = ?", id, contactID).First(&reminder).Error; err != nil {
+	if err := s.db.Preload("SelectedUsers").Where("id = ? AND contact_id = ?", id, contactID).First(&reminder).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrReminderNotFound
 		}
+		return nil, err
+	}
+	audience, selectedUserIDs, err := reminderAudienceForUpdate(req, &reminder)
+	if err != nil {
 		return nil, err
 	}
 	reminder.Label = req.Label
@@ -90,15 +110,27 @@ func (s *ReminderService) Update(id uint, contactID, vaultID string, req dto.Upd
 	reminder.Year = req.Year
 	reminder.Type = req.Type
 	reminder.FrequencyNumber = req.FrequencyNumber
+	reminder.Audience = audience
 	if err := validateAndApplyReminderDate(&reminder.Day, &reminder.Month, &reminder.Year, &reminder.CalendarType, &reminder.OriginalDay, &reminder.OriginalMonth, &reminder.OriginalYear,
 		req.CalendarType, req.OriginalDay, req.OriginalMonth, req.OriginalYear); err != nil {
 		return nil, err
 	}
-	if err := s.db.Save(&reminder).Error; err != nil {
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := validateReminderAudienceUsers(tx, vaultID, audience, selectedUserIDs); err != nil {
+			return err
+		}
+		if err := tx.Save(&reminder).Error; err != nil {
+			return err
+		}
+		if err := replaceReminderSelectedUsers(tx, reminder.ID, selectedUserIDs); err != nil {
+			return err
+		}
+		return reschedulePendingReminder(tx, &reminder)
+	}); err != nil {
 		return nil, err
 	}
-	s.reschedulePendingReminder(&reminder)
 	resp := toReminderResponse(&reminder)
+	resp.SelectedUserIDs = selectedUserIDs
 	return &resp, nil
 }
 
@@ -114,158 +146,17 @@ func (s *ReminderService) Delete(id uint, contactID, vaultID string) error {
 		return err
 	}
 
-	s.db.Where("contact_reminder_id = ? AND triggered_at IS NULL", reminder.ID).
-		Delete(&models.ContactReminderScheduled{})
-
-	if err := s.db.Delete(&reminder).Error; err != nil {
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("contact_reminder_id = ? AND triggered_at IS NULL", reminder.ID).
+			Delete(&models.ContactReminderScheduled{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("contact_reminder_id = ?", reminder.ID).Delete(&models.ContactReminderSelectedUser{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&reminder).Error
+	}); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (s *ReminderService) scheduleReminder(reminder *models.ContactReminder) {
-	scheduleReminderForVaultUsers(s.db, reminder)
-}
-
-func (s *ReminderService) reschedulePendingReminder(reminder *models.ContactReminder) {
-	s.db.Where("contact_reminder_id = ? AND triggered_at IS NULL", reminder.ID).
-		Delete(&models.ContactReminderScheduled{})
-	s.scheduleReminder(reminder)
-}
-
-// BackfillImportantDateReminderSchedules finds ContactReminder rows linked to
-// an important date that have no ContactReminderScheduled rows (a leftover
-// from versions before #81 was fixed) and schedules them.
-//
-// Safe to run on every startup: rows that already have schedules are skipped.
-func BackfillImportantDateReminderSchedules(db *gorm.DB) {
-	var reminders []models.ContactReminder
-	err := db.
-		Where("important_date_id IS NOT NULL").
-		Where("NOT EXISTS (?)",
-			db.Model(&models.ContactReminderScheduled{}).
-				Select("1").
-				Where("contact_reminder_scheduled.contact_reminder_id = contact_reminders.id"),
-		).
-		Find(&reminders).Error
-	if err != nil {
-		log.Printf("[reminder-backfill] query failed: %v", err)
-		return
-	}
-	if len(reminders) == 0 {
-		return
-	}
-	log.Printf("[reminder-backfill] scheduling %d important-date reminders missing schedules", len(reminders))
-	for i := range reminders {
-		scheduleReminderForVaultUsers(db, &reminders[i])
-	}
-}
-
-func scheduleReminderForVaultUsers(db *gorm.DB, reminder *models.ContactReminder) {
-	var contact models.Contact
-	if err := db.First(&contact, "id = ?", reminder.ContactID).Error; err != nil {
-		log.Printf("[reminder] Failed to load contact %s for scheduling: %v", reminder.ContactID, err)
-		return
-	}
-
-	var userVaults []models.UserVault
-	if err := db.Where("vault_id = ?", contact.VaultID).Find(&userVaults).Error; err != nil {
-		log.Printf("[reminder] Failed to load vault users for vault %s: %v", contact.VaultID, err)
-		return
-	}
-
-	userIDs := make([]string, len(userVaults))
-	for i, uv := range userVaults {
-		userIDs[i] = uv.UserID
-	}
-
-	var channels []models.UserNotificationChannel
-	if err := db.Preload("User").Where("user_id IN ? AND active = ?", userIDs, true).Find(&channels).Error; err != nil {
-		log.Printf("[reminder] Failed to load notification channels: %v", err)
-		return
-	}
-
-	for _, ch := range channels {
-		loc := userLocation(ch.User)
-		scheduledAt := calcInitialSchedule(reminder, ch.PreferredTime, loc)
-		db.Create(&models.ContactReminderScheduled{
-			UserNotificationChannelID: ch.ID,
-			ContactReminderID:         reminder.ID,
-			ScheduledAt:               scheduledAt,
-		})
-	}
-}
-
-func calcInitialSchedule(reminder *models.ContactReminder, preferredTime *string, loc *time.Location) time.Time {
-	now := time.Now().In(loc)
-	hour, minute := parsePreferredNotificationTime(preferredTime)
-
-	ct := calendarPkg.CalendarType(reminder.CalendarType)
-	if ct != "" && ct != calendarPkg.Gregorian && reminder.OriginalMonth != nil && reminder.OriginalDay != nil {
-		converter, ok := calendarPkg.Get(ct)
-		if ok {
-			origDate := calendarPkg.DateInfo{}
-			if reminder.OriginalYear != nil {
-				reminderOriginalDateForScheduling(&origDate, *reminder.OriginalMonth, *reminder.OriginalDay, reminder.OriginalYear)
-			} else {
-				reminderOriginalDateForScheduling(&origDate, *reminder.OriginalMonth, *reminder.OriginalDay, nil)
-				afterSolar := calendarPkg.GregorianDate{Day: now.Day(), Month: int(now.Month()), Year: now.Year()}
-				if fromG, err := converter.FromGregorian(afterSolar); err == nil {
-					origDate.Year = fromG.Year
-				}
-			}
-			gd, err := converter.NextOccurrence(origDate, now.AddDate(0, 0, -1))
-			if err == nil {
-				return time.Date(gd.Year, time.Month(gd.Month), gd.Day, hour, minute, 0, 0, loc)
-			}
-		}
-	}
-
-	year := now.Year()
-	month := time.January
-	day := 1
-
-	// For recurring reminders the stored Year is the original event year (e.g. a
-	// birthday's birth year); anchoring the schedule to it puts the first
-	// occurrence in the past, which the scheduler treats as overdue and replays
-	// once per year since (#153). Only one-time reminders honor an explicit Year.
-	recurring := reminder.Type != "one_time"
-	if reminder.Year != nil && !recurring {
-		year = *reminder.Year
-	}
-	if reminder.Month != nil {
-		month = time.Month(*reminder.Month)
-	}
-	if reminder.Day != nil {
-		day = *reminder.Day
-	}
-
-	scheduled := time.Date(year, month, day, hour, minute, 0, 0, loc)
-
-	if (recurring || reminder.Year == nil) && scheduled.Before(now) {
-		scheduled = scheduled.AddDate(1, 0, 0)
-	}
-
-	return scheduled
-}
-
-func toReminderResponse(r *models.ContactReminder) dto.ReminderResponse {
-	return dto.ReminderResponse{
-		ID:                   r.ID,
-		ContactID:            r.ContactID,
-		Label:                r.Label,
-		Day:                  r.Day,
-		Month:                r.Month,
-		Year:                 r.Year,
-		CalendarType:         r.CalendarType,
-		OriginalDay:          r.OriginalDay,
-		OriginalMonth:        r.OriginalMonth,
-		OriginalYear:         r.OriginalYear,
-		Type:                 r.Type,
-		FrequencyNumber:      r.FrequencyNumber,
-		LastTriggeredAt:      r.LastTriggeredAt,
-		NumberTimesTriggered: r.NumberTimesTriggered,
-		CreatedAt:            r.CreatedAt,
-		UpdatedAt:            r.UpdatedAt,
-	}
 }

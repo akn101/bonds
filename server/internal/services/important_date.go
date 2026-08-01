@@ -200,14 +200,17 @@ func (s *ImportantDateService) ensureReminder(contactID string, date *models.Con
 	if err := s.db.Create(&reminder).Error; err != nil {
 		return err
 	}
-	scheduleReminderForVaultUsers(s.db, &reminder)
-	return nil
+	return scheduleReminderForVaultUsers(s.db, &reminder)
 }
 
 func (s *ImportantDateService) removeReminder(contactID string, dateID uint) error {
 	// Delete scheduled entries first
 	s.db.Where("contact_reminder_id IN (SELECT id FROM contact_reminders WHERE contact_id = ? AND important_date_id = ?)", contactID, dateID).
 		Delete(&models.ContactReminderScheduled{})
+	if err := s.db.Where("contact_reminder_id IN (SELECT id FROM contact_reminders WHERE contact_id = ? AND important_date_id = ?)", contactID, dateID).
+		Delete(&models.ContactReminderSelectedUser{}).Error; err != nil {
+		return err
+	}
 	// Delete the reminder
 	return s.db.Where("contact_id = ? AND important_date_id = ?", contactID, dateID).
 		Delete(&models.ContactReminder{}).Error
