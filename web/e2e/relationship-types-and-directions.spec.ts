@@ -92,30 +92,52 @@ async function openRelationshipModal(page: import('@playwright/test').Page) {
 }
 
 /**
- * Select an option from Ant Design virtual-scrolling Select dropdown by typing
- * into the search input to filter, then clicking the matching option.
- * Ant Design grouped Selects use virtual scroll; options not in viewport are not rendered.
- * Typing into the search box filters the list so the target option becomes visible.
+ * Ant Design portals Select popups to the page, so bind each option lookup to
+ * the listbox owned by the specific combobox instead of a globally visible popup.
  */
 async function selectRelType(
   page: import('@playwright/test').Page,
   modal: import('@playwright/test').Locator,
   typeName: string,
 ) {
-  const selects = modal.locator('.ant-select');
-  const typeSelect = selects.nth(1);
-  await expect(typeSelect).toBeVisible({ timeout: 5000 });
-  await typeSelect.click();
-  const dropdown = page.locator('.ant-select-dropdown:visible');
-  await expect(dropdown).toBeVisible({ timeout: 5000 });
+  const typeLabel = modal.locator('label').filter({ hasText: /^Relationship Type$/i });
+  await expect(typeLabel).toHaveCount(1);
+  const typeComboboxId = await typeLabel.getAttribute('for');
+  if (!typeComboboxId) {
+    throw new Error('Relationship Type label did not identify its combobox');
+  }
+  const typeCombobox = modal.locator(`[id="${typeComboboxId}"][role="combobox"]`);
+  const typeSelect = typeCombobox.locator(
+    'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " ant-select ")][1]',
+  );
+  await expect(typeCombobox).toBeVisible({ timeout: 5000 });
+  await typeCombobox.click();
+  await expect(typeCombobox).toHaveAttribute('aria-expanded', 'true');
+
+  const popupListboxId = await typeCombobox.getAttribute('aria-controls');
+  if (!popupListboxId) {
+    throw new Error('Relationship Type combobox did not expose its owned popup');
+  }
+  const popup = page.locator('.ant-select-dropdown').filter({
+    has: page.locator(`[role="listbox"][id="${popupListboxId}"]`),
+  });
+  await expect(popup).toBeVisible({ timeout: 5000 });
+
   const searchTerm = typeName.includes('/') ? typeName.split('/')[0] : typeName;
-  await typeSelect.locator('input').fill(searchTerm);
-  const option = dropdown.locator('.ant-select-item-option').filter({ hasText: new RegExp(escapeRegExp(typeName), 'i') }).first();
+  await typeCombobox.fill(searchTerm);
+  const exactTypeName = new RegExp(`^${escapeRegExp(typeName)}$`, 'i');
+  const option = popup.locator('.ant-select-item-option').filter({ hasText: exactTypeName });
+  await expect(option).toHaveCount(1);
   await expect(option).toBeVisible({ timeout: 5000 });
-  await option.click();
-  await modal.locator('.ant-modal-header').click();
-  await expect(page.locator('.ant-select-dropdown:visible')).toHaveCount(0, { timeout: 5000 });
-  await expect(typeSelect).toContainText(typeName, { timeout: 5000 });
+  // Search can leave a broader first match active, so target the exact option before keyboard commit.
+  await option.hover();
+  await expect(option).toHaveClass(/ant-select-item-option-active/);
+  await typeCombobox.press('Enter');
+  await expect(
+    typeSelect.locator('.ant-select-content.ant-select-content-has-value'),
+  ).toHaveText(exactTypeName, { timeout: 5000 });
+  await expect(typeCombobox).toHaveAttribute('aria-expanded', 'false');
+  await expect(popup).toBeHidden({ timeout: 5000 });
 }
 
 async function selectRelationshipContact(
@@ -123,18 +145,43 @@ async function selectRelationshipContact(
   modal: import('@playwright/test').Locator,
   contactName: string,
 ) {
-  const contactSelect = modal.locator('.ant-select').first();
-  await expect(contactSelect).toBeVisible({ timeout: 5000 });
-  await contactSelect.click();
-  const dropdown = page.locator('.ant-select-dropdown:visible');
-  await expect(dropdown).toBeVisible({ timeout: 5000 });
-  await contactSelect.locator('input').fill(contactName);
-  const option = dropdown.locator('.ant-select-item-option').filter({ hasText: contactName }).first();
+  const contactLabel = modal.locator('label').filter({ hasText: /^Contact$/i });
+  await expect(contactLabel).toHaveCount(1);
+  const contactComboboxId = await contactLabel.getAttribute('for');
+  if (!contactComboboxId) {
+    throw new Error('Contact label did not identify its combobox');
+  }
+  const contactCombobox = modal.locator(`[id="${contactComboboxId}"][role="combobox"]`);
+  const contactSelect = contactCombobox.locator(
+    'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " ant-select ")][1]',
+  );
+  await expect(contactCombobox).toBeVisible({ timeout: 5000 });
+  await contactCombobox.click();
+  await expect(contactCombobox).toHaveAttribute('aria-expanded', 'true');
+
+  const popupListboxId = await contactCombobox.getAttribute('aria-controls');
+  if (!popupListboxId) {
+    throw new Error('Contact combobox did not expose its owned popup');
+  }
+  const popup = page.locator('.ant-select-dropdown').filter({
+    has: page.locator(`[role="listbox"][id="${popupListboxId}"]`),
+  });
+  await expect(popup).toBeVisible({ timeout: 5000 });
+
+  await contactCombobox.fill(contactName);
+  const exactContactName = new RegExp(`^${escapeRegExp(contactName)}$`, 'i');
+  const option = popup.locator('.ant-select-item-option').filter({ hasText: exactContactName });
+  await expect(option).toHaveCount(1);
   await expect(option).toBeVisible({ timeout: 5000 });
-  await option.click();
-  await modal.locator('.ant-modal-header').click();
-  await expect(page.locator('.ant-select-dropdown:visible')).toHaveCount(0, { timeout: 5000 });
-  await expect(contactSelect).toContainText(contactName, { timeout: 5000 });
+  // Hover updates rc-select's active index without relying on the flaky portal click sequence.
+  await option.hover();
+  await expect(option).toHaveClass(/ant-select-item-option-active/);
+  await contactCombobox.press('Enter');
+  await expect(
+    contactSelect.locator('.ant-select-content.ant-select-content-has-value'),
+  ).toHaveText(exactContactName, { timeout: 5000 });
+  await expect(contactCombobox).toHaveAttribute('aria-expanded', 'false');
+  await expect(popup).toBeHidden({ timeout: 5000 });
 }
 
 /**
@@ -157,6 +204,12 @@ async function addRelationship(
   await modal.getByRole('button', { name: /ok/i }).click();
   const resp = await responsePromise;
   expect(resp.status()).toBeLessThan(400);
+  expect(resp.request().postDataJSON()).toEqual(
+    expect.objectContaining({
+      related_contact_id: expect.any(String),
+      relationship_type_id: expect.any(Number),
+    }),
+  );
 }
 
 // Relationship type dropdown should show both directions (parent ↔ child)
