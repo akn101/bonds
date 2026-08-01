@@ -56,18 +56,16 @@ Monica 是一个拥有 24k+ star 的优秀开源个人 CRM。但作为一个由�
 # 下载 docker-compose.yml
 curl -O https://raw.githubusercontent.com/naiba/bonds/main/docker-compose.yml
 
+# 在当前 shell 中生成并导出 256 位 JWT 签名密钥
+export JWT_SECRET="$(openssl rand -hex 32)"
+
 # 启动
 docker compose up -d
 ```
 
 打开 **http://localhost:8080**，注册账号即可使用。
 
-自定义配置，编辑 `docker-compose.yml`：
-
-```yaml
-environment:
-  - JWT_SECRET=你的密钥         # ⚠️ Change this!
-```
+请只生成一次密钥，并保存在受保护的环境变量或密钥管理服务中，每次重启都复用同一个值。请规划 JWT 密钥轮换：轮换会使现有会话失效，且由于 DAV 订阅凭据的加密派生自该密钥，可能需要重新录入这些凭据。
 
 ### 方式二：下载预编译版本
 
@@ -75,7 +73,7 @@ environment:
 
 ```bash
 # 设置 JWT 密钥并运行
-export JWT_SECRET=你的密钥
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./bonds-server
 ```
 
@@ -96,7 +94,7 @@ make setup
 make build-all
 
 # 运行
-export JWT_SECRET=你的密钥
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./server/bin/bonds-server
 ```
 
@@ -118,7 +116,7 @@ cp server/.env.example server/.env
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `DEBUG` | `false` | 调试模式：启用 Echo 请求日志、GORM SQL 日志、Swagger UI（默认开启） |
-| `JWT_SECRET` | — | **生产环境必填。** 认证令牌签名密钥 |
+| `JWT_SECRET` | — | **生产环境必填。** 使用 `openssl rand -hex 32` 生成 256 位签名密钥，持久保存并在重启时复用。 |
 | `SETTINGS_ENC_KEY` | _(空)_ | 可选。启用 SMTP/OAuth/地理编码等敏感设置的 AES-256-GCM 静态加密。详见[文档](https://naiba.github.io/bonds/zh/guide/configuration#加密敏感设置) |
 | `SERVER_PORT` | `8080` | 服务端口 |
 | `SERVER_HOST` | `0.0.0.0` | 服务器监听地址 |

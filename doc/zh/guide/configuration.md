@@ -15,7 +15,7 @@ cp server/.env.example server/.env
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `DEBUG` | `false` | 调试模式：启用请求日志、SQL 日志、Swagger UI（默认开启） |
-| `JWT_SECRET` | — | **生产环境必填。** 认证令牌签名密钥 |
+| `JWT_SECRET` | — | **生产环境必填。** 使用 `openssl rand -hex 32` 生成 256 位密钥，持久保存并在重启时复用。 |
 | `SETTINGS_ENC_KEY` | _(空)_ | 可选。启用敏感系统设置（SMTP 密码、OAuth client_secret、地理编码 API key）的 AES-256-GCM 静态加密。详见下方[加密敏感设置](#加密敏感设置)。 |
 | `SERVER_PORT` | `8080` | 服务端口 |
 | `SERVER_HOST` | `0.0.0.0` | 监听地址 |
@@ -98,7 +98,7 @@ SETTINGS_ENC_KEY="$(openssl rand -hex 32)"
 
 ## 生产环境清单
 
-1. **设置 `JWT_SECRET`**：使用强随机字符串（32+ 字符）。
+1. **设置 `JWT_SECRET`**：只执行一次 `export JWT_SECRET="$(openssl rand -hex 32)"`，将 256 位值保存到受保护的环境变量或密钥管理服务，并在重启时复用。请规划轮换：轮换会使现有会话失效，且 DAV 订阅凭据的加密派生自该密钥，可能需要重新录入。
 2. **设置 `SETTINGS_ENC_KEY`**：生产环境推荐启用，对 SMTP/OAuth/地理编码凭证做静态加密。
 3. **设置 `APP_ENV=production`**：禁用调试功能。
 4. **设置 `APP_URL`**：你的公开 URL，用于邮件链接和 OAuth 回调。
@@ -115,8 +115,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - JWT_SECRET=修改为随机字符串
-      - SETTINGS_ENC_KEY=另一个随机字符串
+      - JWT_SECRET=${JWT_SECRET:?启动前设置持久保存的 256 位 JWT 密钥}
+      - SETTINGS_ENC_KEY=${SETTINGS_ENC_KEY:?启动前设置持久保存的设置加密密钥}
       - APP_ENV=production
       - APP_URL=https://bonds.example.com
       - DB_DSN=/data/bonds.db

@@ -8,22 +8,16 @@
 # 下载 docker-compose.yml
 curl -O https://raw.githubusercontent.com/naiba/bonds/main/docker-compose.yml
 
+# 在当前 shell 中生成并导出 256 位 JWT 签名密钥
+export JWT_SECRET="$(openssl rand -hex 32)"
+
 # 启动服务
 docker compose up -d
 ```
 
 打开 **http://localhost:8080**，注册账号即可使用。
 
-### 自定义配置
-
-编辑 `docker-compose.yml` 设置 JWT 密钥和其他选项：
-
-```yaml
-environment:
-  - JWT_SECRET=你的密钥         # ⚠️ 生产环境务必修改！
-  - APP_URL=https://bonds.example.com
-  - APP_ENV=production
-```
+请只生成一次密钥，并保存在受保护的环境变量或密钥管理服务中，每次重启都复用同一个值。请规划 JWT 密钥轮换：轮换会使现有会话失效，且由于 DAV 订阅凭据的加密派生自该密钥，可能需要重新录入这些凭据。
 
 ### 持久化存储
 
@@ -34,8 +28,8 @@ environment:
 从 [GitHub Releases](https://github.com/naiba/bonds/releases) 下载最新版本：
 
 ```bash
-# 设置必要的环境变量
-export JWT_SECRET=你的密钥
+# 只生成一次 JWT 签名密钥，随后安全保存并复用
+export JWT_SECRET="$(openssl rand -hex 32)"
 export APP_ENV=production
 
 # 运行服务器
@@ -70,7 +64,7 @@ make setup
 make build-all
 
 # 运行
-export JWT_SECRET=你的密钥
+export JWT_SECRET="$(openssl rand -hex 32)"
 ./server/bin/bonds-server
 ```
 
