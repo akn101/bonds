@@ -52,6 +52,8 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	quickFactService := services.NewQuickFactService(db)
 	journalService := services.NewJournalService(db)
 	postService := services.NewPostService(db)
+	journalService.SetUploadDir(cfg.Storage.UploadDir)
+	postService.SetUploadDir(cfg.Storage.UploadDir)
 	vaultTaskService := services.NewVaultTaskService(db)
 	vaultFileService := services.NewVaultFileService(db, cfg.Storage.UploadDir)
 	companyService := services.NewCompanyService(db)
@@ -160,6 +162,8 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	reminderService.SetFeedRecorder(feedRecorder)
 	callService.SetFeedRecorder(feedRecorder)
 	taskService.SetFeedRecorder(feedRecorder)
+	// VaultTaskService records assignee Feed entries only when this shared recorder is wired.
+	vaultTaskService.SetFeedRecorder(feedRecorder)
 	addressService.SetFeedRecorder(feedRecorder)
 	lifeEventService.SetFeedRecorder(feedRecorder)
 	loanService.SetFeedRecorder(feedRecorder)
@@ -514,6 +518,8 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	vaultScoped.GET("/groups/:id", groupHandler.Get)
 	vaultScoped.PUT("/groups/:id", groupHandler.Update, requireEditor)
 	vaultScoped.DELETE("/groups/:id", groupHandler.Delete, requireEditor)
+	vaultScoped.POST("/groups/:id/members", groupHandler.AddMembers, requireEditor)
+	vaultScoped.DELETE("/groups/:id/members", groupHandler.RemoveMembers, requireEditor)
 
 	contacts.GET("/:contact_id/groups", groupHandler.ListContactGroups)
 	contacts.POST("/:contact_id/groups", groupHandler.AddContactToGroup, requireEditor)

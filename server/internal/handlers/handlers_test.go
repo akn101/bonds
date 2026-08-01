@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/naiba/bonds/internal/config"
 	"github.com/naiba/bonds/internal/dto"
@@ -1527,6 +1528,55 @@ func TestTaskCreate_Success(t *testing.T) {
 	resp := parseResponse(t, rec)
 	if !resp.Success {
 		t.Fatal("expected success=true")
+	}
+}
+
+func TestVaultTaskCreateRecordsFeedThroughRegisteredRoutes(t *testing.T) {
+	// Given
+	ts := setupTestServer(t)
+	token, auth := ts.registerTestUser(t, "vault-task-feed@example.com")
+	vault := ts.createTestVault(t, token, "Vault Task Feed Vault")
+	contact := ts.createTestContact(t, token, vault.ID, "Feed Contact")
+
+	// When
+	createRec := ts.doRequest(
+		http.MethodPost,
+		fmt.Sprintf("/api/vaults/%s/tasks", vault.ID),
+		fmt.Sprintf(`{"label":"Send birthday card","contact_ids":["%s"]}`, contact.ID),
+		token,
+	)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("create vault task: status=%d body=%s", createRec.Code, createRec.Body.String())
+	}
+	createResp := parseResponse(t, createRec)
+	var task struct {
+		ID uint `json:"id"`
+	}
+	if err := json.Unmarshal(createResp.Data, &task); err != nil {
+		t.Fatalf("unmarshal created vault task: %v", err)
+	}
+
+	// Then
+	var feedItems []models.ContactFeedItem
+	if err := ts.db.Where(
+		"vault_id = ? AND contact_id = ? AND action = ? AND feedable_id = ? AND feedable_type = ?",
+		vault.ID,
+		contact.ID,
+		services.ActionTaskCreated,
+		task.ID,
+		"ContactTask",
+	).Find(&feedItems).Error; err != nil {
+		t.Fatalf("load task feed item: %v", err)
+	}
+	if len(feedItems) != 1 {
+		t.Fatalf("task feed items = %d, want 1", len(feedItems))
+	}
+	feedItem := feedItems[0]
+	if feedItem.AuthorID == nil || *feedItem.AuthorID != auth.User.ID {
+		t.Fatalf("feed author_id = %v, want %q", feedItem.AuthorID, auth.User.ID)
+	}
+	if feedItem.Description == nil || *feedItem.Description != "Created task: Send birthday card" {
+		t.Fatalf("feed description = %v, want %q", feedItem.Description, "Created task: Send birthday card")
 	}
 }
 
@@ -4093,6 +4143,233 @@ func TestPostUpdate_WithContacts(t *testing.T) {
 	json.Unmarshal(resp.Data, &postResp)
 	if len(postResp.Contacts) != 1 {
 		t.Fatalf("expected 1 contact, got %d", len(postResp.Contacts))
+	}
+}
+
+func TestPostCreate_WithContactsAndLastContacted(t *testing.T) {
+	ts := setupTestServer(t)
+	token, _ := ts.registerTestUser(t, "post-create-contacts@test.com")
+	vault := ts.createTestVault(t, token, "Post Contacts Vault")
+	journalID := ts.createTestJournal(t, token, vault.ID, "Post Contacts Journal")
+	contact := ts.createTestContact(t, token, vault.ID, "Alice")
+	writtenAt := "2025-01-15T10:30:00Z"
+
+	path := fmt.Sprintf("/api/vaults/%s/journals/%d/posts", vault.ID, journalID)
+	body := fmt.Sprintf(`{"title":"Lunch","written_at":"%s","contact_ids":["%s","%s"],"update_last_contacted":true}`, writtenAt, contact.ID, contact.ID)
+	rec := ts.doRequest(http.MethodPost, path, body, token)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	resp := parseResponse(t, rec)
+	var post struct {
+		Contacts []struct {
+			ID string `json:"id"`
+		} `json:"contacts"`
+	}
+	if err := json.Unmarshal(resp.Data, &post); err != nil {
+		t.Fatalf("unmarshal created post: %v", err)
+	}
+	if len(post.Contacts) != 1 || post.Contacts[0].ID != contact.ID {
+		t.Fatalf("post contacts = %+v, want only %q", post.Contacts, contact.ID)
+	}
+
+	var storedContact models.Contact
+	if err := ts.db.First(&storedContact, "id = ?", contact.ID).Error; err != nil {
+		t.Fatalf("load contact: %v", err)
+	}
+	wantLastTalkedTo, err := time.Parse(time.RFC3339, writtenAt)
+	if err != nil {
+		t.Fatalf("parse written_at: %v", err)
+	}
+	if storedContact.LastTalkedTo == nil || !storedContact.LastTalkedTo.Equal(wantLastTalkedTo) {
+		t.Fatalf("last_talked_to = %v, want %v", storedContact.LastTalkedTo, wantLastTalkedTo)
+	}
+}
+
+func TestPostCreate_RejectsCrossVaultContact(t *testing.T) {
+	ts := setupTestServer(t)
+	token, _ := ts.registerTestUser(t, "post-cross-vault-contact@test.com")
+	vault := ts.createTestVault(t, token, "Post Vault")
+	foreignVault := ts.createTestVault(t, token, "Foreign Contact Vault")
+	journalID := ts.createTestJournal(t, token, vault.ID, "Post Journal")
+	foreignContact := ts.createTestContact(t, token, foreignVault.ID, "Mallory")
+
+	path := fmt.Sprintf("/api/vaults/%s/journals/%d/posts", vault.ID, journalID)
+	body := fmt.Sprintf(`{"title":"Blocked","written_at":"2025-01-15T10:30:00Z","contact_ids":["%s"]}`, foreignContact.ID)
+	rec := ts.doRequest(http.MethodPost, path, body, token)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var postCount int64
+	if err := ts.db.Model(&models.Post{}).Where("journal_id = ?", journalID).Count(&postCount).Error; err != nil {
+		t.Fatalf("count rejected posts: %v", err)
+	}
+	if postCount != 0 {
+		t.Fatalf("rejected post count = %d, want 0", postCount)
+	}
+}
+
+func TestGroupMembers_AddReturnsAffectedCountAndIsIdempotent(t *testing.T) {
+	ts := setupTestServer(t)
+	token, _ := ts.registerTestUser(t, "group-members-add@test.com")
+	vault := ts.createTestVault(t, token, "Group Members Vault")
+	firstContact := ts.createTestContact(t, token, vault.ID, "Alice")
+	secondContact := ts.createTestContact(t, token, vault.ID, "Bob")
+	group := models.Group{VaultID: vault.ID, Name: "Friends"}
+	if err := ts.db.Create(&group).Error; err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+
+	path := fmt.Sprintf("/api/vaults/%s/groups/%d/members", vault.ID, group.ID)
+	body := fmt.Sprintf(`{"contact_ids":["%s","%s","%s"]}`, firstContact.ID, secondContact.ID, firstContact.ID)
+	rec := ts.doRequest(http.MethodPost, path, body, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	resp := parseResponse(t, rec)
+	var added struct {
+		AffectedCount int64 `json:"affected_count"`
+	}
+	if err := json.Unmarshal(resp.Data, &added); err != nil {
+		t.Fatalf("unmarshal add response: %v", err)
+	}
+	if added.AffectedCount != 2 {
+		t.Fatalf("affected_count = %d, want 2", added.AffectedCount)
+	}
+
+	rec = ts.doRequest(http.MethodPost, path, fmt.Sprintf(`{"contact_ids":["%s","%s"]}`, firstContact.ID, secondContact.ID), token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for repeated add, got %d: %s", rec.Code, rec.Body.String())
+	}
+	resp = parseResponse(t, rec)
+	if err := json.Unmarshal(resp.Data, &added); err != nil {
+		t.Fatalf("unmarshal repeated add response: %v", err)
+	}
+	if added.AffectedCount != 0 {
+		t.Fatalf("repeat affected_count = %d, want 0", added.AffectedCount)
+	}
+}
+
+func TestGroupMembers_RemoveReturnsAffectedCount(t *testing.T) {
+	ts := setupTestServer(t)
+	token, _ := ts.registerTestUser(t, "group-members-remove@test.com")
+	vault := ts.createTestVault(t, token, "Group Members Vault")
+	firstContact := ts.createTestContact(t, token, vault.ID, "Alice")
+	secondContact := ts.createTestContact(t, token, vault.ID, "Bob")
+	group := models.Group{VaultID: vault.ID, Name: "Friends"}
+	if err := ts.db.Create(&group).Error; err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+	if err := ts.db.Create(&[]models.ContactGroup{
+		{GroupID: group.ID, ContactID: firstContact.ID},
+		{GroupID: group.ID, ContactID: secondContact.ID},
+	}).Error; err != nil {
+		t.Fatalf("seed group members: %v", err)
+	}
+
+	path := fmt.Sprintf("/api/vaults/%s/groups/%d/members", vault.ID, group.ID)
+	rec := ts.doRequest(http.MethodDelete, path, fmt.Sprintf(`{"contact_ids":["%s","%s"]}`, firstContact.ID, firstContact.ID), token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	resp := parseResponse(t, rec)
+	var removed struct {
+		AffectedCount int64 `json:"affected_count"`
+	}
+	if err := json.Unmarshal(resp.Data, &removed); err != nil {
+		t.Fatalf("unmarshal remove response: %v", err)
+	}
+	if removed.AffectedCount != 1 {
+		t.Fatalf("affected_count = %d, want 1", removed.AffectedCount)
+	}
+
+	var remainingCount int64
+	if err := ts.db.Model(&models.ContactGroup{}).Where("group_id = ?", group.ID).Count(&remainingCount).Error; err != nil {
+		t.Fatalf("count remaining members: %v", err)
+	}
+	if remainingCount != 1 {
+		t.Fatalf("remaining group members = %d, want 1", remainingCount)
+	}
+}
+
+func TestGroupMembersRejectStructuralContactIDsWhileMissingContactsRemainNotFound(t *testing.T) {
+	ts := setupTestServer(t)
+	token, _ := ts.registerTestUser(t, "group-members-contact-id-validation@test.com")
+	vault := ts.createTestVault(t, token, "Group Members Validation Vault")
+	group := models.Group{VaultID: vault.ID, Name: "Friends"}
+	if err := ts.db.Create(&group).Error; err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+	path := fmt.Sprintf("/api/vaults/%s/groups/%d/members", vault.ID, group.ID)
+	missingContactID := uuid.NewString()
+	overLimitContactID := uuid.NewString()
+	overLimitIDs := strings.TrimSuffix(strings.Repeat(fmt.Sprintf(`"%s",`, overLimitContactID), 501), ",")
+
+	tests := []struct {
+		name       string
+		method     string
+		contactIDs string
+		wantStatus int
+	}{
+		{name: "invalid UUID", method: http.MethodPost, contactIDs: `"not-a-uuid"`, wantStatus: http.StatusBadRequest},
+		{name: "empty UUID", method: http.MethodDelete, contactIDs: `""`, wantStatus: http.StatusBadRequest},
+		{name: "more than 500 repeated UUIDs", method: http.MethodPost, contactIDs: overLimitIDs, wantStatus: http.StatusBadRequest},
+		{name: "valid missing UUID", method: http.MethodPost, contactIDs: fmt.Sprintf(`"%s"`, missingContactID), wantStatus: http.StatusNotFound},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			body := fmt.Sprintf(`{"contact_ids":[%s]}`, test.contactIDs)
+			rec := ts.doRequest(test.method, path, body, token)
+
+			if rec.Code != test.wantStatus {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, test.wantStatus, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestPostCreateAndUpdateRejectStructuralContactIDsWhileMissingContactsRemainNotFound(t *testing.T) {
+	ts := setupTestServer(t)
+	token, _ := ts.registerTestUser(t, "post-contact-id-validation@test.com")
+	vault := ts.createTestVault(t, token, "Post Validation Vault")
+	journalID := ts.createTestJournal(t, token, vault.ID, "Post Validation Journal")
+	postID := ts.createTestPost(t, token, vault.ID, journalID, "Existing Post")
+	createPath := fmt.Sprintf("/api/vaults/%s/journals/%d/posts", vault.ID, journalID)
+	updatePath := fmt.Sprintf("%s/%d", createPath, postID)
+	missingContactID := uuid.NewString()
+	overLimitContactID := uuid.NewString()
+	overLimitIDs := strings.TrimSuffix(strings.Repeat(fmt.Sprintf(`"%s",`, overLimitContactID), 501), ",")
+
+	tests := []struct {
+		name       string
+		path       string
+		contactIDs string
+		wantStatus int
+	}{
+		{name: "create rejects invalid UUID", path: createPath, contactIDs: `"not-a-uuid"`, wantStatus: http.StatusBadRequest},
+		{name: "create rejects empty UUID", path: createPath, contactIDs: `""`, wantStatus: http.StatusBadRequest},
+		{name: "create rejects more than 500 repeated UUIDs", path: createPath, contactIDs: overLimitIDs, wantStatus: http.StatusBadRequest},
+		{name: "create preserves missing UUID as not found", path: createPath, contactIDs: fmt.Sprintf(`"%s"`, missingContactID), wantStatus: http.StatusNotFound},
+		{name: "update rejects invalid UUID", path: updatePath, contactIDs: `"not-a-uuid"`, wantStatus: http.StatusBadRequest},
+		{name: "update rejects empty UUID", path: updatePath, contactIDs: `""`, wantStatus: http.StatusBadRequest},
+		{name: "update rejects more than 500 repeated UUIDs", path: updatePath, contactIDs: overLimitIDs, wantStatus: http.StatusBadRequest},
+		{name: "update preserves missing UUID as not found", path: updatePath, contactIDs: fmt.Sprintf(`"%s"`, missingContactID), wantStatus: http.StatusNotFound},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			body := fmt.Sprintf(`{"title":"Updated","written_at":"2025-01-15T10:30:00Z","contact_ids":[%s]}`, test.contactIDs)
+			method := http.MethodPost
+			if test.path == updatePath {
+				method = http.MethodPut
+			}
+			rec := ts.doRequest(method, test.path, body, token)
+
+			if rec.Code != test.wantStatus {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, test.wantStatus, rec.Body.String())
+			}
+		})
 	}
 }
 
