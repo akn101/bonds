@@ -397,12 +397,17 @@ func (s *AdminService) deleteVaultData(tx *gorm.DB, vaultID string) error {
 }
 
 func (s *AdminService) deleteContactData(tx *gorm.DB, contactID string) error {
+	// Reminder schedules and selected recipients depend on ContactReminder.
 	if err := tx.Where("contact_reminder_id IN (?)",
 		tx.Model(&models.ContactReminder{}).Select("id").Where("contact_id = ?", contactID),
 	).Delete(&models.ContactReminderScheduled{}).Error; err != nil {
 		return fmt.Errorf("delete scheduled reminders: %w", err)
 	}
-
+	if err := tx.Where("contact_reminder_id IN (?)",
+		tx.Model(&models.ContactReminder{}).Select("id").Where("contact_id = ?", contactID),
+	).Delete(&models.ContactReminderSelectedUser{}).Error; err != nil {
+		return fmt.Errorf("delete selected reminder recipients: %w", err)
+	}
 	goalSubquery := tx.Model(&models.Goal{}).Select("id").Where("contact_id = ?", contactID)
 	if err := tx.Where("goal_id IN (?)", goalSubquery).Delete(&models.Streak{}).Error; err != nil {
 		return fmt.Errorf("delete streaks: %w", err)

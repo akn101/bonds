@@ -10,6 +10,7 @@ import (
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/internal/testutil"
+	"gorm.io/gorm"
 )
 
 func setupAdminTest(t *testing.T) (*AdminService, *AuthService, *VaultService) {
@@ -331,6 +332,78 @@ func TestAdminDeleteUser_RegisteredUserWithDefaultVault(t *testing.T) {
 	adminSvc.db.Model(&models.User{}).Where("id = ?", target.User.ID).Count(&userCount)
 	if userCount != 0 {
 		t.Error("expected target user to be deleted")
+	}
+}
+
+func TestAdminService_deleteContactData_cleansSelectedReminderRecipients_whenForeignKeysEnabled(t *testing.T) {
+	// Given
+	tmpDir := t.TempDir()
+	db, err := database.Connect(&config.DatabaseConfig{Driver: "sqlite", DSN: filepath.Join(tmpDir, "bonds.db")}, false)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+	if err := database.AutoMigrate(db); err != nil {
+		t.Fatalf("migrate database: %v", err)
+	}
+	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
+		t.Fatalf("enable foreign keys: %v", err)
+	}
+	if err := models.SeedCurrencies(db); err != nil {
+		t.Fatalf("seed currencies: %v", err)
+	}
+
+	adminSvc := NewAdminService(db, filepath.Join(tmpDir, "uploads"))
+	authSvc := NewAuthService(db, testutil.TestJWTConfig())
+	target := registerTestUser(t, authSvc, "selected-recipient-target@example.com")
+
+	vault := models.Vault{
+		AccountID: target.User.AccountID,
+		Type:      "personal",
+		Name:      "Selected reminder recipient vault",
+	}
+	if err := db.Create(&vault).Error; err != nil {
+		t.Fatalf("create target vault: %v", err)
+	}
+	contact := models.Contact{VaultID: vault.ID, FirstName: strPtrOrNil("Recipient contact")}
+	if err := db.Create(&contact).Error; err != nil {
+		t.Fatalf("create contact: %v", err)
+	}
+	reminder := models.ContactReminder{
+		ContactID: contact.ID,
+		Label:     "Selected recipient reminder",
+		Type:      "one_time",
+		Audience:  models.ReminderAudienceSelectedUsers,
+	}
+	if err := db.Create(&reminder).Error; err != nil {
+		t.Fatalf("create selected-users reminder: %v", err)
+	}
+	if err := db.Create(&models.ContactReminderSelectedUser{
+		ContactReminderID: reminder.ID,
+		UserID:            target.User.ID,
+	}).Error; err != nil {
+		t.Fatalf("create selected reminder recipient: %v", err)
+	}
+
+	// When
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := adminSvc.deleteContactData(tx, contact.ID); err != nil {
+			return fmt.Errorf("delete contact data: %w", err)
+		}
+		return tx.Unscoped().Delete(&contact).Error
+	})
+
+	// Then
+	if err != nil {
+		t.Fatalf("delete contact with selected reminder recipient: %v", err)
+	}
+	var recipientCount int64
+	if err := db.Model(&models.ContactReminderSelectedUser{}).
+		Where("contact_reminder_id = ?", reminder.ID).
+		Count(&recipientCount).Error; err != nil {
+		t.Fatalf("count selected reminder recipients: %v", err)
+	}
+	if recipientCount != 0 {
+		t.Fatalf("selected reminder recipients = %d, want 0", recipientCount)
 	}
 }
 

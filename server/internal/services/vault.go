@@ -187,13 +187,17 @@ func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
 	if len(contactIDs) > 0 {
 		// --- Grandchildren (depend on contact children) ---
 
-		// ContactReminderScheduled → depends on ContactReminder
+		// Reminder schedules and selected recipients depend on ContactReminder.
 		if err := tx.Where("contact_reminder_id IN (?)",
 			tx.Model(&models.ContactReminder{}).Select("id").Where("contact_id IN ?", contactIDs),
 		).Delete(&models.ContactReminderScheduled{}).Error; err != nil {
 			return fmt.Errorf("delete ContactReminderScheduled: %w", err)
 		}
-
+		if err := tx.Where("contact_reminder_id IN (?)",
+			tx.Model(&models.ContactReminder{}).Select("id").Where("contact_id IN ?", contactIDs),
+		).Delete(&models.ContactReminderSelectedUser{}).Error; err != nil {
+			return fmt.Errorf("delete ContactReminderSelectedUser: %w", err)
+		}
 		// Streak → depends on Goal
 		if err := tx.Where("goal_id IN (?)",
 			tx.Model(&models.Goal{}).Select("id").Where("contact_id IN ?", contactIDs),
