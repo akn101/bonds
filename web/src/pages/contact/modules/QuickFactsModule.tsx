@@ -28,19 +28,59 @@ import {
   UploadOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { QueryKey } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api";
-import type { APIError, CreateQuickFactRequest, QuickFact, QuickFactGroup, UpdateQuickFactRequest } from "@/api";
+import type {
+  APIError,
+  CreateQuickFactRequest,
+  QuickFact,
+  QuickFactGroup,
+  UpdateQuickFactRequest,
+} from "@/api";
 import { formatDate, useDateFormat } from "@/utils/dateFormat";
+import type { NormalizedFeedSource } from "@/utils/feedSourceLink";
+import {
+  invalidateFeedQueries,
+  type ContactQueryScope,
+} from "@/utils/queryInvalidation";
+import { sourceRecordKey, useSourceRecordReveal } from "../contactSourceRecord";
 
-const QUICK_FACT_FIELD_TYPES = ["text", "number", "date", "select", "photo", "document"] as const;
+const QUICK_FACT_FIELD_TYPES = [
+  "text",
+  "number",
+  "date",
+  "select",
+  "photo",
+  "document",
+] as const;
 type QuickFactFieldType = (typeof QUICK_FACT_FIELD_TYPES)[number];
 
-function isQuickFactFieldType(value: string | undefined): value is QuickFactFieldType {
+type QuickFactFileMutationVariables = {
+  readonly contactScope: ContactQueryScope;
+  readonly factId: number | null;
+  readonly file: File;
+  readonly listQueryKey: QueryKey;
+  readonly templateId: number;
+};
+
+type DeleteQuickFactOperation = {
+  readonly factId: number;
+  readonly hasFileSource: boolean;
+  readonly listQueryKey: QueryKey;
+  readonly source: ContactQueryScope;
+  readonly templateId: number;
+};
+
+function isQuickFactFieldType(
+  value: string | undefined,
+): value is QuickFactFieldType {
   return QUICK_FACT_FIELD_TYPES.some((fieldType) => fieldType === value);
 }
 
-function normalizeQuickFactFieldType(value: string | undefined): QuickFactFieldType {
+function normalizeQuickFactFieldType(
+  value: string | undefined,
+): QuickFactFieldType {
   return isQuickFactFieldType(value) ? value : "text";
 }
 
@@ -59,14 +99,18 @@ export default function QuickFactsModule({
   vaultId,
   contactId,
   readOnly = false,
+  target,
 }: {
   vaultId: string | number;
   contactId: string | number;
   readOnly?: boolean;
+  target?: Extract<NormalizedFeedSource, { readonly module: "quick_facts" }>;
 }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
+    null,
+  );
   const [textValue, setTextValue] = useState("");
   const [numberValue, setNumberValue] = useState<number | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -81,23 +125,43 @@ export default function QuickFactsModule({
   const { data: groups = [], isLoading } = useQuery({
     queryKey: qk,
     queryFn: async () => {
-      const res = await api.quickFacts.contactsQuickFactsList(String(vaultId), String(contactId));
+      const res = await api.quickFacts.contactsQuickFactsList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
 
   const quickFactGroups: QuickFactGroup[] = groups;
-  const editableGroups = quickFactGroups.filter((group) => group.template_id !== undefined);
-  const visibleGroups = quickFactGroups.filter((group) => (group.facts?.length ?? 0) > 0);
+  const editableGroups = quickFactGroups.filter(
+    (group) => group.template_id !== undefined,
+  );
+  const visibleGroups = quickFactGroups.filter(
+    (group) => (group.facts?.length ?? 0) > 0,
+  );
   const hasFacts = visibleGroups.length > 0;
-  const selectedGroup = editableGroups.find((group) => group.template_id === selectedTemplateId) ?? null;
-  const selectedFieldType = normalizeQuickFactFieldType(selectedGroup?.field_type);
+  const selectedGroup =
+    editableGroups.find((group) => group.template_id === selectedTemplateId) ??
+    null;
+  const selectedFieldType = normalizeQuickFactFieldType(
+    selectedGroup?.field_type,
+  );
   const showForm = !readOnly && (adding || editingId !== null);
+  const targetAvailable =
+    target !== undefined &&
+    visibleGroups.some((group) =>
+      (group.facts ?? []).some((fact) => fact.file?.id === target.id),
+    );
+
+  useSourceRecordReveal(target, targetAvailable);
 
   const saveMutation = useMutation({
     mutationFn: () => {
       if (!selectedGroup?.template_id) {
-        return Promise.reject({ message: t("modules.quick_facts.select_category_required") });
+        return Promise.reject({
+          message: t("modules.quick_facts.select_category_required"),
+        });
       }
       const data = buildScalarRequest(selectedGroup);
       if (editingId !== null) {
@@ -109,7 +173,12 @@ export default function QuickFactsModule({
           data,
         );
       }
-      return api.quickFacts.contactsQuickFactsCreate(String(vaultId), String(contactId), selectedGroup.template_id, data);
+      return api.quickFacts.contactsQuickFactsCreate(
+        String(vaultId),
+        String(contactId),
+        selectedGroup.template_id,
+        data,
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk });
@@ -119,14 +188,36 @@ export default function QuickFactsModule({
   });
 
   const fileMutation = useMutation({
-    mutationFn: ({ templateId, factId, file }: { templateId: number; factId: number | null; file: File }) => {
+    mutationFn: ({
+      contactScope,
+      templateId,
+      factId,
+      file,
+    }: QuickFactFileMutationVariables) => {
       if (factId !== null) {
-        return api.quickFacts.contactsQuickFactsFileUpdate(String(vaultId), String(contactId), templateId, factId, { file });
+        return api.quickFacts.contactsQuickFactsFileUpdate(
+          contactScope.vaultId,
+          contactScope.contactId,
+          templateId,
+          factId,
+          { file },
+        );
       }
-      return api.quickFacts.contactsQuickFactsFileCreate(String(vaultId), String(contactId), templateId, { file });
+      return api.quickFacts.contactsQuickFactsFileCreate(
+        contactScope.vaultId,
+        contactScope.contactId,
+        templateId,
+        { file },
+      );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: variables.listQueryKey }),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [variables.contactScope.vaultId],
+          contacts: [variables.contactScope],
+        }),
+      ]);
       message.success(t("modules.quick_facts.file_uploaded"));
       resetForm();
     },
@@ -134,25 +225,37 @@ export default function QuickFactsModule({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (fact: QuickFact) => {
-      if (!fact.id || !fact.vault_quick_facts_template_id) {
-        return Promise.reject({ message: t("modules.quick_facts.missing_fact_reference") });
-      }
+    mutationFn: (operation: DeleteQuickFactOperation) => {
       return api.quickFacts.contactsQuickFactsDelete(
-        String(vaultId),
-        String(contactId),
-        fact.vault_quick_facts_template_id,
-        fact.id,
+        operation.source.vaultId,
+        operation.source.contactId,
+        operation.templateId,
+        operation.factId,
       );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
+    onSuccess: async (_data, operation) => {
+      const invalidations = [
+        queryClient.invalidateQueries({ queryKey: operation.listQueryKey }),
+      ];
+      if (operation.hasFileSource) {
+        invalidations.push(
+          invalidateFeedQueries(queryClient, {
+            vaultIds: [operation.source.vaultId],
+            contacts: [operation.source],
+          }),
+        );
+      }
+      await Promise.all(invalidations);
     },
     onError: (e: APIError) => message.error(e.message),
   });
 
   const toggleMutation = useMutation({
-    mutationFn: () => api.quickFacts.contactsQuickFactsToggleUpdate(String(vaultId), String(contactId)),
+    mutationFn: () =>
+      api.quickFacts.contactsQuickFactsToggleUpdate(
+        String(vaultId),
+        String(contactId),
+      ),
     onSuccess: () => {
       setIsCollapsed(!isCollapsed);
       message.success(t("modules.quick_facts.toggled"));
@@ -191,8 +294,13 @@ export default function QuickFactsModule({
 
   function startEdit(fact: QuickFact) {
     const templateId = fact.vault_quick_facts_template_id ?? null;
-    const group = editableGroups.find((candidate) => candidate.template_id === templateId) ?? null;
-    const fieldType = normalizeQuickFactFieldType(group?.field_type ?? fact.field_type);
+    const group =
+      editableGroups.find(
+        (candidate) => candidate.template_id === templateId,
+      ) ?? null;
+    const fieldType = normalizeQuickFactFieldType(
+      group?.field_type ?? fact.field_type,
+    );
     setEditingId(fact.id ?? null);
     setSelectedTemplateId(templateId);
     setAdding(false);
@@ -203,16 +311,27 @@ export default function QuickFactsModule({
       return;
     }
     setNumberValue(null);
-    setTextValue(fact.value_text ?? fact.value_date ?? fact.value_option ?? fact.content ?? "");
+    setTextValue(
+      fact.value_text ??
+        fact.value_date ??
+        fact.value_option ??
+        fact.content ??
+        "",
+    );
   }
 
   function selectTemplate(templateId: number) {
-    const group = editableGroups.find((candidate) => candidate.template_id === templateId) ?? null;
+    const group =
+      editableGroups.find(
+        (candidate) => candidate.template_id === templateId,
+      ) ?? null;
     setSelectedTemplateId(templateId);
     applyDefaultValue(group);
   }
 
-  function buildScalarRequest(group: QuickFactGroup): CreateQuickFactRequest | UpdateQuickFactRequest {
+  function buildScalarRequest(
+    group: QuickFactGroup,
+  ): CreateQuickFactRequest | UpdateQuickFactRequest {
     const fieldType = normalizeQuickFactFieldType(group.field_type);
     switch (fieldType) {
       case "number":
@@ -230,7 +349,8 @@ export default function QuickFactsModule({
   }
 
   function canSaveScalar() {
-    if (!selectedGroup || isQuickFactFileFieldType(selectedFieldType)) return false;
+    if (!selectedGroup || isQuickFactFileFieldType(selectedFieldType))
+      return false;
     if (selectedFieldType === "number") return numberValue !== null;
     return textValue.trim().length > 0;
   }
@@ -257,7 +377,17 @@ export default function QuickFactsModule({
       message.error(t("modules.quick_facts.unsupported_field_type"));
       return;
     }
-    fileMutation.mutate({ templateId: selectedGroup.template_id, factId: editingId, file });
+    // Mutation variables retain the initiating route even if the form rerenders before completion.
+    fileMutation.mutate({
+      contactScope: {
+        vaultId: String(vaultId),
+        contactId: String(contactId),
+      },
+      templateId: selectedGroup.template_id,
+      factId: editingId,
+      file,
+      listQueryKey: qk,
+    });
   }
 
   const beforeUpload: UploadProps["beforeUpload"] = (file) => {
@@ -273,7 +403,9 @@ export default function QuickFactsModule({
           style={{ width: "100%" }}
           placeholder={t("modules.quick_facts.number_placeholder")}
           value={numberValue}
-          onChange={(value) => setNumberValue(typeof value === "number" ? value : null)}
+          onChange={(value) =>
+            setNumberValue(typeof value === "number" ? value : null)
+          }
         />
       );
     }
@@ -293,7 +425,10 @@ export default function QuickFactsModule({
           placeholder={t("modules.quick_facts.select_placeholder")}
           value={textValue || undefined}
           onChange={setTextValue}
-          options={(group.select_options ?? []).map((option) => ({ label: option, value: option }))}
+          options={(group.select_options ?? []).map((option) => ({
+            label: option,
+            value: option,
+          }))}
         />
       );
     }
@@ -308,7 +443,11 @@ export default function QuickFactsModule({
           <Button icon={<UploadOutlined />} loading={fileMutation.isPending}>
             {editingId !== null
               ? t("modules.quick_facts.replace_file")
-              : t(fieldType === "photo" ? "modules.quick_facts.upload_photo" : "modules.quick_facts.upload_document")}
+              : t(
+                  fieldType === "photo"
+                    ? "modules.quick_facts.upload_photo"
+                    : "modules.quick_facts.upload_document",
+                )}
           </Button>
         </Upload>
       );
@@ -323,7 +462,9 @@ export default function QuickFactsModule({
   }
 
   function renderFactValue(fact: QuickFact, group: QuickFactGroup): ReactNode {
-    const fieldType = normalizeQuickFactFieldType(group.field_type ?? fact.field_type);
+    const fieldType = normalizeQuickFactFieldType(
+      group.field_type ?? fact.field_type,
+    );
     if (fieldType === "photo") {
       return fact.file?.id ? (
         <Image
@@ -333,43 +474,84 @@ export default function QuickFactsModule({
           style={{ objectFit: "cover", borderRadius: token.borderRadius }}
         />
       ) : (
-        <Typography.Text type="secondary">{t("modules.quick_facts.file_missing")}</Typography.Text>
+        <Typography.Text type="secondary">
+          {t("modules.quick_facts.file_missing")}
+        </Typography.Text>
       );
     }
     if (fieldType === "document") {
       return fact.file?.id ? (
         <Space direction="vertical" size={0}>
-          <Button type="link" icon={<FileOutlined />} href={downloadUrl(fact.file.id)} target="_blank" style={{ padding: 0 }}>
+          <Button
+            type="link"
+            icon={<FileOutlined />}
+            href={downloadUrl(fact.file.id)}
+            target="_blank"
+            style={{ padding: 0 }}
+          >
             {fact.file.name ?? t("modules.quick_facts.download_file")}
           </Button>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {[fact.file.mime_type, formatFileSize(fact.file.size)].filter(Boolean).join(" · ")}
+            {[fact.file.mime_type, formatFileSize(fact.file.size)]
+              .filter(Boolean)
+              .join(" · ")}
           </Typography.Text>
         </Space>
       ) : (
-        <Typography.Text type="secondary">{t("modules.quick_facts.file_missing")}</Typography.Text>
+        <Typography.Text type="secondary">
+          {t("modules.quick_facts.file_missing")}
+        </Typography.Text>
       );
     }
     if (fieldType === "date") {
-      return <Typography.Text style={{ fontWeight: 500 }}>{formatQuickFactDate(fact.value_date ?? fact.content)}</Typography.Text>;
+      return (
+        <Typography.Text style={{ fontWeight: 500 }}>
+          {formatQuickFactDate(fact.value_date ?? fact.content)}
+        </Typography.Text>
+      );
     }
     if (fieldType === "number") {
-      return <Typography.Text style={{ fontWeight: 500 }}>{fact.value_number ?? fact.content ?? t("modules.quick_facts.empty_value")}</Typography.Text>;
+      return (
+        <Typography.Text style={{ fontWeight: 500 }}>
+          {fact.value_number ??
+            fact.content ??
+            t("modules.quick_facts.empty_value")}
+        </Typography.Text>
+      );
     }
     if (fieldType === "select") {
-      return <Typography.Text style={{ fontWeight: 500 }}>{fact.value_option ?? fact.content ?? t("modules.quick_facts.empty_value")}</Typography.Text>;
+      return (
+        <Typography.Text style={{ fontWeight: 500 }}>
+          {fact.value_option ??
+            fact.content ??
+            t("modules.quick_facts.empty_value")}
+        </Typography.Text>
+      );
     }
-    return <Typography.Text style={{ fontWeight: 500 }}>{fact.value_text ?? fact.content ?? t("modules.quick_facts.empty_value")}</Typography.Text>;
+    return (
+      <Typography.Text style={{ fontWeight: 500 }}>
+        {fact.value_text ??
+          fact.content ??
+          t("modules.quick_facts.empty_value")}
+      </Typography.Text>
+    );
   }
 
   if (readOnly && !isLoading && !hasFacts) return null;
 
   return (
     <Card
-      title={<span style={{ fontWeight: 500 }}>{t("modules.quick_facts.title")}</span>}
+      title={
+        <span style={{ fontWeight: 500 }}>
+          {t("modules.quick_facts.title")}
+        </span>
+      }
       styles={{
         header: { borderBottom: `1px solid ${token.colorBorderSecondary}` },
-        body: { padding: isCollapsed ? 0 : "16px 24px", display: isCollapsed ? "none" : "block" },
+        body: {
+          padding: isCollapsed ? 0 : "16px 24px",
+          display: isCollapsed ? "none" : "block",
+        },
       }}
       extra={
         !readOnly && (
@@ -382,7 +564,12 @@ export default function QuickFactsModule({
               />
             </Tooltip>
             {!showForm && (
-              <Button type="link" icon={<PlusOutlined />} onClick={startAdd} disabled={editableGroups.length === 0}>
+              <Button
+                type="link"
+                icon={<PlusOutlined />}
+                onClick={startAdd}
+                disabled={editableGroups.length === 0}
+              >
                 {t("modules.quick_facts.add")}
               </Button>
             )}
@@ -411,7 +598,11 @@ export default function QuickFactsModule({
               }))}
             />
             {selectedGroup && renderValueInput(selectedGroup)}
-            {selectedGroup?.help_text && <Typography.Text type="secondary">{selectedGroup.help_text}</Typography.Text>}
+            {selectedGroup?.help_text && (
+              <Typography.Text type="secondary">
+                {selectedGroup.help_text}
+              </Typography.Text>
+            )}
             <Space>
               {!isQuickFactFileFieldType(selectedFieldType) && (
                 <Button
@@ -433,7 +624,9 @@ export default function QuickFactsModule({
       )}
 
       {isLoading ? (
-        <Typography.Text type="secondary">{t("common.loading")}</Typography.Text>
+        <Typography.Text type="secondary">
+          {t("common.loading")}
+        </Typography.Text>
       ) : !hasFacts ? (
         <Empty description={t("modules.quick_facts.no_facts")} />
       ) : (
@@ -442,14 +635,28 @@ export default function QuickFactsModule({
             <div key={group.template_id}>
               <Typography.Text
                 type="secondary"
-                style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.4,
+                }}
               >
                 {groupLabel(group)}
               </Typography.Text>
-              <Space direction="vertical" size={4} style={{ width: "100%", marginTop: 8 }}>
+              <Space
+                direction="vertical"
+                size={4}
+                style={{ width: "100%", marginTop: 8 }}
+              >
                 {(group.facts ?? []).map((fact) => (
                   <div
                     key={fact.id}
+                    data-source-record={
+                      fact.file?.id
+                        ? sourceRecordKey("File", fact.file.id)
+                        : undefined
+                    }
                     style={{
                       borderRadius: token.borderRadius,
                       padding: "10px 12px",
@@ -460,13 +667,16 @@ export default function QuickFactsModule({
                       gap: 12,
                     }}
                     onMouseEnter={(event) => {
-                      event.currentTarget.style.background = token.colorFillQuaternary;
+                      event.currentTarget.style.background =
+                        token.colorFillQuaternary;
                     }}
                     onMouseLeave={(event) => {
                       event.currentTarget.style.background = "transparent";
                     }}
                   >
-                    <div style={{ minWidth: 0, flex: 1 }}>{renderFactValue(fact, group)}</div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      {renderFactValue(fact, group)}
+                    </div>
                     {!readOnly && (
                       <Space size={0}>
                         {fact.file?.id && (
@@ -478,9 +688,43 @@ export default function QuickFactsModule({
                             target="_blank"
                           />
                         )}
-                        <Button type="text" size="small" icon={<EditOutlined />} onClick={() => startEdit(fact)} />
-                        <Popconfirm title={t("modules.quick_facts.delete_confirm")} onConfirm={() => deleteMutation.mutate(fact)}>
-                          <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => startEdit(fact)}
+                        />
+                        <Popconfirm
+                          title={t("modules.quick_facts.delete_confirm")}
+                          onConfirm={() => {
+                            if (
+                              fact.id === undefined ||
+                              fact.vault_quick_facts_template_id === undefined
+                            ) {
+                              message.error(
+                                t("modules.quick_facts.missing_fact_reference"),
+                              );
+                              return;
+                            }
+                            // The operation retains the clicked fact and route while deletion is pending.
+                            deleteMutation.mutate({
+                              factId: fact.id,
+                              hasFileSource: fact.file?.id !== undefined,
+                              listQueryKey: qk,
+                              source: {
+                                vaultId: String(vaultId),
+                                contactId: String(contactId),
+                              },
+                              templateId: fact.vault_quick_facts_template_id,
+                            });
+                          }}
+                        >
+                          <Button
+                            type="text"
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                          />
                         </Popconfirm>
                       </Space>
                     )}
