@@ -23,7 +23,7 @@ func (s *JournalService) GetByYear(journalID uint, vaultID string, year int) ([]
 
 	var posts []models.Post
 	if err := s.db.Where("journal_id = ? AND written_at >= ? AND written_at < ?", journalID, startOfYear, endOfYear).
-		Order("written_at DESC").Find(&posts).Error; err != nil {
+		Preload("Contacts", "vault_id = ?", vaultID).Order("written_at DESC").Find(&posts).Error; err != nil {
 		return nil, err
 	}
 
