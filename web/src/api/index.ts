@@ -10,7 +10,20 @@
  */
 
 import i18n, { normalizeLanguageCode } from "@/i18n";
-import type { GithubComNaibaBondsPkgResponseAPIResponse } from "./generated/data-contracts";
+import {
+  AuthenticationRequestOwnership,
+  StaleAuthenticationRequestError,
+} from "@/api/authenticationRequestOwnership";
+import {
+  isAuthenticationSubjectRevisionCurrent,
+  replaceCurrentAuthenticationToken,
+  terminateCurrentAuthenticationSubject,
+} from "@/utils/authenticationSubjectRevision";
+import type { AuthenticationSubjectRevision } from "@/utils/authenticationSubjectRevision";
+import type {
+  GithubComNaibaBondsPkgResponseAPIError,
+  GithubComNaibaBondsPkgResponseAPIResponse,
+} from "./generated/data-contracts";
 import { HttpClient } from "./generated/http-client";
 import { Account } from "./generated/Account";
 import { Admin } from "./generated/Admin";
@@ -86,8 +99,38 @@ const httpClient = new HttpClient({
   secure: true,
 });
 
+const PUBLIC_AUTHENTICATION_ATTEMPT_PATHS = new Set([
+  "/auth/login",
+  "/auth/register",
+  "/auth/2fa/verify",
+  "/auth/webauthn/login/begin",
+  "/auth/webauthn/login/finish",
+  "/auth/oauth/link-register",
+]);
+
+function isPublicAuthenticationAttempt(method?: string, url?: string): boolean {
+  if (method?.toUpperCase() !== "POST" || url === undefined) {
+    return false;
+  }
+  return PUBLIC_AUTHENTICATION_ATTEMPT_PATHS.has(url.split("?", 1)[0]);
+}
+
 httpClient.instance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  // Business authentication 401s establish a new subject; they must not be interpreted as expiry of the current session.
+  if (isPublicAuthenticationAttempt(config.method, config.url)) {
+    config.headers.delete("Authorization");
+    config.headers["Accept-Language"] = normalizeLanguageCode(i18n.language);
+    return config;
+  }
+  const existingOwnership = config.authenticationOwnership;
+  const token = existingOwnership?.retryToken ?? localStorage.getItem("token");
+  const authenticationOwnership =
+    existingOwnership ?? AuthenticationRequestOwnership.capture(token);
+  config.authenticationOwnership = authenticationOwnership;
+  // Axios re-runs request interceptors for retries, so ownership must be frozen and revalidated instead of recaptured.
+  if (!authenticationOwnership.isCurrent(localStorage.getItem("token"))) {
+    return Promise.reject(new StaleAuthenticationRequestError(config));
+  }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -100,15 +143,33 @@ httpClient.instance.interceptors.request.use((config) => {
   return config;
 });
 
-let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+type RefreshOwnership = Readonly<{
+  subjectRevision: AuthenticationSubjectRevision;
+  token: string;
+}>;
+
+type RefreshResult =
+  | Readonly<{ status: "refreshed"; token: string }>
+  | Readonly<{ status: "stale" }>;
+
+type RefreshOperation = Readonly<{
+  ownership: RefreshOwnership;
+  promise: Promise<RefreshResult>;
+}>;
+
+let refreshOperation: RefreshOperation | null = null;
 
 // Redirect to /login while preserving the page the user was on, so Login.tsx
 // can send them back after a successful sign-in. Skip if already on /login or
 // other public auth pages.
 function redirectToLogin() {
   const { pathname, search, hash } = window.location;
-  if (pathname === "/login" || pathname.startsWith("/login/") || pathname === "/register" || pathname.startsWith("/oauth")) {
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/login/") ||
+    pathname === "/register" ||
+    pathname.startsWith("/oauth")
+  ) {
     return;
   }
   const target = pathname + search + hash;
@@ -120,66 +181,157 @@ function redirectToLogin() {
   window.location.href = `/login?redirect=${encodeURIComponent(target)}`;
 }
 
-function onRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
+function refreshOwnershipIsCurrent(ownership: RefreshOwnership): boolean {
+  return (
+    localStorage.getItem("token") === ownership.token &&
+    isAuthenticationSubjectRevisionCurrent(ownership.subjectRevision)
+  );
 }
 
-function addRefreshSubscriber(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
+async function refreshAuthenticationToken(
+  ownership: RefreshOwnership,
+): Promise<RefreshResult> {
+  try {
+    const response = await httpClient.instance.post<{
+      data?: { token?: string };
+    }>("/auth/refresh");
+    if (!refreshOwnershipIsCurrent(ownership)) {
+      return { status: "stale" };
+    }
+    const newToken = response.data.data?.token;
+    if (newToken === undefined) {
+      throw new Error("Refresh response did not include a token");
+    }
+    replaceCurrentAuthenticationToken(newToken);
+    return { status: "refreshed", token: newToken };
+  } catch (error) {
+    if (refreshOwnershipIsCurrent(ownership)) {
+      terminateCurrentAuthenticationSubject();
+      redirectToLogin();
+    }
+    throw error;
+  }
+}
+
+function getRefreshOperation(ownership: RefreshOwnership): RefreshOperation {
+  if (
+    refreshOperation !== null &&
+    refreshOperation.ownership.token === ownership.token &&
+    refreshOperation.ownership.subjectRevision.value ===
+      ownership.subjectRevision.value
+  ) {
+    return refreshOperation;
+  }
+  const operation: RefreshOperation = {
+    ownership,
+    promise: refreshAuthenticationToken(ownership),
+  };
+  refreshOperation = operation;
+  void operation.promise.then(
+    () => {
+      if (refreshOperation === operation) {
+        refreshOperation = null;
+      }
+    },
+    () => {
+      if (refreshOperation === operation) {
+        refreshOperation = null;
+      }
+    },
+  );
+  return operation;
 }
 
 httpClient.instance.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (error instanceof StaleAuthenticationRequestError) {
+      return Promise.reject(error);
+    }
     const originalRequest = error.config;
+    const requestOwnership = originalRequest.authenticationOwnership;
+    const currentToken = localStorage.getItem("token");
     if (
       error.response?.status === 401 &&
-      localStorage.getItem("token") &&
-      !originalRequest._retry &&
-      !originalRequest.url?.includes("/auth/refresh")
+      originalRequest.url?.includes("/auth/refresh")
     ) {
-      if (isRefreshing) {
-        return new Promise<string>((resolve) => {
-          addRefreshSubscriber((newToken: string) => {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            resolve(httpClient.instance(originalRequest));
-          });
-        });
+      return Promise.reject(error);
+    }
+    if (
+      error.response?.status === 401 &&
+      requestOwnership !== undefined &&
+      requestOwnership.originalToken !== null &&
+      requestOwnership.retryToken === null &&
+      !originalRequest._retry
+    ) {
+      if (requestOwnership.canRetryWithCurrentRotatedToken(currentToken)) {
+        // Another request already rotated this subject's token before this old-token 401 arrived.
+        originalRequest._retry = true;
+        originalRequest.authenticationOwnership =
+          requestOwnership.withRetryToken(currentToken);
+        return httpClient.instance(originalRequest);
       }
-
+      if (!requestOwnership.isCurrent(currentToken)) {
+        return Promise.reject(error);
+      }
       originalRequest._retry = true;
-      isRefreshing = true;
-
       try {
-        const res = await httpClient.instance.post("/auth/refresh");
-        const newToken = res.data?.data?.token as string | undefined;
-        if (newToken) {
-          localStorage.setItem("token", newToken);
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          onRefreshed(newToken);
+        const refreshOwnership: RefreshOwnership = {
+          subjectRevision: requestOwnership.subjectRevision,
+          token: requestOwnership.originalToken,
+        };
+        const result = await getRefreshOperation(refreshOwnership).promise;
+        if (result.status === "refreshed") {
+          originalRequest.authenticationOwnership =
+            requestOwnership.withRetryToken(result.token);
           return httpClient.instance(originalRequest);
         }
       } catch {
-        localStorage.removeItem("token");
-        redirectToLogin();
         return Promise.reject(error);
-      } finally {
-        isRefreshing = false;
       }
+      return Promise.reject(error);
     }
 
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      redirectToLogin();
+      if (
+        requestOwnership !== undefined &&
+        !requestOwnership.isCurrent(currentToken)
+      ) {
+        return Promise.reject(error);
+      }
+      if (
+        requestOwnership !== undefined &&
+        requestOwnership.originalToken !== null
+      ) {
+        terminateCurrentAuthenticationSubject();
+        redirectToLogin();
+      }
     }
-    const apiError = error.response
-      ?.data as GithubComNaibaBondsPkgResponseAPIResponse | undefined;
+    const apiError = error.response?.data as
+      | GithubComNaibaBondsPkgResponseAPIResponse
+      | undefined;
     return Promise.reject(
       apiError?.error ?? { code: "NETWORK_ERROR", message: error.message },
     );
   },
 );
+
+export function isPlainAPIError(
+  error: unknown,
+): error is GithubComNaibaBondsPkgResponseAPIError & {
+  readonly code: string;
+  readonly message: string;
+} {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    !(error instanceof Error) &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    "message" in error &&
+    typeof error.message === "string"
+  );
+}
 
 export const api = {
   account: new Account(httpClient),
@@ -268,7 +420,7 @@ export type { GithubComNaibaBondsInternalDtoCreateContactRequest as CreateContac
 export type { GithubComNaibaBondsInternalDtoUpdateContactRequest as UpdateContactRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoUpdateContactReligionRequest as UpdateContactReligionRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactLabelResponse as ContactLabel } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoContactSearchItem as SearchResult } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoContactSearchItem as ContactSelectorItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabsResponse as ContactTabsResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabPage as ContactTabPage } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabModule as ContactTabModule } from "./generated/data-contracts";
@@ -323,6 +475,7 @@ export type { GithubComNaibaBondsInternalDtoPostSectionResponse as PostSection }
 export type { GithubComNaibaBondsInternalDtoGroupResponse as Group } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoGroupContactResponse as GroupContact } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoFeedItemResponse as FeedItem } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoFeedSourceResponse as FeedSource } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoPreferencesResponse as UserPreferences } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoNotificationChannelResponse as NotificationChannel } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoPersonalizeEntityResponse as PersonalizeItem } from "./generated/data-contracts";
@@ -342,6 +495,9 @@ export type { GithubComNaibaBondsInternalDtoJournalMetricResponse as JournalMetr
 
 export type { GithubComNaibaBondsInternalDtoJournalMetricResponse as JournalMetricResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoSliceOfLifeResponse as SliceOfLifeResponse } from "./generated/data-contracts";
+
+export type { GithubComNaibaBondsInternalSearchSearchResult as SearchResult } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalSearchSearchResponse as SearchResponse } from "./generated/data-contracts";
 
 // Invitation
 export type { GithubComNaibaBondsInternalDtoInvitationResponse as InvitationType } from "./generated/data-contracts";
