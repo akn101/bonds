@@ -4,12 +4,57 @@ import { SearchOutlined } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api";
-import type { SearchResult } from "@/api";
+import type { SearchResponse, SearchResult } from "@/api";
+import {
+  buildContactSourcePath,
+  parseCanonicalPositiveSafeInteger,
+} from "@/utils/feedSourceLink";
+
+type SearchOption = {
+  readonly value: string;
+  readonly label: string;
+};
+
+type SearchOptionGroup = {
+  readonly label: string;
+  readonly options: SearchOption[];
+};
+
+function buildContactOption(
+  vaultId: string,
+  result: SearchResult,
+): SearchOption | null {
+  if (typeof result.id !== "string") return null;
+  return {
+    value: `/vaults/${vaultId}/contacts/${result.id}`,
+    label: result.name ?? "",
+  };
+}
+
+function buildNoteOption(
+  vaultId: string,
+  result: SearchResult,
+): SearchOption | null {
+  if (typeof result.id !== "string" || typeof result.contact_id !== "string") {
+    return null;
+  }
+
+  const noteId = parseCanonicalPositiveSafeInteger(result.id);
+  if (noteId === null) return null;
+
+  return {
+    value: buildContactSourcePath(vaultId, result.contact_id, {
+      available: true,
+      id: noteId,
+      kind: "Note",
+      module: "notes",
+    }),
+    label: result.name ?? "",
+  };
+}
 
 export default function SearchBar() {
-  const [options, setOptions] = useState<
-    { label: string; options: { value: string; label: string }[] }[]
-  >([]);
+  const [options, setOptions] = useState<SearchOptionGroup[]>([]);
   // Bug #31 fix: Controlled value prevents Ant Design AutoComplete from writing
   // the selected option value (e.g. "contact:uuid") back into the input field.
   const [value, setValue] = useState("");
@@ -29,24 +74,33 @@ export default function SearchBar() {
       }
       timerRef.current = setTimeout(async () => {
         try {
-          const res = await api.search.searchList(String(vaultId), { q: searchText });
-          const data = res.data as {
-            contacts?: SearchResult[];
-            notes?: SearchResult[];
-          };
-          const groups: {
-            label: string;
-            options: { value: string; label: string }[];
-          }[] = [];
+          const res = await api.search.searchList(String(vaultId), {
+            q: searchText,
+          });
+          const data: SearchResponse | undefined = res.data;
+          const groups: SearchOptionGroup[] = [];
 
           if (data?.contacts?.length) {
+            const contactOptions = data.contacts.flatMap((contact) => {
+              const option = buildContactOption(vaultId, contact);
+              return option ? [option] : [];
+            });
             groups.push({
               label: t("search.contacts"),
-              options: data.contacts.map((c) => ({
-                value: `contact:${c.id}`,
-                label: c.name ?? '',
-              })),
+              options: contactOptions,
             });
+          }
+          if (data?.notes?.length) {
+            const noteOptions = data.notes.flatMap((note) => {
+              const option = buildNoteOption(vaultId, note);
+              return option ? [option] : [];
+            });
+            if (noteOptions.length > 0) {
+              groups.push({
+                label: t("search.notes"),
+                options: noteOptions,
+              });
+            }
           }
           if (groups.length === 0) {
             groups.push({
@@ -66,10 +120,7 @@ export default function SearchBar() {
   const handleSelect = useCallback(
     (selectedValue: string) => {
       if (!vaultId) return;
-      const [type, id] = selectedValue.split(":");
-      if (type === "contact" || type === "note") {
-        navigate(`/vaults/${vaultId}/contacts/${id}`);
-      }
+      navigate(selectedValue);
       setValue("");
       setOptions([]);
     },
