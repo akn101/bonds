@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { httpClient } from "@/api";
+import { networkGraphQueryKey } from "@/components/networkGraphQueryKey";
 
 const { Text } = Typography;
 
@@ -35,7 +36,10 @@ interface NetworkGraphProps {
   contactId: string;
 }
 
-export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) {
+export default function NetworkGraph({
+  vaultId,
+  contactId,
+}: NetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
@@ -45,12 +49,17 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const { data: graphData, isLoading: loading, isError: error } = useQuery({
-    queryKey: ["vaults", vaultId, "contacts", contactId, "graph"],
+  const {
+    data: graphData,
+    isLoading: loading,
+    isError: error,
+  } = useQuery({
+    queryKey: networkGraphQueryKey({ vaultId, contactId }),
     queryFn: async () => {
-      const res = await httpClient.instance.get<{ success: boolean; data: GraphData }>(
-        `/vaults/${vaultId}/contacts/${contactId}/relationships/graph`
-      );
+      const res = await httpClient.instance.get<{
+        success: boolean;
+        data: GraphData;
+      }>(`/vaults/${vaultId}/contacts/${contactId}/relationships/graph`);
       const data = res.data?.data ?? res.data;
       if (data && "nodes" in data && "edges" in data) {
         return data;
@@ -70,7 +79,7 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
 
       httpClient.instance
         .get<{ success: boolean; data: KinshipResult }>(
-          `/vaults/${vaultId}/contacts/${nodeIds[0]}/relationships/kinship/${nodeIds[1]}`
+          `/vaults/${vaultId}/contacts/${nodeIds[0]}/relationships/kinship/${nodeIds[1]}`,
         )
         .then((res) => {
           const data = res.data?.data ?? res.data;
@@ -87,7 +96,7 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
           setKinshipLoading(false);
         });
     },
-    [vaultId]
+    [vaultId],
   );
 
   const getNodeId = useCallback((node: string | GraphNode): string => {
@@ -192,7 +201,9 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
     node
       .append("text")
       .text((d) => d.label)
-      .attr("dy", (d) => (d.is_center ? centerNodeRadius + 14 : nodeRadius + 14))
+      .attr("dy", (d) =>
+        d.is_center ? centerNodeRadius + 14 : nodeRadius + 14,
+      )
       .attr("text-anchor", "middle")
       .attr("font-size", isMobile ? 10 : 12)
       .attr("fill", textColor)
@@ -204,7 +215,9 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
           .attr("stroke", (l) => {
             const srcId = getNodeId(l.source);
             const tgtId = getNodeId(l.target);
-            return srcId === d.id || tgtId === d.id ? hoverEdgeColor : edgeColor;
+            return srcId === d.id || tgtId === d.id
+              ? hoverEdgeColor
+              : edgeColor;
           })
           .attr("stroke-opacity", (l) => {
             const srcId = getNodeId(l.source);
@@ -261,20 +274,29 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
 
     const drag = d3
       .drag<SVGGElement, GraphNode>()
-      .on("start", (event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d) => {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x;
-        d.fy = d.y;
-      })
-      .on("drag", (event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d) => {
-        d.fx = event.x;
-        d.fy = event.y;
-      })
-      .on("end", (event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d) => {
-        if (!event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
-      });
+      .on(
+        "start",
+        (event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        },
+      )
+      .on(
+        "drag",
+        (event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d) => {
+          d.fx = event.x;
+          d.fy = event.y;
+        },
+      )
+      .on(
+        "end",
+        (event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d) => {
+          if (!event.active) simulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        },
+      );
     node.call(drag);
 
     const simulation = d3
@@ -284,7 +306,7 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
         d3
           .forceLink<GraphNode, GraphEdge>(edges)
           .id((d) => d.id)
-          .distance(linkDistance)
+          .distance(linkDistance),
       )
       .force("charge", d3.forceManyBody().strength(chargeStrength))
       .force("center", d3.forceCenter(width / 2, height / 2))
@@ -298,8 +320,21 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
         .attr("y2", (d) => (d.target as GraphNode).y ?? 0);
 
       edgeLabel
-        .attr("x", (d) => (((d.source as GraphNode).x ?? 0) + ((d.target as GraphNode).x ?? 0)) / 2)
-        .attr("y", (d) => (((d.source as GraphNode).y ?? 0) + ((d.target as GraphNode).y ?? 0)) / 2 - 6);
+        .attr(
+          "x",
+          (d) =>
+            (((d.source as GraphNode).x ?? 0) +
+              ((d.target as GraphNode).x ?? 0)) /
+            2,
+        )
+        .attr(
+          "y",
+          (d) =>
+            (((d.source as GraphNode).y ?? 0) +
+              ((d.target as GraphNode).y ?? 0)) /
+              2 -
+            6,
+        );
 
       node.attr("transform", (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
@@ -307,7 +342,14 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
     return () => {
       simulation.stop();
     };
-  }, [graphData, token.colorPrimary, navigate, vaultId, getNodeId, fetchKinship]);
+  }, [
+    graphData,
+    token.colorPrimary,
+    navigate,
+    vaultId,
+    getNodeId,
+    fetchKinship,
+  ]);
 
   useEffect(() => {
     if (!svgRef.current || !graphData) return;
@@ -402,13 +444,19 @@ export default function NetworkGraph({ vaultId, contactId }: NetworkGraphProps) 
         }}
       >
         <Text type="secondary" style={{ fontSize: 12 }}>
-          {selectedNodes.length === 0 && t("modules.relationships.click_to_calculate")}
-          {selectedNodes.length === 1 && t("modules.relationships.click_to_calculate")}
-          {selectedNodes.length === 2 && kinshipLoading && <Spin size="small" />}
+          {selectedNodes.length === 0 &&
+            t("modules.relationships.click_to_calculate")}
+          {selectedNodes.length === 1 &&
+            t("modules.relationships.click_to_calculate")}
+          {selectedNodes.length === 2 && kinshipLoading && (
+            <Spin size="small" />
+          )}
           {selectedNodes.length === 2 &&
             !kinshipLoading &&
             kinship &&
-            t("modules.relationships.kinship_degree", { degree: kinship.degree })}
+            t("modules.relationships.kinship_degree", {
+              degree: kinship.degree,
+            })}
           {selectedNodes.length === 2 &&
             !kinshipLoading &&
             !kinship &&
