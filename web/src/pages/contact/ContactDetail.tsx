@@ -1,10 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { formatContactName, formatContactInitials, useVaultNameOrder } from "@/utils/nameFormat";
+import {
+  formatContactName,
+  formatContactInitials,
+  useVaultNameOrder,
+} from "@/utils/nameFormat";
 import { useDateFormat, formatDate } from "@/utils/dateFormat";
-import { dateInputToTimestamp, formatDateOnly, timestampToDateInput } from "@/utils/dateOnlyInput";
+import {
+  dateInputToTimestamp,
+  formatDateOnly,
+  timestampToDateInput,
+} from "@/utils/dateOnlyInput";
 import CalendarDatePicker from "@/components/CalendarDatePicker";
 import type { CalendarDatePickerValue } from "@/components/CalendarDatePicker";
-import { buildContactFirstMetRequest, contactFirstMetToCalendarDate, formatContactFirstMetDisplay } from "@/utils/contactFirstMet";
+import {
+  buildContactFirstMetRequest,
+  contactFirstMetToCalendarDate,
+  formatContactFirstMetDisplay,
+} from "@/utils/contactFirstMet";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   Card,
@@ -43,9 +55,35 @@ import {
 } from "@ant-design/icons";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { api, httpClient } from "@/api";
-import type { APIError, Contact, UpdateContactRequest, Vault, PersonalizeItem, ContactTabsResponse, ContactTabPage } from "@/api";
+import type {
+  APIError,
+  Contact,
+  UpdateContactRequest,
+  Vault,
+  PersonalizeItem,
+  ContactTabsResponse,
+  ContactTabPage,
+} from "@/api";
 import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
+import { parseContactSourceFocus } from "@/utils/feedSourceLink";
+import type {
+  FeedSourceModule,
+  NormalizedFeedSource,
+} from "@/utils/feedSourceLink";
+import {
+  invalidateCalendarQueries,
+  invalidateContactQueries,
+  invalidateFeedQueries,
+  invalidateReminderQueries,
+  removeContactFromVaultListCaches,
+} from "@/utils/queryInvalidation";
+import type {
+  ContactQueryScope,
+  QueryInvalidationScopes,
+} from "@/utils/queryInvalidation";
+import { invalidateVaultTaskImpactQueries } from "@/utils/taskQueryInvalidation";
+import { refreshMostConsultedProjections } from "@/utils/mostConsultedProjection";
 
 import NotesModule from "./modules/NotesModule";
 import RemindersModule from "./modules/RemindersModule";
@@ -71,6 +109,32 @@ import ContactSummaryCard from "./modules/ContactSummaryCard";
 
 const { Title, Text } = Typography;
 
+const FALLBACK_MODULE_TABS: Record<FeedSourceModule, string> = {
+  notes: "overview",
+  reminders: "activities",
+  calls: "activities",
+  tasks: "activities",
+  addresses: "information",
+  life_events: "life",
+  loans: "activities",
+  relationships: "relationships",
+  photos: "photos",
+  documents: "photos",
+  quick_facts: "overview",
+};
+
+function findTargetTabKey(
+  target: NormalizedFeedSource,
+  tabsData: ContactTabsResponse | undefined,
+): string | null {
+  if (!tabsData) return FALLBACK_MODULE_TABS[target.module];
+
+  const targetPage = (tabsData.pages ?? []).find((page) =>
+    (page.modules ?? []).some((module) => module.type === target.module),
+  );
+  return targetPage ? (targetPage.slug ?? String(targetPage.id)) : null;
+}
+
 function buildContactListUrl(vaultId: string, search: string): string {
   const incomingParams = new URLSearchParams(search);
   const listParams = new URLSearchParams();
@@ -84,12 +148,53 @@ function buildContactListUrl(vaultId: string, search: string): string {
   return `/vaults/${vaultId}/contacts${query ? `?${query}` : ""}`;
 }
 
-type ContactEditFormValues = Omit<UpdateContactRequest, "last_talked_to" | "first_met_at" | "first_met_date_precision" | "first_met_year" | "first_met_month" | "first_met_day"> & {
+type ContactEditFormValues = Omit<
+  UpdateContactRequest,
+  | "last_talked_to"
+  | "first_met_at"
+  | "first_met_date_precision"
+  | "first_met_year"
+  | "first_met_month"
+  | "first_met_day"
+> & {
   last_talked_to?: string;
   first_met?: CalendarDatePickerValue;
 };
 
-function buildUpdateContactRequest(values: ContactEditFormValues): UpdateContactRequest {
+type MoveContactMutationOperation = {
+  readonly source: ContactQueryScope;
+  readonly target: ContactQueryScope;
+};
+
+type ContactMutationOperation = {
+  readonly contact: ContactQueryScope;
+};
+
+type UpdateContactMutationOperation = ContactMutationOperation & {
+  readonly request: UpdateContactRequest;
+};
+
+type DeleteContactMutationOperation = ContactMutationOperation & {
+  readonly contactListUrl: string;
+};
+
+type AvatarUploadMutationOperation = ContactMutationOperation & {
+  readonly file: File;
+};
+
+function createContactQueryScope(
+  vaultId: string | number,
+  contactId: string | number,
+): ContactQueryScope {
+  return Object.freeze({
+    vaultId: String(vaultId),
+    contactId: String(contactId),
+  } satisfies ContactQueryScope);
+}
+
+function buildUpdateContactRequest(
+  values: ContactEditFormValues,
+): UpdateContactRequest {
   const request: UpdateContactRequest = {
     ...values,
     last_talked_to: dateInputToTimestamp(values.last_talked_to),
@@ -97,12 +202,15 @@ function buildUpdateContactRequest(values: ContactEditFormValues): UpdateContact
   };
   if (!request.last_talked_to) delete request.last_talked_to;
   if (!request.first_met_at) delete request.first_met_at;
-  if (!request.first_met_date_precision) delete request.first_met_date_precision;
+  if (!request.first_met_date_precision)
+    delete request.first_met_date_precision;
   if (request.first_met_year == null) delete request.first_met_year;
   if (request.first_met_month == null) delete request.first_met_month;
   if (request.first_met_day == null) delete request.first_met_day;
-  if (!request.first_met_through_contact_id) delete request.first_met_through_contact_id;
-  if (request.stay_in_touch_frequency_days == null) delete request.stay_in_touch_frequency_days;
+  if (!request.first_met_through_contact_id)
+    delete request.first_met_through_contact_id;
+  if (request.stay_in_touch_frequency_days == null)
+    delete request.stay_in_touch_frequency_days;
   return request;
 }
 
@@ -111,7 +219,11 @@ function buildUpdateContactRequest(values: ContactEditFormValues): UpdateContact
 // religions are handled by the contact header card and ExtraInfoModule, not here.
 const MODULE_COMPONENT_MAP: Record<
   string,
-  React.ComponentType<{ vaultId: string; contactId: string; [key: string]: unknown }>
+  React.ComponentType<{
+    vaultId: string;
+    contactId: string;
+    [key: string]: unknown;
+  }>
 > = {
   notes: NotesModule,
   labels: LabelsModule,
@@ -147,6 +259,10 @@ export default function ContactDetail() {
   const nameOrder = useVaultNameOrder(vaultId);
   const dateFormats = useDateFormat();
   const [viewMode, setViewMode] = useState<"read" | "edit">("read");
+  const [tabSelection, setTabSelection] = useState<{
+    readonly context: string;
+    readonly key: string;
+  } | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -159,7 +275,14 @@ export default function ContactDetail() {
   const { data: contact, isLoading } = useQuery({
     queryKey: ["vaults", vaultId, "contacts", cId],
     queryFn: async () => {
-      const res = await api.contacts.contactsDetail(String(vaultId), String(cId));
+      const contactScope = createContactQueryScope(vaultId, cId);
+      const res = await api.contacts.contactsDetail(
+        contactScope.vaultId,
+        contactScope.contactId,
+      );
+      await refreshMostConsultedProjections(queryClient, [
+        { vaultId: contactScope.vaultId },
+      ]);
       return res.data!;
     },
     enabled: !!vaultId && !!cId,
@@ -187,34 +310,56 @@ export default function ContactDetail() {
   const { data: tabsData } = useQuery<ContactTabsResponse>({
     queryKey: ["vaults", vaultId, "contacts", cId, "tabs"],
     queryFn: async () => {
-      const res = await api.contacts.contactsTabsList(String(vaultId), String(cId));
+      const res = await api.contacts.contactsTabsList(
+        String(vaultId),
+        String(cId),
+      );
       return res.data!;
     },
     enabled: !!vaultId && !!cId && !!contact,
   });
 
-  const { data: metThroughContacts = [], isLoading: isMetThroughContactsLoading } = useQuery<Contact[]>({
+  const {
+    data: metThroughContacts = [],
+    isLoading: isMetThroughContactsLoading,
+  } = useQuery<Contact[]>({
     queryKey: ["vaults", vaultId, "contacts", "meeting-select"],
     queryFn: async () => {
-      const res = await api.contacts.contactsList(String(vaultId), { per_page: 9999, filter: "all" });
+      const res = await api.contacts.contactsList(String(vaultId), {
+        per_page: 9999,
+        filter: "all",
+      });
       return res.data ?? [];
     },
     enabled: isEditModalOpen,
   });
 
   const updateContactMutation = useMutation({
-    mutationFn: (values: UpdateContactRequest) =>
-      api.contacts.contactsUpdate(String(vaultId), String(cId), values),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts", cId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "catchUp"],
-      });
+    mutationFn: (operation: UpdateContactMutationOperation) =>
+      api.contacts.contactsUpdate(
+        operation.contact.vaultId,
+        operation.contact.contactId,
+        operation.request,
+      ),
+    onSuccess: async (_, operation) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [
+            "vaults",
+            operation.contact.vaultId,
+            "contacts",
+            operation.contact.contactId,
+          ],
+        }),
+        invalidateContactQueries(queryClient, [operation.contact.vaultId]),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [operation.contact.vaultId],
+          contacts: [operation.contact],
+        }),
+        refreshMostConsultedProjections(queryClient, [
+          { vaultId: operation.contact.vaultId },
+        ]),
+      ]);
       message.success(t("contact.detail.edit_success"));
       setIsEditModalOpen(false);
     },
@@ -224,14 +369,31 @@ export default function ContactDetail() {
   });
 
   const promoteRelationshipContactMutation = useMutation({
-    mutationFn: (request: UpdateContactRequest) => api.contacts.contactsUpdate(String(vaultId), String(cId), request),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts", cId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts"],
-      });
+    mutationFn: (operation: UpdateContactMutationOperation) =>
+      api.contacts.contactsUpdate(
+        operation.contact.vaultId,
+        operation.contact.contactId,
+        operation.request,
+      ),
+    onSuccess: async (_, operation) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [
+            "vaults",
+            operation.contact.vaultId,
+            "contacts",
+            operation.contact.contactId,
+          ],
+        }),
+        invalidateContactQueries(queryClient, [operation.contact.vaultId]),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [operation.contact.vaultId],
+          contacts: [operation.contact],
+        }),
+        refreshMostConsultedProjections(queryClient, [
+          { vaultId: operation.contact.vaultId },
+        ]),
+      ]);
       message.success(t("contact.needs_verification.promoted"));
     },
     onError: (err: APIError) => {
@@ -240,7 +402,8 @@ export default function ContactDetail() {
   });
 
   const markCaughtUpMutation = useMutation({
-    mutationFn: () => api.contacts.contactsCatchUpCreate(String(vaultId), String(cId)),
+    mutationFn: () =>
+      api.contacts.contactsCatchUpCreate(String(vaultId), String(cId)),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["vaults", vaultId, "contacts", cId],
@@ -260,7 +423,9 @@ export default function ContactDetail() {
 
   const updateTemplateMutation = useMutation({
     mutationFn: (templateId: number) =>
-      api.contacts.contactsTemplateUpdate(String(vaultId), String(cId), { template_id: templateId }),
+      api.contacts.contactsTemplateUpdate(String(vaultId), String(cId), {
+        template_id: templateId,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["vaults", vaultId, "contacts", cId],
@@ -274,13 +439,39 @@ export default function ContactDetail() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.contacts.contactsDelete(String(vaultId), String(cId)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts"],
-      });
+    mutationFn: (operation: DeleteContactMutationOperation) =>
+      api.contacts.contactsDelete(
+        operation.contact.vaultId,
+        operation.contact.contactId,
+      ),
+    onSuccess: async (_, operation) => {
+      const invalidationFilters = { refetchType: "none" } as const;
+
+      removeContactFromVaultListCaches(queryClient, operation.contact);
+      await Promise.all([
+        invalidateContactQueries(
+          queryClient,
+          [operation.contact.vaultId],
+          invalidationFilters,
+        ),
+        invalidateFeedQueries(
+          queryClient,
+          { vaultIds: [operation.contact.vaultId], contacts: [] },
+          invalidationFilters,
+        ),
+        refreshMostConsultedProjections(
+          queryClient,
+          [
+            {
+              vaultId: operation.contact.vaultId,
+              evictContactIds: [operation.contact.contactId],
+            },
+          ],
+          invalidationFilters,
+        ),
+      ]);
       message.success(t("contact.detail.deleted_success"));
-      navigate(contactListUrl);
+      navigate(operation.contactListUrl);
     },
     onError: (err: APIError) => {
       message.error(err.message || t("contact.detail.delete_failed"));
@@ -288,7 +479,8 @@ export default function ContactDetail() {
   });
 
   const toggleFavoriteMutation = useMutation({
-    mutationFn: () => api.contacts.contactsFavoriteUpdate(String(vaultId), String(cId)),
+    mutationFn: () =>
+      api.contacts.contactsFavoriteUpdate(String(vaultId), String(cId)),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["vaults", vaultId, "contacts", cId],
@@ -300,14 +492,31 @@ export default function ContactDetail() {
   });
 
   const toggleArchiveMutation = useMutation({
-    mutationFn: () => api.contacts.contactsArchiveUpdate(String(vaultId), String(cId)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts", cId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts"],
-      });
+    mutationFn: (operation: ContactMutationOperation) =>
+      api.contacts.contactsArchiveUpdate(
+        operation.contact.vaultId,
+        operation.contact.contactId,
+      ),
+    onSuccess: async (response, operation) => {
+      const projectionChange = response.data?.is_archived
+        ? {
+            vaultId: operation.contact.vaultId,
+            evictContactIds: [operation.contact.contactId],
+          }
+        : { vaultId: operation.contact.vaultId };
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [
+            "vaults",
+            operation.contact.vaultId,
+            "contacts",
+            operation.contact.contactId,
+          ],
+        }),
+        invalidateContactQueries(queryClient, [operation.contact.vaultId]),
+        refreshMostConsultedProjections(queryClient, [projectionChange]),
+      ]);
     },
     onError: (err: APIError) => {
       message.error(err.message || t("contact.detail.delete_failed"));
@@ -315,15 +524,31 @@ export default function ContactDetail() {
   });
 
   const avatarUploadMutation = useMutation({
-    mutationFn: (file: File) =>
-      api.contacts.contactsAvatarUpdate(String(vaultId), String(cId), {
-        file: file as unknown as File,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts", cId],
-      });
-      setAvatarKey((k) => k + 1);
+    mutationFn: (operation: AvatarUploadMutationOperation) =>
+      api.contacts.contactsAvatarUpdate(
+        operation.contact.vaultId,
+        operation.contact.contactId,
+        { file: operation.file },
+      ),
+    onSuccess: async (_, operation) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [
+            "vaults",
+            operation.contact.vaultId,
+            "contacts",
+            operation.contact.contactId,
+          ],
+        }),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [operation.contact.vaultId],
+          contacts: [operation.contact],
+        }),
+        refreshMostConsultedProjections(queryClient, [
+          { vaultId: operation.contact.vaultId },
+        ]),
+      ]);
+      setAvatarKey((key) => key + 1);
       message.success(t("contact.detail.avatar_updated"));
     },
     onError: (err: APIError) => {
@@ -332,12 +557,21 @@ export default function ContactDetail() {
   });
 
   const avatarDeleteMutation = useMutation({
-    mutationFn: () => api.contacts.contactsAvatarDelete(String(vaultId), String(cId)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts", cId],
+    mutationFn: (operation: ContactMutationOperation) =>
+      api.contacts.contactsAvatarDelete(
+        operation.contact.vaultId,
+        operation.contact.contactId,
+      ),
+    onSuccess: async (_, operation) => {
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "vaults",
+          operation.contact.vaultId,
+          "contacts",
+          operation.contact.contactId,
+        ],
       });
-      setAvatarKey((k) => k + 1);
+      setAvatarKey((key) => key + 1);
       message.success(t("contact.detail.avatar_deleted"));
     },
     onError: (err: APIError) => {
@@ -346,22 +580,90 @@ export default function ContactDetail() {
   });
 
   const moveContactMutation = useMutation({
-    mutationFn: (targetVaultId: string) =>
-      api.contacts.contactsMoveCreate(String(vaultId), String(cId), {
-        target_vault_id: targetVaultId,
-      }),
-    onSuccess: (_, targetVaultId) => {
-      queryClient.invalidateQueries({
-        queryKey: ["vaults", vaultId, "contacts"],
-      });
+    mutationFn: (operation: MoveContactMutationOperation) =>
+      api.contacts.contactsMoveCreate(
+        operation.source.vaultId,
+        operation.source.contactId,
+        {
+          target_vault_id: operation.target.vaultId,
+        },
+      ),
+    onSuccess: async (_, operation) => {
+      const affectedScopes = {
+        vaultIds: [operation.source.vaultId, operation.target.vaultId],
+        contacts: [operation.source, operation.target],
+      } satisfies QueryInvalidationScopes;
+      const moveInvalidationFilters = { refetchType: "none" } as const;
+
+      // Use only the submitted operation because route and form state may change while the move is pending.
+      // Remove the stale source row before invalidation; otherwise returning to the list can request its old Vault avatar URL.
+      removeContactFromVaultListCaches(queryClient, operation.source);
+      // Suppress active refetches until navigation removes the moved source contact queries.
+      await Promise.all([
+        invalidateContactQueries(
+          queryClient,
+          affectedScopes.vaultIds,
+          moveInvalidationFilters,
+        ),
+        invalidateVaultTaskImpactQueries(
+          queryClient,
+          affectedScopes.vaultIds,
+          moveInvalidationFilters,
+        ),
+        invalidateFeedQueries(
+          queryClient,
+          affectedScopes,
+          moveInvalidationFilters,
+        ),
+        invalidateCalendarQueries(
+          queryClient,
+          affectedScopes,
+          moveInvalidationFilters,
+        ),
+        invalidateReminderQueries(
+          queryClient,
+          affectedScopes,
+          moveInvalidationFilters,
+        ),
+        refreshMostConsultedProjections(
+          queryClient,
+          [
+            {
+              vaultId: operation.source.vaultId,
+              evictContactIds: [operation.source.contactId],
+            },
+            { vaultId: operation.target.vaultId },
+          ],
+          moveInvalidationFilters,
+        ),
+      ]);
       message.success(t("contact.detail.move_success"));
       setIsMoveModalOpen(false);
-      navigate(`/vaults/${targetVaultId}/contacts/${cId}`);
+      navigate(
+        `/vaults/${operation.target.vaultId}/contacts/${operation.target.contactId}`,
+      );
     },
     onError: (err: APIError) => {
       message.error(err.message || t("common.error"));
     },
   });
+
+  function submitMoveContact(targetVaultId: string | number): void {
+    const source = Object.freeze({
+      vaultId: String(vaultId),
+      contactId: String(cId),
+    } satisfies ContactQueryScope);
+    const target = Object.freeze({
+      vaultId: String(targetVaultId),
+      contactId: source.contactId,
+    } satisfies ContactQueryScope);
+    moveContactMutation.mutate(
+      Object.freeze({
+        source,
+        target,
+      } satisfies MoveContactMutationOperation),
+    );
+  }
 
   if (isLoading) {
     return (
@@ -379,36 +681,67 @@ export default function ContactDetail() {
     contactId: cId,
     currentContactName: formatContactName(nameOrder, contact),
   };
+  const requestedSourceFocus = parseContactSourceFocus(location.search);
+  const targetTabKey = requestedSourceFocus
+    ? findTargetTabKey(requestedSourceFocus.source, tabsData)
+    : null;
+  const sourceTarget = targetTabKey ? requestedSourceFocus?.source : undefined;
+  const effectiveViewMode = sourceTarget ? "edit" : viewMode;
 
   // Compact overview card — only shows fields that have values,
   // timestamps rendered as subtle footer text to save vertical space.
   const overviewFields = [
-    contact.prefix && { label: t("contact.detail.prefix"), value: contact.prefix },
+    contact.prefix && {
+      label: t("contact.detail.prefix"),
+      value: contact.prefix,
+    },
     { label: t("contact.detail.first_name"), value: contact.first_name },
-    contact.middle_name && { label: t("contact.detail.middle_name"), value: contact.middle_name },
-    contact.last_name && { label: t("contact.detail.last_name"), value: contact.last_name },
-    contact.suffix && { label: t("contact.detail.suffix"), value: contact.suffix },
-    contact.nickname && { label: t("contact.detail.nickname"), value: `\u201C${contact.nickname}\u201D` },
-    contact.maiden_name && { label: t("contact.detail.maiden_name"), value: contact.maiden_name },
+    contact.middle_name && {
+      label: t("contact.detail.middle_name"),
+      value: contact.middle_name,
+    },
+    contact.last_name && {
+      label: t("contact.detail.last_name"),
+      value: contact.last_name,
+    },
+    contact.suffix && {
+      label: t("contact.detail.suffix"),
+      value: contact.suffix,
+    },
+    contact.nickname && {
+      label: t("contact.detail.nickname"),
+      value: `\u201C${contact.nickname}\u201D`,
+    },
+    contact.maiden_name && {
+      label: t("contact.detail.maiden_name"),
+      value: contact.maiden_name,
+    },
     (() => {
       const firstMetLabel = formatContactFirstMetDisplay(contact, dateFormats);
-      return firstMetLabel ? { label: t("contact.meeting.first_met_at"), value: firstMetLabel } : null;
+      return firstMetLabel
+        ? { label: t("contact.meeting.first_met_at"), value: firstMetLabel }
+        : null;
     })(),
   ].filter(Boolean) as { label: string; value: string }[];
 
   const metThroughContact = contact.first_met_through_contact;
 
   const stayInTouchSummary = [
-    contact.last_talked_to && t("contact.catch_up.last_contact_summary", {
-      date: formatDateOnly(contact.last_talked_to, dateFormats),
-    }),
-    contact.stay_in_touch_frequency_days && t("contact.catch_up.frequency_summary", {
-      days: contact.stay_in_touch_frequency_days,
-    }),
-    contact.stay_in_touch_trigger_date && t("contact.catch_up.next_due_summary", {
-      date: formatDateOnly(contact.stay_in_touch_trigger_date, dateFormats),
-    }),
-  ].filter(Boolean).join(" · ");
+    contact.last_talked_to &&
+      t("contact.catch_up.last_contact_summary", {
+        date: formatDateOnly(contact.last_talked_to, dateFormats),
+      }),
+    contact.stay_in_touch_frequency_days &&
+      t("contact.catch_up.frequency_summary", {
+        days: contact.stay_in_touch_frequency_days,
+      }),
+    contact.stay_in_touch_trigger_date &&
+      t("contact.catch_up.next_due_summary", {
+        date: formatDateOnly(contact.stay_in_touch_trigger_date, dateFormats),
+      }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const stayInTouchPanel = stayInTouchSummary ? (
     <div
@@ -443,19 +776,42 @@ export default function ContactDetail() {
 
   const overviewCard = (
     <Card size="small" styles={{ body: { padding: "12px 16px" } }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "6px 24px" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+          gap: "6px 24px",
+        }}
+      >
         {overviewFields.map((f) => (
-          <div key={f.label} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-            <Text type="secondary" style={{ fontSize: 13, flexShrink: 0 }}>{f.label}:</Text>
+          <div
+            key={f.label}
+            style={{ display: "flex", gap: 8, alignItems: "baseline" }}
+          >
+            <Text type="secondary" style={{ fontSize: 13, flexShrink: 0 }}>
+              {f.label}:
+            </Text>
             <Text style={{ fontSize: 13 }}>{f.value}</Text>
           </div>
         ))}
       </div>
-      <div style={{ marginTop: 8, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+      <div
+        style={{
+          marginTop: 8,
+          display: "flex",
+          gap: 16,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
         {contact.is_archived ? (
-          <Tag color="default" style={{ margin: 0 }}>{t("common.archived")}</Tag>
+          <Tag color="default" style={{ margin: 0 }}>
+            {t("common.archived")}
+          </Tag>
         ) : (
-          <Tag color="green" style={{ margin: 0 }}>{t("common.active")}</Tag>
+          <Tag color="green" style={{ margin: 0 }}>
+            {t("common.active")}
+          </Tag>
         )}
         {contact.needs_verification && (
           <Tag color="warning" style={{ margin: 0 }}>
@@ -473,7 +829,8 @@ export default function ContactDetail() {
         <Text type="secondary" style={{ fontSize: 12 }}>
           {t("common.created")} {formatDate(contact.created_at, dateFormats)}
           {" · "}
-          {t("common.last_updated")} {formatDate(contact.updated_at, dateFormats)}
+          {t("common.last_updated")}{" "}
+          {formatDate(contact.updated_at, dateFormats)}
         </Text>
       </div>
     </Card>
@@ -487,7 +844,9 @@ export default function ContactDetail() {
     let extraInfoRendered = false;
 
     if (isContactPage) {
-      children.push(<React.Fragment key="overview-card">{overviewCard}</React.Fragment>);
+      children.push(
+        <React.Fragment key="overview-card">{overviewCard}</React.Fragment>,
+      );
     }
 
     for (const mod of modules) {
@@ -499,15 +858,30 @@ export default function ContactDetail() {
       }
       if (isContactPage && moduleType === "quick_facts") {
         children.push(
-          <QuickFactsModule key={`mod-${mod.id}`} {...moduleProps} readOnly={viewMode === "read"} />,
+          <QuickFactsModule
+            key={`mod-${mod.id}`}
+            {...moduleProps}
+            readOnly={effectiveViewMode === "read"}
+            target={
+              sourceTarget?.module === "quick_facts" ? sourceTarget : undefined
+            }
+          />,
         );
         continue;
       }
-      if (moduleType === "gender_pronoun" || moduleType === "religions" || moduleType === "company") {
+      if (
+        moduleType === "gender_pronoun" ||
+        moduleType === "religions" ||
+        moduleType === "company"
+      ) {
         if (!extraInfoRendered) {
           extraInfoRendered = true;
           children.push(
-            <ExtraInfoModule key="extra-info" {...moduleProps} contact={contact} />,
+            <ExtraInfoModule
+              key="extra-info"
+              {...moduleProps}
+              contact={contact}
+            />,
           );
         }
         continue;
@@ -515,7 +889,15 @@ export default function ContactDetail() {
 
       const Component = MODULE_COMPONENT_MAP[moduleType];
       if (Component) {
-        children.push(<Component key={`mod-${mod.id}`} {...moduleProps} />);
+        children.push(
+          <Component
+            key={`mod-${mod.id}`}
+            {...moduleProps}
+            target={
+              sourceTarget?.module === moduleType ? sourceTarget : undefined
+            }
+          />,
+        );
       }
     }
 
@@ -548,15 +930,32 @@ export default function ContactDetail() {
         <Space direction="vertical" style={{ width: "100%" }} size={16}>
           {overviewCard}
           <LabelsModule {...moduleProps} />
-          <QuickFactsModule {...moduleProps} readOnly={viewMode === "read"} />
-          <NotesModule {...moduleProps} readOnly={viewMode === "read"} />
+          <QuickFactsModule
+            {...moduleProps}
+            readOnly={effectiveViewMode === "read"}
+            target={
+              sourceTarget?.module === "quick_facts" ? sourceTarget : undefined
+            }
+          />
+          <NotesModule
+            {...moduleProps}
+            readOnly={effectiveViewMode === "read"}
+            target={sourceTarget?.module === "notes" ? sourceTarget : undefined}
+          />
         </Space>
       ),
     },
     {
       key: "relationships",
       label: t("contact.detail.tabs.relationships"),
-      children: <RelationshipsModule {...moduleProps} />,
+      children: (
+        <RelationshipsModule
+          {...moduleProps}
+          target={
+            sourceTarget?.module === "relationships" ? sourceTarget : undefined
+          }
+        />
+      ),
     },
     {
       key: "information",
@@ -564,7 +963,12 @@ export default function ContactDetail() {
       children: (
         <Space direction="vertical" style={{ width: "100%" }} size={16}>
           <ContactInfoModule {...moduleProps} />
-          <AddressesModule {...moduleProps} />
+          <AddressesModule
+            {...moduleProps}
+            target={
+              sourceTarget?.module === "addresses" ? sourceTarget : undefined
+            }
+          />
           <ImportantDatesModule {...moduleProps} />
           <ExtraInfoModule {...moduleProps} contact={contact} />
           <PetsModule {...moduleProps} />
@@ -576,10 +980,24 @@ export default function ContactDetail() {
       label: t("contact.detail.tabs.activities"),
       children: (
         <Space direction="vertical" style={{ width: "100%" }} size={16}>
-          <TasksModule {...moduleProps} />
-          <CallsModule {...moduleProps} />
-          <RemindersModule {...moduleProps} />
-          <LoansModule {...moduleProps} />
+          <TasksModule
+            {...moduleProps}
+            target={sourceTarget?.module === "tasks" ? sourceTarget : undefined}
+          />
+          <CallsModule
+            {...moduleProps}
+            target={sourceTarget?.module === "calls" ? sourceTarget : undefined}
+          />
+          <RemindersModule
+            {...moduleProps}
+            target={
+              sourceTarget?.module === "reminders" ? sourceTarget : undefined
+            }
+          />
+          <LoansModule
+            {...moduleProps}
+            target={sourceTarget?.module === "loans" ? sourceTarget : undefined}
+          />
           <GoalsModule {...moduleProps} />
         </Space>
       ),
@@ -589,7 +1007,12 @@ export default function ContactDetail() {
       label: t("contact.detail.tabs.life"),
       children: (
         <Space direction="vertical" style={{ width: "100%" }} size={16}>
-          <LifeEventsModule {...moduleProps} />
+          <LifeEventsModule
+            {...moduleProps}
+            target={
+              sourceTarget?.module === "life_events" ? sourceTarget : undefined
+            }
+          />
         </Space>
       ),
     },
@@ -598,8 +1021,18 @@ export default function ContactDetail() {
       label: t("contact.detail.tabs.photos_docs"),
       children: (
         <Space direction="vertical" style={{ width: "100%" }} size={16}>
-          <PhotosModule {...moduleProps} />
-          <DocumentsModule {...moduleProps} />
+          <PhotosModule
+            {...moduleProps}
+            target={
+              sourceTarget?.module === "photos" ? sourceTarget : undefined
+            }
+          />
+          <DocumentsModule
+            {...moduleProps}
+            target={
+              sourceTarget?.module === "documents" ? sourceTarget : undefined
+            }
+          />
         </Space>
       ),
     },
@@ -611,7 +1044,16 @@ export default function ContactDetail() {
   ];
 
   const tabItems = tabsData ? buildDynamicTabs(tabsData) : fallbackTabItems;
-  const isRelationshipOnlyHiddenContact = contact.needs_verification && !contact.listed;
+  const tabSelectionContext =
+    sourceTarget && targetTabKey
+      ? `${sourceTarget.kind}:${sourceTarget.id}:${targetTabKey}`
+      : "default";
+  const activeTabKey =
+    tabSelection?.context === tabSelectionContext
+      ? tabSelection.key
+      : (targetTabKey ?? tabItems[0]?.key ?? "overview");
+  const isRelationshipOnlyHiddenContact =
+    contact.needs_verification && !contact.listed;
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto" }}>
@@ -655,18 +1097,37 @@ export default function ContactDetail() {
                 boxShadow: `0 4px 12px ${token.colorPrimaryBorder}`,
               }}
             >
-              <AvatarImageLoader 
-                url={`/vaults/${vaultId}/contacts/${cId}/avatar?k=${avatarKey}`} 
+              <AvatarImageLoader
+                url={`/vaults/${vaultId}/contacts/${cId}/avatar?k=${avatarKey}`}
                 updatedAt={contact.updated_at ?? ""}
                 initials={initials}
                 token={token}
-                onUpload={(file) => avatarUploadMutation.mutate(file)}
-                onDelete={() => avatarDeleteMutation.mutate()}
+                onUpload={(file) =>
+                  avatarUploadMutation.mutate(
+                    Object.freeze({
+                      contact: createContactQueryScope(vaultId, cId),
+                      file,
+                    } satisfies AvatarUploadMutationOperation),
+                  )
+                }
+                onDelete={() =>
+                  avatarDeleteMutation.mutate(
+                    Object.freeze({
+                      contact: createContactQueryScope(vaultId, cId),
+                    } satisfies ContactMutationOperation),
+                  )
+                }
                 isUploading={avatarUploadMutation.isPending}
               />
             </div>
             <div style={{ minWidth: 0, paddingTop: 4 }}>
-              <Title level={2} style={{ margin: 0, fontFamily: "\x27Playfair Display\x27, serif" }}>
+              <Title
+                level={2}
+                style={{
+                  margin: 0,
+                  fontFamily: "\x27Playfair Display\x27, serif",
+                }}
+              >
                 {formatContactName(nameOrder, contact)}
               </Title>
               {contact.nickname && (
@@ -674,34 +1135,56 @@ export default function ContactDetail() {
                   &ldquo;{contact.nickname}&rdquo;
                 </Text>
               )}
-              <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <div
+                style={{
+                  marginTop: 6,
+                  display: "flex",
+                  gap: 6,
+                  flexWrap: "wrap",
+                }}
+              >
                 {contact.is_favorite && (
                   <Tag color="gold" icon={<StarFilled />}>
                     {t("contact.detail.favorite")}
                   </Tag>
                 )}
-                {contact.is_archived && <Tag color="default">{t("common.archived")}</Tag>}
+                {contact.is_archived && (
+                  <Tag color="default">{t("common.archived")}</Tag>
+                )}
                 {isRelationshipOnlyHiddenContact && (
                   <Button
                     size="small"
-                    onClick={() => promoteRelationshipContactMutation.mutate({
-                      first_name: contact.first_name ?? "",
-                      last_name: contact.last_name,
-                      middle_name: contact.middle_name,
-                      nickname: contact.nickname,
-                      maiden_name: contact.maiden_name,
-                      prefix: contact.prefix,
-                      suffix: contact.suffix,
-                      gender_id: contact.gender_id,
-                      pronoun_id: contact.pronoun_id,
-                      template_id: contact.template_id,
-                      listed: true,
-                      needs_verification: false,
-                      first_met_through_contact_id: contact.first_met_through_contact_id,
-                      ...buildContactFirstMetRequest(contactFirstMetToCalendarDate(contact)),
-                      last_talked_to: dateInputToTimestamp(timestampToDateInput(contact.last_talked_to)),
-                      stay_in_touch_frequency_days: contact.stay_in_touch_frequency_days,
-                    })}
+                    onClick={() =>
+                      promoteRelationshipContactMutation.mutate(
+                        Object.freeze({
+                          contact: createContactQueryScope(vaultId, cId),
+                          request: Object.freeze({
+                            first_name: contact.first_name ?? "",
+                            last_name: contact.last_name,
+                            middle_name: contact.middle_name,
+                            nickname: contact.nickname,
+                            maiden_name: contact.maiden_name,
+                            prefix: contact.prefix,
+                            suffix: contact.suffix,
+                            gender_id: contact.gender_id,
+                            pronoun_id: contact.pronoun_id,
+                            template_id: contact.template_id,
+                            listed: true,
+                            needs_verification: false,
+                            first_met_through_contact_id:
+                              contact.first_met_through_contact_id,
+                            ...buildContactFirstMetRequest(
+                              contactFirstMetToCalendarDate(contact),
+                            ),
+                            last_talked_to: dateInputToTimestamp(
+                              timestampToDateInput(contact.last_talked_to),
+                            ),
+                            stay_in_touch_frequency_days:
+                              contact.stay_in_touch_frequency_days,
+                          } satisfies UpdateContactRequest),
+                        } satisfies UpdateContactMutationOperation),
+                      )
+                    }
                     loading={promoteRelationshipContactMutation.isPending}
                   >
                     {t("contact.needs_verification.promote_action")}
@@ -738,9 +1221,11 @@ export default function ContactDetail() {
                 gender_id: contact.gender_id,
                 pronoun_id: contact.pronoun_id,
                 first_met: contactFirstMetToCalendarDate(contact),
-                first_met_through_contact_id: contact.first_met_through_contact_id,
+                first_met_through_contact_id:
+                  contact.first_met_through_contact_id,
                 last_talked_to: timestampToDateInput(contact.last_talked_to),
-                stay_in_touch_frequency_days: contact.stay_in_touch_frequency_days,
+                stay_in_touch_frequency_days:
+                  contact.stay_in_touch_frequency_days,
                 needs_verification: contact.needs_verification,
               });
               setIsEditModalOpen(true);
@@ -754,7 +1239,9 @@ export default function ContactDetail() {
             size="small"
             onClick={() => toggleFavoriteMutation.mutate()}
           >
-            {contact.is_favorite ? t("contact.detail.unfavorite") : t("contact.detail.favorite")}
+            {contact.is_favorite
+              ? t("contact.detail.unfavorite")
+              : t("contact.detail.favorite")}
           </Button>
 
           <Dropdown
@@ -772,7 +1259,10 @@ export default function ContactDetail() {
                   icon: <DownloadOutlined />,
                   onClick: async () => {
                     try {
-                      const res = await api.vcard.contactsVcardList(String(vaultId), String(cId));
+                      const res = await api.vcard.contactsVcardList(
+                        String(vaultId),
+                        String(cId),
+                      );
                       const blob = new Blob([res as BlobPart]);
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
@@ -787,16 +1277,26 @@ export default function ContactDetail() {
                 },
                 {
                   key: "archive",
-                  label: contact.is_archived ? t("contact.detail.unarchive") : t("contact.detail.archive"),
+                  label: contact.is_archived
+                    ? t("contact.detail.unarchive")
+                    : t("contact.detail.archive"),
                   icon: <InboxOutlined />,
-                  onClick: () => toggleArchiveMutation.mutate(),
+                  onClick: () =>
+                    toggleArchiveMutation.mutate(
+                      Object.freeze({
+                        contact: createContactQueryScope(vaultId, cId),
+                      } satisfies ContactMutationOperation),
+                    ),
                 },
                 {
                   key: "template",
                   label: t("contact.detail.change_template"),
                   icon: <LayoutOutlined />,
                   onClick: () => {
-                    templateForm.setFieldValue("template_id", contact.template_id);
+                    templateForm.setFieldValue(
+                      "template_id",
+                      contact.template_id,
+                    );
                     setIsTemplateModalOpen(true);
                   },
                 },
@@ -815,7 +1315,13 @@ export default function ContactDetail() {
                       okText: t("contact.detail.delete_ok"),
                       okType: "danger",
                       cancelText: t("common.cancel"),
-                      onOk: () => deleteMutation.mutate(),
+                      onOk: () =>
+                        deleteMutation.mutate(
+                          Object.freeze({
+                            contact: createContactQueryScope(vaultId, cId),
+                            contactListUrl,
+                          } satisfies DeleteContactMutationOperation),
+                        ),
                     });
                   },
                 },
@@ -829,30 +1335,42 @@ export default function ContactDetail() {
       </Card>
 
       {stayInTouchPanel && (
-        <div style={{ marginBottom: 16 }}>
-          {stayInTouchPanel}
-        </div>
+        <div style={{ marginBottom: 16 }}>{stayInTouchPanel}</div>
       )}
 
       <div style={{ marginBottom: 16 }}>
-        <ContactSummaryCard vaultId={vaultId} contactId={cId} contact={contact} readOnly={viewMode === "read"} />
+        <ContactSummaryCard
+          vaultId={vaultId}
+          contactId={cId}
+          contact={contact}
+          readOnly={viewMode === "read"}
+        />
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: 16,
+        }}
+      >
         <Segmented
           options={[
             { label: t("contact.detail.view_mode"), value: "read" },
             { label: t("contact.detail.edit_mode"), value: "edit" },
           ]}
-          value={viewMode}
+          value={effectiveViewMode}
           onChange={(val) => setViewMode(val as "read" | "edit")}
         />
       </div>
 
-      {viewMode === "edit" ? (
+      {effectiveViewMode === "edit" ? (
         <Tabs
           items={tabItems}
-          defaultActiveKey={tabItems[0]?.key ?? "overview"}
+          activeKey={activeTabKey}
+          onChange={(key) =>
+            setTabSelection({ context: tabSelectionContext, key })
+          }
           style={{
             marginTop: 4,
           }}
@@ -878,7 +1396,14 @@ export default function ContactDetail() {
         <Form
           form={editForm}
           layout="vertical"
-          onFinish={(values: ContactEditFormValues) => updateContactMutation.mutate(buildUpdateContactRequest(values))}
+          onFinish={(values: ContactEditFormValues) =>
+            updateContactMutation.mutate(
+              Object.freeze({
+                contact: createContactQueryScope(vaultId, cId),
+                request: Object.freeze(buildUpdateContactRequest(values)),
+              } satisfies UpdateContactMutationOperation),
+            )
+          }
         >
           <div style={{ display: "flex", gap: 16 }}>
             <Form.Item
@@ -893,15 +1418,19 @@ export default function ContactDetail() {
               label={t("contact.detail.first_name")}
               style={{ flex: 2 }}
               dependencies={["nickname"]}
-              rules={[{
-                validator: (_, value) => {
-                  const nickname = editForm.getFieldValue("nickname");
-                  if (!value?.trim() && !nickname?.trim()) {
-                    return Promise.reject(new Error(t("contact.form.name_or_nickname_required")));
-                  }
-                  return Promise.resolve();
+              rules={[
+                {
+                  validator: (_, value) => {
+                    const nickname = editForm.getFieldValue("nickname");
+                    if (!value?.trim() && !nickname?.trim()) {
+                      return Promise.reject(
+                        new Error(t("contact.form.name_or_nickname_required")),
+                      );
+                    }
+                    return Promise.resolve();
+                  },
                 },
-              }]}
+              ]}
             >
               <Input />
             </Form.Item>
@@ -935,15 +1464,19 @@ export default function ContactDetail() {
               label={t("contact.detail.nickname")}
               style={{ flex: 1 }}
               dependencies={["first_name"]}
-              rules={[{
-                validator: (_, value) => {
-                  const firstName = editForm.getFieldValue("first_name");
-                  if (!value?.trim() && !firstName?.trim()) {
-                    return Promise.reject(new Error(t("contact.form.name_or_nickname_required")));
-                  }
-                  return Promise.resolve();
+              rules={[
+                {
+                  validator: (_, value) => {
+                    const firstName = editForm.getFieldValue("first_name");
+                    if (!value?.trim() && !firstName?.trim()) {
+                      return Promise.reject(
+                        new Error(t("contact.form.name_or_nickname_required")),
+                      );
+                    }
+                    return Promise.resolve();
+                  },
                 },
-              }]}
+              ]}
             >
               <Input />
             </Form.Item>
@@ -957,14 +1490,34 @@ export default function ContactDetail() {
           </div>
           {/* Fix #62: gender and pronoun fields — fetched from personalize API */}
           <div style={{ display: "flex", gap: 16 }}>
-            <Form.Item name="gender_id" label={t("contact.detail.summary.gender")} style={{ flex: 1 }}>
-              <GenderPronounSelect entity="genders" vaultId={vaultId} placeholder={t("contact.form.select_gender")} />
+            <Form.Item
+              name="gender_id"
+              label={t("contact.detail.summary.gender")}
+              style={{ flex: 1 }}
+            >
+              <GenderPronounSelect
+                entity="genders"
+                vaultId={vaultId}
+                placeholder={t("contact.form.select_gender")}
+              />
             </Form.Item>
-            <Form.Item name="pronoun_id" label={t("contact.detail.summary.pronoun")} style={{ flex: 1 }}>
-              <GenderPronounSelect entity="pronouns" vaultId={vaultId} placeholder={t("contact.form.select_pronoun")} />
+            <Form.Item
+              name="pronoun_id"
+              label={t("contact.detail.summary.pronoun")}
+              style={{ flex: 1 }}
+            >
+              <GenderPronounSelect
+                entity="pronouns"
+                vaultId={vaultId}
+                placeholder={t("contact.form.select_pronoun")}
+              />
             </Form.Item>
           </div>
-          <Form.Item name="needs_verification" valuePropName="checked" style={{ marginBottom: 16 }}>
+          <Form.Item
+            name="needs_verification"
+            valuePropName="checked"
+            style={{ marginBottom: 16 }}
+          >
             <Checkbox>{t("contact.needs_verification.field_label")}</Checkbox>
           </Form.Item>
           <div
@@ -979,7 +1532,10 @@ export default function ContactDetail() {
             <Text strong style={{ display: "block", marginBottom: 4 }}>
               {t("contact.meeting.title")}
             </Text>
-            <Text type="secondary" style={{ display: "block", fontSize: 13, marginBottom: 12 }}>
+            <Text
+              type="secondary"
+              style={{ display: "block", fontSize: 13, marginBottom: 12 }}
+            >
               {t("contact.meeting.description")}
             </Text>
             <div style={{ display: "flex", gap: 16 }}>
@@ -989,7 +1545,10 @@ export default function ContactDetail() {
                 extra={t("contact.meeting.first_met_at_help")}
                 style={{ flex: 1 }}
               >
-                <CalendarDatePicker enableDatePrecision allowedDatePrecisions={["full", "month", "year"]} />
+                <CalendarDatePicker
+                  enableDatePrecision
+                  allowedDatePrecisions={["full", "month", "year"]}
+                />
               </Form.Item>
               <Form.Item
                 name="first_met_through_contact_id"
@@ -1001,7 +1560,9 @@ export default function ContactDetail() {
                   allowClear
                   showSearch
                   optionFilterProp="label"
-                  placeholder={t("contact.meeting.first_met_through_placeholder")}
+                  placeholder={t(
+                    "contact.meeting.first_met_through_placeholder",
+                  )}
                   options={metThroughContacts
                     .filter((option) => option.id && option.id !== cId)
                     .map((option) => ({
@@ -1024,7 +1585,10 @@ export default function ContactDetail() {
             <Text strong style={{ display: "block", marginBottom: 4 }}>
               {t("contact.catch_up.title")}
             </Text>
-            <Text type="secondary" style={{ display: "block", fontSize: 13, marginBottom: 12 }}>
+            <Text
+              type="secondary"
+              style={{ display: "block", fontSize: 13, marginBottom: 12 }}
+            >
               {t("contact.catch_up.description")}
             </Text>
             <div style={{ display: "flex", gap: 16 }}>
@@ -1071,7 +1635,7 @@ export default function ContactDetail() {
         <Form
           form={moveForm}
           layout="vertical"
-          onFinish={(values) => moveContactMutation.mutate(values.target_vault_id)}
+          onFinish={(values) => submitMoveContact(values.target_vault_id)}
         >
           <Form.Item
             name="target_vault_id"
@@ -1110,7 +1674,9 @@ export default function ContactDetail() {
         <Form
           form={templateForm}
           layout="vertical"
-          onFinish={(values) => updateTemplateMutation.mutate(values.template_id)}
+          onFinish={(values) =>
+            updateTemplateMutation.mutate(values.template_id)
+          }
         >
           <Form.Item
             name="template_id"
@@ -1119,7 +1685,10 @@ export default function ContactDetail() {
           >
             <Select
               loading={!templates.length}
-              options={templates.map((tpl) => ({ label: tpl.label, value: tpl.id }))}
+              options={templates.map((tpl) => ({
+                label: tpl.label,
+                value: tpl.id,
+              }))}
             />
           </Form.Item>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -1141,16 +1710,16 @@ export default function ContactDetail() {
 }
 
 // Helper component to load authenticated image blob
-function AvatarImageLoader({ 
-  url, 
-  updatedAt, 
-  initials, 
+function AvatarImageLoader({
+  url,
+  updatedAt,
+  initials,
   token,
   onUpload,
   onDelete,
-  isUploading
-}: { 
-  url: string; 
+  isUploading,
+}: {
+  url: string;
   updatedAt: string;
   initials: string;
   token: ReturnType<typeof theme.useToken>["token"];
@@ -1164,15 +1733,16 @@ function AvatarImageLoader({
 
   // Fetch avatar image with auth header
   useEffect(() => {
-    let revoke: string | null = null;
     let cancelled = false;
 
     httpClient.instance
-      .get(url, { responseType: "blob", params: { t: dayjs(updatedAt).unix() } })
+      .get(url, {
+        responseType: "blob",
+        params: { t: dayjs(updatedAt).unix() },
+      })
       .then((response) => {
         if (cancelled) return;
         const newUrl = URL.createObjectURL(response.data as Blob);
-        revoke = newUrl;
         setBlobUrl(newUrl);
         setHasAvatar(true);
       })
@@ -1184,9 +1754,15 @@ function AvatarImageLoader({
 
     return () => {
       cancelled = true;
-      if (revoke) URL.revokeObjectURL(revoke);
     };
   }, [url, updatedAt]);
+
+  useEffect(() => {
+    if (!blobUrl) return;
+
+    // The rendered URL owns cleanup so replacement commits before the old URL is revoked.
+    return () => URL.revokeObjectURL(blobUrl);
+  }, [blobUrl]);
 
   return (
     <div
@@ -1210,7 +1786,13 @@ function AvatarImageLoader({
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       ) : (
-        <span style={{ fontSize: 30, color: token.colorTextLightSolid, fontWeight: 500 }}>
+        <span
+          style={{
+            fontSize: 30,
+            color: token.colorTextLightSolid,
+            fontWeight: 500,
+          }}
+        >
           {initials}
         </span>
       )}
@@ -1235,40 +1817,53 @@ function AvatarImageLoader({
           e.currentTarget.style.opacity = "0";
         }}
       >
-         <Space>
-            <Upload
-              showUploadList={false}
-              beforeUpload={(file) => {
-                onUpload(file);
-                return false;
-              }}
+        <Space>
+          <Upload
+            showUploadList={false}
+            beforeUpload={(file) => {
+              onUpload(file);
+              return false;
+            }}
+          >
+            <Button
+              type="text"
+              icon={
+                <CameraOutlined
+                  style={{ color: token.colorTextLightSolid, fontSize: 20 }}
+                />
+              }
+              style={{ color: token.colorTextLightSolid }}
+            />
+          </Upload>
+          {hasAvatar && (
+            <Popconfirm
+              title={t("contact.detail.delete_confirm")}
+              onConfirm={onDelete}
             >
               <Button
                 type="text"
-                icon={<CameraOutlined style={{ color: token.colorTextLightSolid, fontSize: 20 }} />}
-                style={{ color: token.colorTextLightSolid }}
+                icon={
+                  <DeleteOutlined
+                    style={{ color: token.colorTextLightSolid, fontSize: 16 }}
+                  />
+                }
+                danger
               />
-            </Upload>
-            {hasAvatar && (
-              <Popconfirm
-                title={t("contact.detail.delete_confirm")}
-                onConfirm={onDelete}
-              >
-                 <Button
-                  type="text"
-                  icon={<DeleteOutlined style={{ color: token.colorTextLightSolid, fontSize: 16 }} />}
-                  danger
-                />
-              </Popconfirm>
-            )}
-          </Space>
+            </Popconfirm>
+          )}
+        </Space>
       </div>
     </div>
   );
 }
 
 // Shared Select component for gender/pronoun fetched from personalize API
-function GenderPronounSelect({ entity, vaultId, placeholder, ...props }: {
+function GenderPronounSelect({
+  entity,
+  vaultId,
+  placeholder,
+  ...props
+}: {
   entity: string;
   vaultId: string;
   placeholder: string;
