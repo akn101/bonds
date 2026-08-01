@@ -9,7 +9,7 @@ services:
       - SERVER_PORT=8080
       - DB_DRIVER=sqlite
       - DB_DSN=/app/data/bonds.db
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a strong random value before running docker compose}
       - APP_ENV=production
       - APP_URL=http://localhost:8080
     restart: unless-stopped
@@ -25,7 +25,7 @@ services:
   #     - SERVER_PORT=8080
   #     - DB_DRIVER=postgres
   #     - DB_DSN=host=postgres port=5432 user=bonds password=bonds dbname=bonds sslmode=disable
-  #     - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+  #     - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a strong random value before running docker compose}
   #     - APP_ENV=production
   #     - APP_URL=http://localhost:8080
   #   restart: unless-stopped
