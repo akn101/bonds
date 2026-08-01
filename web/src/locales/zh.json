@@ -1653,3 +1653,12 @@
     "journal": "开始记录日志来捕捉你的想法"
   }
 }
+    "journal_mentions": {
+      "body_label": "正文",
+      "body_placeholder": "撰写文章，输入 @ 可提及联系人",
+      "contacts_label": "联系人",
+      "contacts_placeholder": "将联系人关联到此文章",
+      "mention_hint": "输入 @ 和姓名来提及联系人。",
+      "update_last_contacted": "更新最近联系时间",
+      "view_contact": "查看联系人"
+    },

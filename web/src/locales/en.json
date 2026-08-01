@@ -1653,3 +1653,12 @@
     "journal": "Start journaling to capture your thoughts"
   }
 }
+    "journal_mentions": {
+      "body_label": "Body",
+      "body_placeholder": "Write your post and type @ to mention a contact",
+      "contacts_label": "Contacts",
+      "contacts_placeholder": "Associate contacts with this post",
+      "mention_hint": "Type @ followed by a name to mention a contact.",
+      "update_last_contacted": "Update last contacted",
+      "view_contact": "View contact"
+    },

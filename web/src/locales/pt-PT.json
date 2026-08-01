@@ -1653,3 +1653,12 @@
     "journal": "Comece a escrever no diário para capturar os seus pensamentos"
   }
 }
+    "journal_mentions": {
+      "body_label": "Conteúdo",
+      "body_placeholder": "Escreva a publicação e use @ para mencionar um contacto",
+      "contacts_label": "Contactos",
+      "contacts_placeholder": "Associe contactos a esta publicação",
+      "mention_hint": "Digite @ seguido de um nome para mencionar um contacto.",
+      "update_last_contacted": "Atualizar último contacto",
+      "view_contact": "Ver contacto"
+    },
