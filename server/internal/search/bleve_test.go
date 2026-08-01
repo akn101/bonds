@@ -96,6 +96,32 @@ func TestSearchFiltersVault(t *testing.T) {
 	}
 }
 
+func TestSearch_returns_note_contact_id_when_note_matches(t *testing.T) {
+	// Given
+	engine, err := NewBleveEngine(t.TempDir() + "/test.bleve")
+	if err != nil {
+		t.Fatalf("NewBleveEngine failed: %v", err)
+	}
+	defer engine.Close()
+	if err := engine.IndexNote("n1", "v1", "c1", "Project update", "Milestone reached"); err != nil {
+		t.Fatalf("IndexNote failed: %v", err)
+	}
+
+	// When
+	resp, err := engine.Search("v1", "Milestone", 10, 0)
+	if err != nil {
+		t.Fatalf("Search failed: %v", err)
+	}
+
+	// Then
+	if len(resp.Notes) != 1 {
+		t.Fatalf("expected 1 note result, got %+v", resp.Notes)
+	}
+	if resp.Notes[0].ContactID != "c1" {
+		t.Fatalf("note contact_id = %q, want %q", resp.Notes[0].ContactID, "c1")
+	}
+}
+
 func TestDeleteDocument(t *testing.T) {
 	dir := t.TempDir()
 	engine, err := NewBleveEngine(dir + "/test.bleve")

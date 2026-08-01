@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/internal/search"
@@ -32,15 +33,15 @@ func (s *SearchService) SearchForUser(vaultID, userID, query string, page, perPa
 		return nil, ErrUserNotFound
 	}
 	if s.db == nil {
-		return nil, fmt.Errorf("search service requires database for user-scoped contact name formatting")
+		return nil, fmt.Errorf("search service requires database for user-scoped result hydration")
 	}
 	page, perPage = normalizeSearchPagination(page, perPage)
 	offset := (page - 1) * perPage
 	resp, err := s.engine.Search(vaultID, query, perPage, offset)
-	if err != nil || resp == nil || len(resp.Contacts) == 0 {
+	if err != nil || resp == nil {
 		return resp, err
 	}
-	return s.hydrateContactResultNames(resp, vaultID, userID)
+	return s.hydrateSearchResults(resp, vaultID, userID)
 }
 
 func normalizeSearchPagination(page, perPage int) (int, int) {
@@ -53,44 +54,89 @@ func normalizeSearchPagination(page, perPage int) (int, int) {
 	return page, perPage
 }
 
-func (s *SearchService) hydrateContactResultNames(resp *search.SearchResponse, vaultID, userID string) (*search.SearchResponse, error) {
+func (s *SearchService) hydrateSearchResults(resp *search.SearchResponse, vaultID, userID string) (*search.SearchResponse, error) {
+	indexedResultCount := len(resp.Contacts) + len(resp.Notes)
 	contactIDs := make([]string, 0, len(resp.Contacts))
 	for _, result := range resp.Contacts {
 		contactIDs = append(contactIDs, result.ID)
 	}
 	var contacts []models.Contact
-	if err := s.db.Where("id IN ? AND vault_id = ? AND listed = ?", contactIDs, vaultID, true).Find(&contacts).Error; err != nil {
-		return nil, err
-	}
-	formatter, err := newContactNameFormatter(s.db, userID)
-	if err != nil {
-		return nil, err
+	if len(contactIDs) > 0 {
+		if err := s.db.Where("id IN ? AND vault_id = ? AND listed = ?", contactIDs, vaultID, true).Find(&contacts).Error; err != nil {
+			return nil, err
+		}
 	}
 	nameByID := make(map[string]string, len(contacts))
-	for i := range contacts {
-		name, err := formatter.format(&contacts[i], "")
+	if len(contacts) > 0 {
+		formatter, err := newContactNameFormatter(s.db, userID)
 		if err != nil {
 			return nil, err
 		}
-		nameByID[contacts[i].ID] = name
-	}
-	for i := range resp.Contacts {
-		if name, ok := nameByID[resp.Contacts[i].ID]; ok {
-			resp.Contacts[i].Name = name
+		for i := range contacts {
+			name, err := formatter.format(&contacts[i], "")
+			if err != nil {
+				return nil, err
+			}
+			nameByID[contacts[i].ID] = name
 		}
 	}
 	filteredContacts := resp.Contacts[:0]
-	removedContactCount := 0
 	for _, result := range resp.Contacts {
-		if _, ok := nameByID[result.ID]; ok {
+		if name, ok := nameByID[result.ID]; ok {
+			result.Name = name
 			filteredContacts = append(filteredContacts, result)
-		} else {
-			removedContactCount++
 		}
 	}
 	resp.Contacts = filteredContacts
-	if removedContactCount > 0 {
-		resp.Total -= removedContactCount
+
+	noteIDByResultID := make(map[string]uint, len(resp.Notes))
+	noteIDs := make([]uint, 0, len(resp.Notes))
+	for _, result := range resp.Notes {
+		noteID, err := strconv.ParseUint(result.ID, 10, strconv.IntSize)
+		if err != nil || noteID == 0 {
+			continue
+		}
+		noteIDByResultID[result.ID] = uint(noteID)
+		noteIDs = append(noteIDs, uint(noteID))
+	}
+	type visibleNote struct {
+		ID        uint
+		ContactID string
+	}
+	var notes []visibleNote
+	if len(noteIDs) > 0 {
+		// Note vault_id alone is insufficient: hidden, soft-deleted, or inconsistent contacts would produce invalid deep links.
+		if err := s.db.Table("notes").
+			Select("notes.id, notes.contact_id").
+			Joins("JOIN contacts ON contacts.id = notes.contact_id").
+			Where("notes.id IN ? AND notes.vault_id = ?", noteIDs, vaultID).
+			Where("contacts.vault_id = ? AND contacts.listed = ? AND contacts.deleted_at IS NULL", vaultID, true).
+			Scan(&notes).Error; err != nil {
+			return nil, err
+		}
+	}
+	noteByID := make(map[uint]visibleNote, len(notes))
+	for _, note := range notes {
+		noteByID[note.ID] = note
+	}
+	filteredNotes := resp.Notes[:0]
+	for _, result := range resp.Notes {
+		noteID, ok := noteIDByResultID[result.ID]
+		if !ok {
+			continue
+		}
+		note, ok := noteByID[noteID]
+		if !ok {
+			continue
+		}
+		result.ContactID = note.ContactID
+		filteredNotes = append(filteredNotes, result)
+	}
+	resp.Notes = filteredNotes
+
+	removedResultCount := indexedResultCount - len(resp.Contacts) - len(resp.Notes)
+	if removedResultCount > 0 {
+		resp.Total -= removedResultCount
 		if resp.Total < 0 {
 			resp.Total = 0
 		}

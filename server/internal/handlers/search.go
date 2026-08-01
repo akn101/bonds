@@ -5,9 +5,12 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/naiba/bonds/internal/middleware"
+	"github.com/naiba/bonds/internal/search"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
 )
+
+var _ search.SearchResponse
 
 type SearchHandler struct {
 	searchService *services.SearchService
@@ -28,7 +31,7 @@ func NewSearchHandler(searchService *services.SearchService) *SearchHandler {
 //	@Param			q			query		string	true	"Search query"
 //	@Param			page		query		integer	false	"Page number"
 //	@Param			per_page	query		integer	false	"Items per page"
-//	@Success		200			{object}	response.APIResponse
+//	@Success		200			{object}	response.APIResponse{data=search.SearchResponse}
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/search [get]

@@ -4,6 +4,7 @@ type SearchResult struct {
 	ID         string              `json:"id"`
 	Type       string              `json:"type"`
 	Name       string              `json:"name,omitempty"`
+	ContactID  string              `json:"contact_id,omitempty"`
 	Score      float64             `json:"score"`
 	Highlights map[string][]string `json:"highlights,omitempty"`
 }

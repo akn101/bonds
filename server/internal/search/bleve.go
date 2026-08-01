@@ -9,8 +9,8 @@ import (
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/lang/cjk"
 	"github.com/blevesearch/bleve/v2/mapping"
-	"github.com/blevesearch/bleve/v2/search/query"
 	bleveSearch "github.com/blevesearch/bleve/v2/search"
+	"github.com/blevesearch/bleve/v2/search/query"
 )
 
 type BleveEngine struct {
@@ -142,6 +142,7 @@ func (e *BleveEngine) Search(vaultID, query string, limit, offset int) (*SearchR
 			ID:         id,
 			Type:       entityType,
 			Name:       nameFromHit(hit),
+			ContactID:  contactIDFromHit(hit),
 			Score:      hit.Score,
 			Highlights: fragmentsToMap(hit.Fragments),
 		}
@@ -218,6 +219,14 @@ func nameFromHit(hit *bleveSearch.DocumentMatch) string {
 	}
 	title, _ := hit.Fields["title"].(string)
 	return title
+}
+
+func contactIDFromHit(hit *bleveSearch.DocumentMatch) string {
+	if hit.Fields == nil {
+		return ""
+	}
+	contactID, _ := hit.Fields["contact_id"].(string)
+	return contactID
 }
 
 func fragmentsToMap(fragments bleveSearch.FieldFragmentMap) map[string][]string {
