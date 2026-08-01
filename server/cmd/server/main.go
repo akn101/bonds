@@ -45,6 +45,9 @@ var Version = "dev"
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
+	}
 
 	db, err := database.Connect(&cfg.Database, cfg.Debug)
 	if err != nil {

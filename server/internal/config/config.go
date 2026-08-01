@@ -1,10 +1,13 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strconv"
 	"strings"
 )
+
+var ErrUnsafeJWTSecret = errors.New("unsafe JWT secret")
 
 func splitAndTrim(s, sep string) []string {
 	parts := strings.Split(s, sep)
@@ -159,6 +162,23 @@ func Load() *Config {
 		},
 		Announcement: getEnv("ANNOUNCEMENT", ""),
 	}
+}
+
+func (c *Config) Validate() error {
+	if !strings.EqualFold(strings.TrimSpace(c.App.Env), "production") {
+		return nil
+	}
+
+	secret := strings.TrimSpace(c.JWT.Secret)
+	// Measure the normalized production input so surrounding whitespace cannot satisfy the minimum.
+	if len(secret) < 32 {
+		return ErrUnsafeJWTSecret
+	}
+	if strings.EqualFold(secret, "change-me-to-another-random-string") {
+		return ErrUnsafeJWTSecret
+	}
+
+	return nil
 }
 
 func getEnv(key, fallback string) string {
