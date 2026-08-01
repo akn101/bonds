@@ -1,76 +1,54 @@
 import { useState } from "react";
-import {
-  Card,
-  List,
-  Button,
-  Modal,
-  Form,
-  Input,
-  Select,
-  Popconfirm,
-  App,
-  Tag,
-  Empty,
-  theme,
-} from "antd";
-import { PlusOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, Button, Modal, Form, Input, Select, theme } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api";
-import type { Reminder, CreateReminderRequest, APIError, UserPreferences } from "@/api";
+import type { Reminder, UserPreferences } from "@/api";
 import { useTranslation } from "react-i18next";
 import CalendarDatePicker from "@/components/CalendarDatePicker";
 import type { CalendarDatePickerValue } from "@/components/CalendarDatePicker";
-import { getCalendarSystem } from "@/utils/calendar";
 import type { CalendarType } from "@/utils/calendar";
-import { useDateFormat, formatDate, formatShortDate } from "@/utils/dateFormat";
-import type { DateFormatVariants } from "@/utils/dateFormat";
+import { useDateFormat } from "@/utils/dateFormat";
+import type { NormalizedFeedSource } from "@/utils/feedSourceLink";
+import {
+  queryKeyPrefixes,
+  type ContactQueryScope,
+  type QueryInvalidationScopes,
+} from "@/utils/queryInvalidation";
+import { useSourceRecordReveal } from "../contactSourceRecord";
+import { createContactSaveMutationOperation } from "./contactSaveMutationOperation";
+import ReminderList from "./ReminderList";
+import {
+  useReminderMutations,
+  type ReminderSaveFormValues,
+} from "./useReminderMutations";
 
 const CONTACT_REMINDER_ALLOWED_DATE_PRECISIONS = ["full", "month_day"] as const;
-
-const freqColor: Record<string, string> = {
-  one_time: "blue",
-  recurring_week: "green",
-  recurring_month: "orange",
-  recurring_year: "purple",
-};
-
-function formatReminderDate(r: Reminder, dateFormats: DateFormatVariants): string {
-  // year is null for recurring yearly reminders → render day+month only (no year).
-  if (r.month == null || r.day == null) return "";
-  const mm = String(r.month).padStart(2, "0");
-  const dd = String(r.day).padStart(2, "0");
-  // dayjs needs a real year to parse; use any (the year is discarded by the short formatter).
-  const probe = `${r.year ?? 2000}-${mm}-${dd}`;
-  const gregFormatted = r.year != null ? formatDate(probe, dateFormats) : formatShortDate(probe, dateFormats);
-
-  if (r.calendar_type && r.calendar_type !== "gregorian" && r.original_month != null && r.original_day != null) {
-    const sys = getCalendarSystem(r.calendar_type as CalendarType);
-    const formatted = sys.formatDate({
-      day: r.original_day,
-      month: r.original_month,
-      year: r.original_year ?? 0,
-    });
-    return `${formatted} (${gregFormatted})`;
-  }
-  return gregFormatted;
-}
 
 export default function RemindersModule({
   vaultId,
   contactId,
+  target,
 }: {
   vaultId: string | number;
   contactId: string | number;
+  target?: Extract<NormalizedFeedSource, { readonly module: "reminders" }>;
 }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form] = Form.useForm();
-  const queryClient = useQueryClient();
-  const { message } = App.useApp();
+  const [form] = Form.useForm<ReminderSaveFormValues>();
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const dateFormats = useDateFormat();
-  const qk = ["vaults", vaultId, "contacts", contactId, "reminders"];
+  const scope = {
+    vaultId: String(vaultId),
+    contactId: String(contactId),
+  } as const satisfies ContactQueryScope;
+  const affectedScopes = {
+    vaultIds: [scope.vaultId],
+    contacts: [scope],
+  } as const satisfies QueryInvalidationScopes;
+  const qk = queryKeyPrefixes.reminder.contact(scope);
 
   const { data: prefs } = useQuery({
     queryKey: ["settings", "preferences"],
@@ -90,71 +68,19 @@ export default function RemindersModule({
 
   const { data: reminders = [], isLoading } = useQuery({
     queryKey: qk,
-    queryFn: async () => {
-      const res = await api.reminders.contactsRemindersList(String(vaultId), String(contactId));
+    queryFn: async (): Promise<Reminder[]> => {
+      const res = await api.reminders.contactsRemindersList(
+        String(vaultId),
+        String(contactId),
+      );
       return res.data ?? [];
     },
   });
+  const targetAvailable =
+    target !== undefined &&
+    reminders.some((reminder: Reminder) => reminder.id === target.id);
 
-  const saveMutation = useMutation({
-    mutationFn: (values: { label: string; calendarDate: CalendarDatePickerValue; frequency: string }) => {
-      const { calendarDate } = values;
-      if (calendarDate.day == null || calendarDate.month == null) {
-        throw new Error("reminder date requires month and day");
-      }
-
-      const precision = calendarDate.datePrecision ?? "full";
-      const month = calendarDate.month;
-      const day = calendarDate.day;
-
-      const data: CreateReminderRequest = {
-        label: values.label,
-        type: values.frequency,
-        calendar_type: calendarDate.calendarType,
-      };
-
-      if (precision === "month_day") {
-        data.day = day;
-        data.month = month;
-      } else {
-        if (calendarDate.year == null) {
-          throw new Error("full reminder date requires year");
-        }
-        const year = calendarDate.year;
-        const sys = getCalendarSystem(calendarDate.calendarType);
-        const gd = sys.toGregorian({ day, month, year });
-        data.day = gd.day;
-        data.month = gd.month;
-        data.year = gd.year;
-
-        if (calendarDate.calendarType !== "gregorian") {
-          data.original_day = day;
-          data.original_month = month;
-          data.original_year = year;
-        }
-      }
-
-      if (editingId) {
-        return api.reminders.contactsRemindersUpdate(String(vaultId), String(contactId), editingId, data);
-      }
-      return api.reminders.contactsRemindersCreate(String(vaultId), String(contactId), data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
-      closeModal();
-      message.success(editingId ? t("modules.reminders.updated") : t("modules.reminders.added"));
-    },
-    onError: (e: APIError) => message.error(e.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.reminders.contactsRemindersDelete(String(vaultId), String(contactId), id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
-      message.success(t("modules.reminders.deleted"));
-    },
-    onError: (e: APIError) => message.error(e.message),
-  });
+  useSourceRecordReveal(target, targetAvailable);
 
   function openEdit(r: Reminder) {
     setEditingId(r.id ?? null);
@@ -175,7 +101,11 @@ export default function RemindersModule({
             year: r.year ?? null,
             datePrecision: r.year == null ? "month_day" : "full",
           };
-    form.setFieldsValue({ label: r.label, calendarDate: pickerVal, frequency: r.type });
+    form.setFieldsValue({
+      label: r.label,
+      calendarDate: pickerVal,
+      frequency: r.type,
+    });
     setOpen(true);
   }
 
@@ -185,74 +115,94 @@ export default function RemindersModule({
     form.resetFields();
   }
 
+  const { saveMutation, deleteMutation } = useReminderMutations({
+    closeSaveForm: closeModal,
+  });
+
   return (
     <Card
-      title={<span style={{ fontWeight: 500 }}>{t("modules.reminders.title")}</span>}
+      title={
+        <span style={{ fontWeight: 500 }}>{t("modules.reminders.title")}</span>
+      }
       styles={{
         header: { borderBottom: `1px solid ${token.colorBorderSecondary}` },
-        body: { padding: '16px 24px' },
+        body: { padding: "16px 24px" },
       }}
       extra={
-        <Button type="text" icon={<PlusOutlined />} onClick={() => setOpen(true)} style={{ color: token.colorPrimary }}>
+        <Button
+          type="text"
+          icon={<PlusOutlined />}
+          onClick={() => setOpen(true)}
+          style={{ color: token.colorPrimary }}
+        >
           {t("modules.reminders.add")}
         </Button>
       }
     >
-      <List
-        loading={isLoading}
-        dataSource={reminders}
-        locale={{ emptyText: <Empty description={t("modules.reminders.no_reminders")} /> }}
-        split={false}
-        renderItem={(r: Reminder) => (
-          <List.Item
-            style={{
-              borderRadius: token.borderRadius,
-              padding: '10px 12px',
-              marginBottom: 4,
-              transition: 'background 0.2s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = token.colorFillQuaternary; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-            actions={[
-              <Button key="e" type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />,
-              <Popconfirm key="d" title={t("modules.reminders.delete_confirm")} onConfirm={() => deleteMutation.mutate(r.id!)}>
-                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-              </Popconfirm>,
-            ]}
-          >
-            <List.Item.Meta
-              title={<span style={{ fontWeight: 500 }}>{r.label}</span>}
-              description={
-                <>
-                  <span style={{ color: token.colorTextSecondary }}>{formatReminderDate(r, dateFormats)}</span>{" "}
-                  <Tag color={freqColor[r.type!] ?? "default"}>
-                    {frequencyOptions.find((o) => o.value === r.type)?.label ?? r.type}
-                  </Tag>
-                  {altCalendar && r.calendar_type && r.calendar_type !== "gregorian" && (
-                    <Tag color="volcano">{r.calendar_type}</Tag>
-                  )}
-                </>
-              }
-            />
-          </List.Item>
-        )}
+      <ReminderList
+        reminders={reminders}
+        isLoading={isLoading}
+        alternativeCalendarEnabled={altCalendar}
+        dateFormats={dateFormats}
+        frequencyOptions={frequencyOptions}
+        onEdit={openEdit}
+        onDelete={(id) => {
+          deleteMutation.mutate({
+            kind: "delete",
+            source: scope,
+            listQueryKey: qk,
+            affectedScopes,
+            id,
+          });
+        }}
       />
 
       <Modal
-        title={editingId ? t("modules.reminders.modal_edit") : t("modules.reminders.modal_add")}
+        title={
+          editingId
+            ? t("modules.reminders.modal_edit")
+            : t("modules.reminders.modal_add")
+        }
         open={open}
         onCancel={closeModal}
         onOk={() => form.submit()}
         confirmLoading={saveMutation.isPending}
       >
-        <Form form={form} layout="vertical" onFinish={(v) => saveMutation.mutate(v)}>
-          <Form.Item name="label" label={t("modules.reminders.label")} rules={[{ required: true }]}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={(values) => {
+            saveMutation.mutate({
+              ...createContactSaveMutationOperation(editingId, values),
+              source: scope,
+              listQueryKey: qk,
+              affectedScopes,
+            });
+          }}
+        >
+          <Form.Item
+            name="label"
+            label={t("modules.reminders.label")}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="calendarDate" label={t("modules.reminders.date")} rules={[{ required: true }]}>
-            <CalendarDatePicker enableAlternativeCalendar={altCalendar} enableDatePrecision allowedDatePrecisions={CONTACT_REMINDER_ALLOWED_DATE_PRECISIONS} />
+          <Form.Item
+            name="calendarDate"
+            label={t("modules.reminders.date")}
+            rules={[{ required: true }]}
+          >
+            <CalendarDatePicker
+              enableAlternativeCalendar={altCalendar}
+              enableDatePrecision
+              allowedDatePrecisions={CONTACT_REMINDER_ALLOWED_DATE_PRECISIONS}
+            />
           </Form.Item>
-          <Form.Item name="frequency" label={t("modules.reminders.frequency")} rules={[{ required: true }]}>
+          <Form.Item
+            name="frequency"
+            label={t("modules.reminders.frequency")}
+            rules={[{ required: true }]}
+          >
             <Select options={frequencyOptions} />
           </Form.Item>
         </Form>
