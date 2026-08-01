@@ -1,195 +1,161 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
-import { App as AntApp, ConfigProvider } from "antd";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import RelationshipsModule from "@/pages/contact/modules/RelationshipsModule";
+import { describe, expect, it, vi } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
+import {
+  apiMock,
+  renderRelationshipsModule,
+  setupRelationshipsUser,
+} from "./relationshipsModuleTestHarness";
 
-beforeAll(() => {
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  };
-});
+describe("RelationshipsModule characterization", () => {
+  it("submits the selected existing contact and relationship type", async () => {
+    const user = setupRelationshipsUser();
+    renderRelationshipsModule();
 
-vi.mock("@/api/relationships", () => ({
-  relationshipsApi: {
-    list: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
+    await user.click(await screen.findByText("Add"));
+    await user.click(await screen.findByLabelText(/^Contact$/i));
+    await user.click(await screen.findByTitle("Jane Doe"));
+    await user.click(screen.getByLabelText(/^Relationship Type$/i));
+    await user.click(await screen.findByTitle("Parent"));
+    await user.click(screen.getByRole("button", { name: /Save|OK/i }));
 
-const mutationMock = vi.hoisted(() => ({
-  mutate: vi.fn(),
-}));
-
-vi.mock("@tanstack/react-query", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@tanstack/react-query")>();
-  return {
-    ...actual,
-    useMutation: () => mutationMock,
-  };
-});
-
-// Avoid actually fetching real data in tests
-vi.mock("@/api", () => ({
-  api: {
-    relationships: {
-      contactsRelationshipsList: vi.fn().mockResolvedValue({ success: true, data: [] }),
-      contactsRelationshipsCreate: vi.fn(),
-      contactsRelationshipsUpdate: vi.fn(),
-      contactsRelationshipsDelete: vi.fn(),
-      contactsList: vi.fn().mockResolvedValue({ success: true, data: [
-        { contact_id: "existing-uuid", contact_name: "Jane Doe", vault_id: "v1", vault_name: "Main", has_editor: true }
-      ] }),
-    },
-    relationshipTypes: {
-      personalizeRelationshipTypesAllList: vi.fn().mockResolvedValue({ success: true, data: [
-        { id: 10, name: "Parent", name_reverse_relationship: "Child", relationship_group_type_id: 1, group_name: "Family" }
-      ] }),
-    },
-  },
-}));
-
-function renderModule(props = {}) {
-  const queryClient = new QueryClient();
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <ConfigProvider>
-        <AntApp>
-          <MemoryRouter>
-            <RelationshipsModule vaultId="v1" contactId="c1" currentContactName="Alice Johnson" {...props} />
-          </MemoryRouter>
-        </AntApp>
-      </ConfigProvider>
-    </QueryClientProvider>
-  );
-}
-
-describe("RelationshipsModule", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+    await waitFor(() => {
+      expect(apiMock.contactsRelationshipsCreate).toHaveBeenCalledWith(
+        "v1",
+        "c1",
+        {
+          relationship_type_id: 10,
+          related_contact_id: "existing-uuid",
+        },
+      );
+    });
   });
 
-  it("submits external contact correctly", async () => {
-    const user = userEvent.setup();
-    renderModule();
+  it("submits an external contact without a related contact id", async () => {
+    const user = setupRelationshipsUser();
+    renderRelationshipsModule();
 
-    await waitFor(() => {
-      expect(screen.getByText(/Relationships/i)).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText("Add"));
-
-    await waitFor(() => {
-      // Form element rendered
-      expect(document.querySelector('form')).toBeInTheDocument();
-    });
-
+    await user.click(await screen.findByText("Add"));
     await user.click(await screen.findByText(/External contact/i));
-
-    const nameInput = await screen.findByRole("textbox", { name: /External/i });
-    await user.type(nameInput, "Uncle Bob");
-
-    const typeSelect = screen.getByRole("combobox");
-    await user.click(typeSelect);
+    await user.type(
+      await screen.findByRole("textbox", { name: /External/i }),
+      "  Uncle Bob  ",
+    );
+    await user.click(screen.getByLabelText(/^Relationship Type$/i));
     await user.click(await screen.findByTitle("Parent"));
-
     await user.click(screen.getByRole("button", { name: /Save|OK/i }));
 
     await waitFor(() => {
-      expect(mutationMock.mutate).toHaveBeenCalled();
+      expect(apiMock.contactsRelationshipsCreate).toHaveBeenCalledWith(
+        "v1",
+        "c1",
+        {
+          relationship_type_id: 10,
+          external_contact_name: "Uncle Bob",
+        },
+      );
     });
+  });
 
-    const mutateArgs = mutationMock.mutate.mock.calls[0][0];
-    expect(mutateArgs.relationship_type_id).toBe(10);
-    expect(mutateArgs.external_contact_name).toBe("Uncle Bob");
-    expect(mutateArgs.related_contact_id).toBeUndefined(); // ensure exclusive
-  }, 10000);
-
-  it("edit flow updates only related_contact_id and relationship_type_id", async () => {
-    const user = userEvent.setup();
-    const relationshipListResponse = [{
-      id: 22,
-      related_contact_id: "existing-uuid",
-      related_contact_name: "Jane Doe",
-      relationship_type_id: 10,
-      relationship_type_name: "Parent",
-    }];
-
-    vi.mocked((await import("@/api")).api.relationships.contactsRelationshipsList)
-      .mockResolvedValueOnce({ success: true, data: relationshipListResponse });
-
-    renderModule();
-
-    await waitFor(() => {
-      expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+  it("updates only the related contact and relationship type", async () => {
+    const user = setupRelationshipsUser();
+    apiMock.contactsRelationshipsList.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: 22,
+          related_contact_id: "existing-uuid",
+          related_contact_name: "Jane Doe",
+          relationship_type_id: 10,
+          relationship_type_name: "Parent",
+        },
+      ],
     });
+    renderRelationshipsModule();
 
-    await user.click(screen.getByRole("button", { name: "edit" }));
+    await user.click(await screen.findByRole("button", { name: "edit" }));
     await user.click(screen.getByRole("button", { name: /Save|OK/i }));
 
     await waitFor(() => {
-      expect(mutationMock.mutate).toHaveBeenCalled();
+      expect(apiMock.contactsRelationshipsUpdate).toHaveBeenCalledWith(
+        "v1",
+        "c1",
+        22,
+        {
+          related_contact_id: "existing-uuid",
+          relationship_type_id: 10,
+        },
+      );
     });
+  });
 
-    const mutateArgs = mutationMock.mutate.mock.calls.at(-1)?.[0];
-    expect(mutateArgs.id).toBe(22);
-    expect(mutateArgs.request).toMatchObject({
-      related_contact_id: "existing-uuid",
-      relationship_type_id: 10,
+  it("renders a hidden relationship contact by name with the current-vault fallback link", async () => {
+    const user = setupRelationshipsUser();
+    apiMock.contactsRelationshipsList.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: 23,
+          related_contact_id: "hidden-external-uuid",
+          related_contact_name: "Aunt Mary",
+          relationship_type_id: 10,
+          relationship_type_name: "Parent",
+        },
+      ],
     });
-    expect(mutateArgs.request.external_contact_name).toBeUndefined();
-  }, 10000);
+    renderRelationshipsModule();
 
-  it("shows external contact name instead of raw id when editing a hidden relationship contact", async () => {
-    const user = userEvent.setup();
-    const relationshipListResponse = [{
-      id: 23,
-      related_contact_id: "hidden-external-uuid",
-      related_contact_name: "Aunt Mary",
-      relationship_type_id: 10,
-      relationship_type_name: "Parent",
-      related_vault_id: "v1",
-      related_vault_name: "Main",
-    }];
-
-    vi.mocked((await import("@/api")).api.relationships.contactsRelationshipsList)
-      .mockResolvedValueOnce({ success: true, data: relationshipListResponse });
-
-    renderModule();
-
-    await waitFor(() => {
-      expect(screen.getByText("Aunt Mary")).toBeInTheDocument();
-    });
-
+    const contactLink = await screen.findByRole("link", { name: "Aunt Mary" });
+    expect(contactLink).toHaveAttribute(
+      "href",
+      "/vaults/v1/contacts/hidden-external-uuid",
+    );
     await user.click(screen.getByRole("button", { name: "edit" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Aunt Mary")).toBeInTheDocument();
-    expect(within(dialog).queryByText("hidden-external-uuid")).not.toBeInTheDocument();
-  }, 10000);
+    expect(
+      within(dialog).queryByText("hidden-external-uuid"),
+    ).not.toBeInTheDocument();
+  });
 
-  it("shows relationship direction guidance with dynamic contact names in the modal", async () => {
-    const user = userEvent.setup();
-    renderModule();
-
-    await waitFor(() => {
-      expect(screen.getByText(/Relationships/i)).toBeInTheDocument();
+  it("keeps the relationship source marker for feed deep links", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    apiMock.contactsRelationshipsList.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: 24,
+          related_contact_id: "existing-uuid",
+          related_contact_name: "Jane Doe",
+          relationship_type_id: 10,
+          relationship_type_name: "Parent",
+        },
+      ],
     });
 
-    await user.click(screen.getByText("Add"));
+    renderRelationshipsModule({
+      target: { id: 24, kind: "Relationship", module: "relationships" },
+    });
 
-    const contactSelect = await screen.findByLabelText(/^Contact$/i);
-    await user.click(contactSelect);
+    const markedRecord = (await screen.findByText("Jane Doe")).closest(
+      '[data-source-record="Relationship:24"]',
+    );
+    expect(markedRecord).toBeInTheDocument();
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "center",
+    });
+  });
+
+  it("shows relationship direction guidance with dynamic contact names", async () => {
+    const user = setupRelationshipsUser();
+    renderRelationshipsModule();
+
+    await user.click(await screen.findByText("Add"));
+    await user.click(await screen.findByLabelText(/^Contact$/i));
     await user.click(await screen.findByTitle("Jane Doe"));
-
-    const relationshipTypeSelect = await screen.findByLabelText(/^Relationship Type$/i);
-    await user.click(relationshipTypeSelect);
+    await user.click(screen.getByLabelText(/^Relationship Type$/i));
     await user.click(await screen.findByTitle("Parent"));
 
     expect(
@@ -197,29 +163,30 @@ describe("RelationshipsModule", () => {
     ).toBeInTheDocument();
   });
 
-	it("shows one-way hint when the selected contact is viewer-only", async () => {
-		const user = userEvent.setup();
-		vi.mocked((await import("@/api")).api.relationships.contactsList).mockResolvedValueOnce({
-			success: true,
-			data: [
-				{ contact_id: "viewer-only-uuid", contact_name: "Viewer Vault Contact", vault_id: "v2", vault_name: "Shared", has_editor: false },
-			],
-		});
+  it("shows the one-way hint for a viewer-only selected contact", async () => {
+    const user = setupRelationshipsUser();
+    apiMock.contactsList.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          contact_id: "viewer-only-uuid",
+          contact_name: "Viewer Vault Contact",
+          vault_id: "v2",
+          vault_name: "Shared",
+          has_editor: false,
+        },
+      ],
+    });
+    renderRelationshipsModule();
 
-		renderModule();
+    await user.click(await screen.findByText("Add"));
+    await user.click(await screen.findByLabelText(/^Contact$/i));
+    await user.click(
+      await screen.findByTitle(/Viewer Vault Contact.*one-way only/i),
+    );
 
-		await waitFor(() => {
-			expect(screen.getByText(/Relationships/i)).toBeInTheDocument();
-		});
-
-		await user.click(screen.getByText("Add"));
-
-		const contactSelect = await screen.findByLabelText(/^Contact$/i);
-		await user.click(contactSelect);
-		await user.click(await screen.findByTitle(/Viewer Vault Contact.*one-way only/i));
-
-		expect(
-			await screen.findByText(/Only a one-way relationship will be created\./i),
-		).toBeInTheDocument();
-	});
+    expect(
+      await screen.findByText(/Only a one-way relationship will be created\./i),
+    ).toBeInTheDocument();
+  });
 });
