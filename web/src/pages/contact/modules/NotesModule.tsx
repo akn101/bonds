@@ -1,5 +1,16 @@
 import { useState } from "react";
-import { Card, List, Button, Input, Space, Popconfirm, App, Empty, theme, Pagination } from "antd";
+import {
+  Card,
+  List,
+  Button,
+  Input,
+  Space,
+  Popconfirm,
+  App,
+  Empty,
+  theme,
+  Pagination,
+} from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
@@ -7,17 +18,58 @@ import type { Note, PaginationMeta, APIError } from "@/api";
 import { useTranslation } from "react-i18next";
 import { useDateFormat, formatDate } from "@/utils/dateFormat";
 import LinkifiedText from "@/components/LinkifiedText";
+import type { NormalizedFeedSource } from "@/utils/feedSourceLink";
+import { invalidateFeedQueries } from "@/utils/queryInvalidation";
+import {
+  findTargetRecordPage,
+  sourceRecordKey,
+  useSourceRecordReveal,
+  useTargetRecordPageSelection,
+} from "../contactSourceRecord";
 
 const { TextArea } = Input;
+
+type NotesQueryKey = readonly [
+  "vaults",
+  string | number,
+  "contacts",
+  string | number,
+  "notes",
+];
+
+type NoteFormValues = {
+  readonly title: string;
+  readonly body: string;
+};
+
+type NoteMutationScope = {
+  readonly vaultId: string;
+  readonly contactId: string;
+  readonly queryKey: NotesQueryKey;
+};
+
+type CreateNoteMutationOperation = NoteMutationScope & {
+  readonly values: NoteFormValues;
+};
+
+type UpdateNoteMutationOperation = CreateNoteMutationOperation & {
+  readonly noteId: number;
+};
+
+type DeleteNoteMutationOperation = NoteMutationScope & {
+  readonly noteId: number;
+};
 
 export default function NotesModule({
   vaultId,
   contactId,
   readOnly = false,
+  target,
 }: {
   vaultId: string | number;
   contactId: string | number;
   readOnly?: boolean;
+  target?: Extract<NormalizedFeedSource, { readonly module: "notes" }>;
 }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -30,24 +82,94 @@ export default function NotesModule({
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const dateFormats = useDateFormat();
-  const qk = ["vaults", vaultId, "contacts", contactId, "notes"];
+  const qk = [
+    "vaults",
+    vaultId,
+    "contacts",
+    contactId,
+    "notes",
+  ] as const satisfies NotesQueryKey;
 
   const { data: notesResponse, isLoading } = useQuery({
     queryKey: [...qk, currentPage, pageSize],
-    queryFn: async () => {
-      const res = await api.notes.contactsNotesList(String(vaultId), String(contactId), { page: currentPage, per_page: pageSize });
-      return { items: res.data ?? [], meta: res.meta as PaginationMeta | undefined };
+    queryFn: async (): Promise<{
+      readonly items: Note[];
+      readonly meta: PaginationMeta | undefined;
+    }> => {
+      const res = await api.notes.contactsNotesList(
+        String(vaultId),
+        String(contactId),
+        { page: currentPage, per_page: pageSize },
+      );
+      return {
+        items: res.data ?? [],
+        meta: res.meta as PaginationMeta | undefined,
+      };
     },
   });
-  const notes = notesResponse?.items ?? [];
+  const notes: Note[] = notesResponse?.items ?? [];
   const total = notesResponse?.meta?.total ?? notes.length;
+  const targetAvailable =
+    target !== undefined && notes.some((note: Note) => note.id === target.id);
+
+  useSourceRecordReveal(target, targetAvailable);
+
+  const { data: targetPage } = useQuery({
+    queryKey: [...qk, "source-target", target?.id],
+    enabled: target !== undefined && notesResponse !== undefined,
+    queryFn: async () => {
+      if (!target || !notesResponse) return null;
+      const targetPage = await findTargetRecordPage({
+        targetId: target.id,
+        initialPage: {
+          page: notesResponse.meta?.page ?? currentPage,
+          items: notesResponse.items,
+          totalPages: notesResponse.meta?.total_pages ?? currentPage,
+        },
+        loadPage: async (page) => {
+          const response = await api.notes.contactsNotesList(
+            String(vaultId),
+            String(contactId),
+            {
+              page,
+              per_page: pageSize,
+            },
+          );
+          return {
+            page,
+            items: response.data ?? [],
+            totalPages: response.meta?.total_pages ?? page,
+          };
+        },
+        getRecordId: (note: Note) => note.id,
+      });
+      return targetPage?.page ?? null;
+    },
+  });
+  useTargetRecordPageSelection(
+    target ? sourceRecordKey(target.kind, target.id) : null,
+    targetPage,
+    setCurrentPage,
+  );
 
   const createMutation = useMutation({
-    mutationFn: (data: { title: string; body: string }) =>
-      api.notes.contactsNotesCreate(String(vaultId), String(contactId), data),
-    onSuccess: () => {
+    mutationFn: (operation: CreateNoteMutationOperation) =>
+      api.notes.contactsNotesCreate(
+        operation.vaultId,
+        operation.contactId,
+        operation.values,
+      ),
+    onSuccess: async (_data, operation) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: operation.queryKey }),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [operation.vaultId],
+          contacts: [
+            { vaultId: operation.vaultId, contactId: operation.contactId },
+          ],
+        }),
+      ]);
       setCurrentPage(1);
-      queryClient.invalidateQueries({ queryKey: qk });
       resetForm();
       message.success(t("modules.notes.added"));
     },
@@ -55,15 +177,23 @@ export default function NotesModule({
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({
-      noteId,
-      data,
-    }: {
-      noteId: number;
-      data: { title: string; body: string };
-    }) => api.notes.contactsNotesUpdate(String(vaultId), String(contactId), noteId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
+    mutationFn: (operation: UpdateNoteMutationOperation) =>
+      api.notes.contactsNotesUpdate(
+        operation.vaultId,
+        operation.contactId,
+        operation.noteId,
+        operation.values,
+      ),
+    onSuccess: async (_data, operation) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: operation.queryKey }),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [operation.vaultId],
+          contacts: [
+            { vaultId: operation.vaultId, contactId: operation.contactId },
+          ],
+        }),
+      ]);
       resetForm();
       message.success(t("modules.notes.updated"));
     },
@@ -71,9 +201,22 @@ export default function NotesModule({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (noteId: number) => api.notes.contactsNotesDelete(String(vaultId), String(contactId), noteId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk });
+    mutationFn: (operation: DeleteNoteMutationOperation) =>
+      api.notes.contactsNotesDelete(
+        operation.vaultId,
+        operation.contactId,
+        operation.noteId,
+      ),
+    onSuccess: async (_data, operation) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: operation.queryKey }),
+        invalidateFeedQueries(queryClient, {
+          vaultIds: [operation.vaultId],
+          contacts: [
+            { vaultId: operation.vaultId, contactId: operation.contactId },
+          ],
+        }),
+      ]);
       message.success(t("modules.notes.deleted"));
     },
     onError: (e: APIError) => message.error(e.message),
@@ -88,16 +231,25 @@ export default function NotesModule({
 
   function startEdit(note: Note) {
     setEditingId(note.id ?? null);
-    setTitle(note.title ?? '');
-    setBody(note.body ?? '');
+    setTitle(note.title ?? "");
+    setBody(note.body ?? "");
     setAdding(false);
   }
 
   function handleSave() {
+    const mutationScope = {
+      vaultId: String(vaultId),
+      contactId: String(contactId),
+      queryKey: qk,
+    } satisfies NoteMutationScope;
     if (editingId) {
-      updateMutation.mutate({ noteId: editingId, data: { title, body } });
+      updateMutation.mutate({
+        ...mutationScope,
+        noteId: editingId,
+        values: { title, body },
+      });
     } else {
-      createMutation.mutate({ title, body });
+      createMutation.mutate({ ...mutationScope, values: { title, body } });
     }
   }
 
@@ -107,13 +259,16 @@ export default function NotesModule({
 
   return (
     <Card
-      title={<span style={{ fontWeight: 500 }}>{t("modules.notes.title")}</span>}
+      title={
+        <span style={{ fontWeight: 500 }}>{t("modules.notes.title")}</span>
+      }
       styles={{
         header: { borderBottom: `1px solid ${token.colorBorderSecondary}` },
         body: { padding: "16px 24px" },
       }}
       extra={
-        !readOnly && !showForm && (
+        !readOnly &&
+        !showForm && (
           <Button
             type="link"
             icon={<PlusOutlined />}
@@ -125,12 +280,14 @@ export default function NotesModule({
       }
     >
       {showForm && (
-        <div style={{
-          marginBottom: 16,
-          padding: 16,
-          background: token.colorFillQuaternary,
-          borderRadius: token.borderRadius,
-        }}>
+        <div
+          style={{
+            marginBottom: 16,
+            padding: 16,
+            background: token.colorFillQuaternary,
+            borderRadius: token.borderRadius,
+          }}
+        >
           <Input
             placeholder={t("modules.notes.title_placeholder")}
             value={title}
@@ -154,7 +311,9 @@ export default function NotesModule({
             >
               {editingId ? t("common.update") : t("common.save")}
             </Button>
-            <Button onClick={resetForm} size="small">{t("common.cancel")}</Button>
+            <Button onClick={resetForm} size="small">
+              {t("common.cancel")}
+            </Button>
           </Space>
         </div>
       )}
@@ -162,46 +321,84 @@ export default function NotesModule({
       <List
         loading={isLoading}
         dataSource={notes as Note[]}
-        locale={{ emptyText: <Empty description={t("modules.notes.no_notes")} /> }}
+        locale={{
+          emptyText: <Empty description={t("modules.notes.no_notes")} />,
+        }}
         split={false}
         renderItem={(note: Note) => (
           <List.Item
+            data-source-record={
+              note.id ? sourceRecordKey("Note", note.id) : undefined
+            }
             style={{
               borderRadius: token.borderRadius,
-              padding: '10px 12px',
+              padding: "10px 12px",
               marginBottom: 4,
-              transition: 'background 0.2s',
-              cursor: 'default',
+              transition: "background 0.2s",
+              cursor: "default",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = token.colorFillQuaternary; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-            actions={readOnly ? undefined : [
-              <Button
-                key="edit"
-                type="text"
-                size="small"
-                icon={<EditOutlined />}
-                onClick={() => startEdit(note)}
-              />,
-              <Popconfirm
-                key="del"
-                title={t("modules.notes.delete_confirm")}
-                onConfirm={() => deleteMutation.mutate(note.id!)}
-              >
-                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-              </Popconfirm>,
-            ]}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = token.colorFillQuaternary;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+            actions={
+              readOnly
+                ? undefined
+                : [
+                    <Button
+                      key="edit"
+                      type="text"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={() => startEdit(note)}
+                    />,
+                    <Popconfirm
+                      key="del"
+                      title={t("modules.notes.delete_confirm")}
+                      onConfirm={() => {
+                        if (note.id === undefined) return;
+                        deleteMutation.mutate({
+                          vaultId: String(vaultId),
+                          contactId: String(contactId),
+                          queryKey: qk,
+                          noteId: note.id,
+                        });
+                      }}
+                    >
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                      />
+                    </Popconfirm>,
+                  ]
+            }
           >
             <List.Item.Meta
               title={<span style={{ fontWeight: 500 }}>{note.title}</span>}
               description={
                 <>
-                  <LinkifiedText as="div" style={{ color: token.colorTextSecondary, whiteSpace: "pre-wrap" }}>
+                  <LinkifiedText
+                    as="div"
+                    style={{
+                      color: token.colorTextSecondary,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
                     {note.body}
                   </LinkifiedText>
-                   <div style={{ fontSize: 12, marginTop: 4, color: token.colorTextQuaternary }}>
-                     {formatDate(note.created_at, dateFormats)}
-                   </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      marginTop: 4,
+                      color: token.colorTextQuaternary,
+                    }}
+                  >
+                    {formatDate(note.created_at, dateFormats)}
+                  </div>
                 </>
               }
             />
