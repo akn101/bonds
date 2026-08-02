@@ -961,9 +961,8 @@ func TestMonicaImportNotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Import failed: %v", err)
 	}
-	// John has 1 original note + 1 activity-as-note + 1 conversation-as-note = 3
-	if resp.ImportedNotes != 3 {
-		t.Errorf("expected 3 imported notes (1 note + 1 activity + 1 conversation), got %d", resp.ImportedNotes)
+	if resp.ImportedNotes != 4 {
+		t.Errorf("expected 4 imported notes (1 note + 1 reminder description + 1 activity + 1 conversation), got %d", resp.ImportedNotes)
 	}
 
 	var john models.Contact
@@ -974,8 +973,8 @@ func TestMonicaImportNotes(t *testing.T) {
 	if err := svc.DB.Where("contact_id = ?", john.ID).Find(&notes).Error; err != nil {
 		t.Fatalf("failed to query notes: %v", err)
 	}
-	if len(notes) != 3 {
-		t.Fatalf("expected 3 notes, got %d", len(notes))
+	if len(notes) != 4 {
+		t.Fatalf("expected 4 notes, got %d", len(notes))
 	}
 	foundOriginal := false
 	for _, n := range notes {
@@ -986,6 +985,13 @@ func TestMonicaImportNotes(t *testing.T) {
 	}
 	if !foundOriginal {
 		t.Error("expected to find original note body")
+	}
+	var reminderDescription models.Note
+	if err := svc.DB.Where("contact_id = ? AND source_type = ? AND source_uuid = ?", john.ID, "monica_reminder_description", "550e8400-e29b-41d4-a716-446655440053").First(&reminderDescription).Error; err != nil {
+		t.Fatalf("expected source-linked reminder description note: %v", err)
+	}
+	if reminderDescription.Body != "Don't forget to call!" {
+		t.Errorf("reminder description note body: want %q, got %q", "Don't forget to call!", reminderDescription.Body)
 	}
 }
 
@@ -1015,7 +1021,7 @@ func TestMonicaImportCalls(t *testing.T) {
 	if calls[0].WhoInitiated != "user" {
 		t.Errorf("expected who_initiated=user (contact_called=false), got %s", calls[0].WhoInitiated)
 	}
-	if calls[0].Description == nil || *calls[0].Description != "Discussed weekend plans" {
+	if calls[0].Description == nil || *calls[0].Description != "Discussed weekend plans\n\nMonica emotions: happy" {
 		t.Errorf("unexpected call description: %v", calls[0].Description)
 	}
 }

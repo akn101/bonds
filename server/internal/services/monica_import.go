@@ -92,6 +92,7 @@ func (s *MonicaImportService) Import(vaultID, userID string, data []byte) (*dto.
 	genderByUUID := buildGenderMap(export.Account.Instance.Genders)
 	fieldTypeByUUID := buildFieldTypeMap(export.Account.Instance.ContactFieldTypes)
 	lifeEventTypeByUUID := buildLifeEventTypeMap(export.Account.Instance.LifeEventTypes)
+	lifeEventCategoryByUUID := buildLifeEventCategoryMap(export.Account.Instance.LifeEventCategories)
 	activityTypeByUUID := buildActivityTypeMap(export.Account.Instance.ActivityTypes)
 
 	contactUUIDMap := make(map[string]string)
@@ -140,7 +141,7 @@ func (s *MonicaImportService) Import(vaultID, userID string, data []byte) (*dto.
 		s.importContactReferences(s.DB, &mc, contactID, contactUUIDMap, resp)
 		s.importContactSubResources(
 			s.DB, &mc, contactID, vaultID, accountID, userID, userContactID,
-			fieldTypeByUUID, lifeEventTypeByUUID, activityByUUID, resp,
+			fieldTypeByUUID, lifeEventTypeByUUID, lifeEventCategoryByUUID, activityByUUID, resp,
 		)
 	}
 
@@ -467,20 +468,21 @@ func (s *MonicaImportService) importContactSubResources(
 	mc *MonicaContact,
 	contactID, vaultID, accountID, userID, userContactID string,
 	fieldTypeByUUID map[string]MonicaContactFieldTypeRef,
-	lifeEventTypeByUUID map[string]string,
+	lifeEventTypeByUUID map[string]MonicaLifeEventTypeRef,
+	lifeEventCategoryByUUID map[string]MonicaLifeEventCategoryRef,
 	activityByUUID map[string]MonicaActivityNote,
 	resp *dto.MonicaImportResponse,
 ) {
 	s.importNotes(tx, mc, contactID, vaultID, userID, resp)
 	s.importCalls(tx, mc, contactID, userID, resp)
 	s.importTasks(tx, mc, contactID, vaultID, userID, resp)
-	s.importReminders(tx, mc, contactID, resp)
+	s.importReminders(tx, mc, contactID, vaultID, userID, resp)
 	s.importAddresses(tx, mc, contactID, vaultID, accountID, resp)
 	s.importContactFields(tx, mc, contactID, accountID, fieldTypeByUUID, resp)
 	s.importPets(tx, mc, contactID, accountID, resp)
 	s.importGifts(tx, mc, contactID, accountID, resp)
 	s.importDebtsAsLoans(tx, mc, contactID, vaultID, userContactID, resp)
-	s.importLifeEvents(tx, mc, contactID, vaultID, lifeEventTypeByUUID, resp)
+	s.importLifeEvents(tx, mc, contactID, vaultID, lifeEventTypeByUUID, lifeEventCategoryByUUID, resp)
 	s.importActivitiesAsNotes(tx, mc, contactID, vaultID, userID, activityByUUID, resp)
 	s.importConversationsAsNotes(tx, mc, contactID, vaultID, userID, resp)
 }
@@ -535,12 +537,8 @@ func (s *MonicaImportService) importCalls(
 			continue
 		}
 		calledAt := time.Now()
-		if mcall.Properties.CalledAt != "" {
-			if t, err := time.Parse(time.RFC3339, mcall.Properties.CalledAt); err == nil {
-				calledAt = t
-			} else if t, err := time.Parse("2006-01-02", mcall.Properties.CalledAt); err == nil {
-				calledAt = t
-			}
+		if t, ok := parseMonicaTimestamp(mcall.Properties.CalledAt); ok {
+			calledAt = t
 		}
 		whoInitiated := "user"
 		if mcall.Properties.ContactCalled {
@@ -554,12 +552,43 @@ func (s *MonicaImportService) importCalls(
 			Type:         "phone",
 			WhoInitiated: whoInitiated,
 			Answered:     true,
-			Description:  strPtrOrNil(mcall.Properties.Content),
+			Description:  strPtrOrNil(monicaCallDescription(mcall.Properties.Content, mcall.Properties.Emotions)),
+		}
+		if t, ok := parseMonicaTimestamp(mcall.CreatedAt); ok {
+			call.CreatedAt = t
+			call.UpdatedAt = t
+		}
+		if t, ok := parseMonicaTimestamp(mcall.UpdatedAt); ok {
+			call.UpdatedAt = t
 		}
 		if err := tx.Create(&call).Error; err == nil {
 			resp.ImportedCalls++
 		}
 	}
+}
+
+func monicaCallDescription(content string, emotions []string) string {
+	seen := make(map[string]struct{}, len(emotions))
+	uniqueEmotions := make([]string, 0, len(emotions))
+	for _, emotion := range emotions {
+		emotion = strings.TrimSpace(emotion)
+		if emotion == "" {
+			continue
+		}
+		if _, seenBefore := seen[emotion]; seenBefore {
+			continue
+		}
+		seen[emotion] = struct{}{}
+		uniqueEmotions = append(uniqueEmotions, emotion)
+	}
+	if len(uniqueEmotions) == 0 {
+		return content
+	}
+	emotionSummary := "Monica emotions: " + strings.Join(uniqueEmotions, ", ")
+	if content == "" {
+		return emotionSummary
+	}
+	return content + "\n\n" + emotionSummary
 }
 
 func (s *MonicaImportService) importTasks(
@@ -599,7 +628,7 @@ func (s *MonicaImportService) importTasks(
 }
 
 func (s *MonicaImportService) importReminders(
-	tx *gorm.DB, mc *MonicaContact, contactID string,
+	tx *gorm.DB, mc *MonicaContact, contactID, vaultID, userID string,
 	resp *dto.MonicaImportResponse,
 ) {
 	freqMap := map[string]string{
@@ -636,8 +665,38 @@ func (s *MonicaImportService) importReminders(
 				}
 			}
 		}
+		if t, ok := parseMonicaTimestamp(mr.CreatedAt); ok {
+			reminder.CreatedAt = t
+			reminder.UpdatedAt = t
+		}
+		if t, ok := parseMonicaTimestamp(mr.UpdatedAt); ok {
+			reminder.UpdatedAt = t
+		}
 		if err := tx.Create(&reminder).Error; err == nil {
 			resp.ImportedReminders++
+			if mr.Properties.Description != "" {
+				sourceType := "monica_reminder_description"
+				sourceUUID := mr.UUID
+				note := models.Note{
+					ContactID:  contactID,
+					VaultID:    vaultID,
+					AuthorID:   &userID,
+					Title:      strPtrOrNil(mr.Properties.Title),
+					Body:       mr.Properties.Description,
+					SourceType: &sourceType,
+					SourceUUID: &sourceUUID,
+				}
+				if t, ok := parseMonicaTimestamp(mr.CreatedAt); ok {
+					note.CreatedAt = t
+					note.UpdatedAt = t
+				}
+				if t, ok := parseMonicaTimestamp(mr.UpdatedAt); ok {
+					note.UpdatedAt = t
+				}
+				if err := tx.Create(&note).Error; err == nil {
+					resp.ImportedNotes++
+				}
+			}
 		}
 	}
 }
@@ -860,7 +919,8 @@ func (s *MonicaImportService) importDebtsAsLoans(
 
 func (s *MonicaImportService) importLifeEvents(
 	tx *gorm.DB, mc *MonicaContact, contactID, vaultID string,
-	lifeEventTypeByUUID map[string]string,
+	lifeEventTypeByUUID map[string]MonicaLifeEventTypeRef,
+	lifeEventCategoryByUUID map[string]MonicaLifeEventCategoryRef,
 	resp *dto.MonicaImportResponse,
 ) {
 	lifeRaws := getCollectionByType(mc.Data, "life_events")
@@ -880,17 +940,20 @@ func (s *MonicaImportService) importLifeEvents(
 			continue
 		}
 		happenedAt := now
-		if ml.Properties.HappenedAt != "" {
-			if t, err := time.Parse(time.RFC3339, ml.Properties.HappenedAt); err == nil {
-				happenedAt = t
-			} else if t, err := time.Parse("2006-01-02", ml.Properties.HappenedAt); err == nil {
-				happenedAt = t
-			}
+		if t, ok := parseMonicaTimestamp(ml.Properties.HappenedAt); ok {
+			happenedAt = t
 		}
-		var let models.LifeEventType
-		if err := tx.Joins("JOIN life_event_categories ON life_event_types.life_event_category_id = life_event_categories.id").
-			Where("life_event_categories.vault_id = ?", vaultID).
-			First(&let).Error; err != nil {
+		typeRef, typeFound := lifeEventTypeByUUID[ml.Properties.Type]
+		if !typeFound {
+			// Missing source metadata previously dropped this event; use a stable fallback and expose the incomplete input.
+			resp.Errors = append(resp.Errors, fmt.Sprintf("life event %s: missing type reference %q", ml.UUID, ml.Properties.Type))
+			typeRef.Properties.TranslationKey = "monica_import"
+		}
+		if _, categoryFound := lifeEventCategoryByUUID[typeRef.Properties.Category]; !categoryFound && typeRef.Properties.Category != "" {
+			resp.Errors = append(resp.Errors, fmt.Sprintf("life event %s: missing category reference %q", ml.UUID, typeRef.Properties.Category))
+		}
+		let, err := resolveMonicaLifeEventType(tx, vaultID, typeRef, lifeEventCategoryByUUID)
+		if err != nil {
 			continue
 		}
 		le := models.LifeEvent{
@@ -900,6 +963,13 @@ func (s *MonicaImportService) importLifeEvents(
 			Summary:         strPtrOrNil(ml.Properties.Name),
 			Description:     strPtrOrNil(ml.Properties.Note),
 		}
+		if t, ok := parseMonicaTimestamp(ml.CreatedAt); ok {
+			le.CreatedAt = t
+			le.UpdatedAt = t
+		}
+		if t, ok := parseMonicaTimestamp(ml.UpdatedAt); ok {
+			le.UpdatedAt = t
+		}
 		if err := tx.Create(&le).Error; err != nil {
 			continue
 		}
@@ -907,6 +977,113 @@ func (s *MonicaImportService) importLifeEvents(
 		tx.Create(&lep)
 		resp.ImportedLifeEvents++
 	}
+}
+
+func resolveMonicaLifeEventType(
+	tx *gorm.DB,
+	vaultID string,
+	typeRef MonicaLifeEventTypeRef,
+	categoryByUUID map[string]MonicaLifeEventCategoryRef,
+) (models.LifeEventType, error) {
+	categoryRef := categoryByUUID[typeRef.Properties.Category]
+	category, err := resolveMonicaLifeEventCategory(tx, vaultID, categoryRef)
+	if err != nil {
+		return models.LifeEventType{}, err
+	}
+
+	var lifeEventType models.LifeEventType
+	for _, candidate := range monicaLifeEventTypeCandidates(typeRef) {
+		if err := tx.Where("life_event_category_id = ? AND (LOWER(label) = LOWER(?) OR LOWER(label_translation_key) = LOWER(?))", category.ID, candidate, candidate).
+			First(&lifeEventType).Error; err == nil {
+			return lifeEventType, nil
+		}
+	}
+
+	label := monicaLifeEventLabel(typeRef.Properties.Name, typeRef.Properties.TranslationKey, "Monica import")
+	lifeEventType = models.LifeEventType{
+		LifeEventCategoryID: category.ID,
+		Label:               &label,
+		CanBeDeleted:        true,
+	}
+	if translationKey := monicaTranslationKey(typeRef.Properties.TranslationKey); translationKey != "" {
+		lifeEventType.LabelTranslationKey = &translationKey
+	}
+	if err := tx.Create(&lifeEventType).Error; err != nil {
+		return models.LifeEventType{}, err
+	}
+	return lifeEventType, nil
+}
+
+func resolveMonicaLifeEventCategory(tx *gorm.DB, vaultID string, categoryRef MonicaLifeEventCategoryRef) (models.LifeEventCategory, error) {
+	var category models.LifeEventCategory
+	for _, candidate := range monicaLifeEventCategoryCandidates(categoryRef) {
+		if err := tx.Where("vault_id = ? AND (LOWER(label) = LOWER(?) OR LOWER(label_translation_key) = LOWER(?))", vaultID, candidate, candidate).First(&category).Error; err == nil {
+			return category, nil
+		}
+	}
+	label := monicaLifeEventLabel(categoryRef.Properties.Name, categoryRef.Properties.TranslationKey, "Monica import")
+	category = models.LifeEventCategory{VaultID: vaultID, Label: &label, CanBeDeleted: true}
+	translationKey := monicaTranslationKey(categoryRef.Properties.TranslationKey)
+	if translationKey == "" {
+		translationKey = "monica_import"
+	}
+	category.LabelTranslationKey = &translationKey
+	if err := tx.Create(&category).Error; err != nil {
+		return models.LifeEventCategory{}, err
+	}
+	return category, nil
+}
+
+func monicaLifeEventTypeCandidates(typeRef MonicaLifeEventTypeRef) []string {
+	candidates := []string{typeRef.Properties.Name, monicaLifeEventLabel("", typeRef.Properties.TranslationKey, ""), typeRef.Properties.TranslationKey}
+	if typeRef.Properties.TranslationKey != "" {
+		candidates = append(candidates, "seed.life_event_types."+typeRef.Properties.TranslationKey)
+	}
+	return monicaNonEmptyUniqueStrings(candidates)
+}
+
+func monicaLifeEventCategoryCandidates(categoryRef MonicaLifeEventCategoryRef) []string {
+	candidates := []string{categoryRef.Properties.Name, monicaLifeEventLabel("", categoryRef.Properties.TranslationKey, ""), categoryRef.Properties.TranslationKey}
+	if categoryRef.Properties.TranslationKey != "" {
+		candidates = append(candidates, "seed.life_event_categories."+categoryRef.Properties.TranslationKey)
+	}
+	candidates = monicaNonEmptyUniqueStrings(candidates)
+	if len(candidates) == 0 {
+		return []string{"Monica import", "monica_import"}
+	}
+	return candidates
+}
+
+func monicaNonEmptyUniqueStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	uniqueValues := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, seenBefore := seen[value]; seenBefore {
+			continue
+		}
+		seen[value] = struct{}{}
+		uniqueValues = append(uniqueValues, value)
+	}
+	return uniqueValues
+}
+
+func monicaLifeEventLabel(name, translationKey, fallback string) string {
+	if name = strings.TrimSpace(name); name != "" {
+		return name
+	}
+	if translationKey = strings.TrimSpace(translationKey); translationKey != "" {
+		label := strings.ReplaceAll(translationKey, "_", " ")
+		return strings.ToUpper(label[:1]) + label[1:]
+	}
+	return fallback
+}
+
+func monicaTranslationKey(translationKey string) string {
+	return strings.TrimSpace(translationKey)
 }
 
 func (s *MonicaImportService) importActivitiesAsNotes(
@@ -1139,10 +1316,18 @@ func buildFieldTypeMap(refs []MonicaContactFieldTypeRef) map[string]MonicaContac
 	return m
 }
 
-func buildLifeEventTypeMap(refs []MonicaLifeEventTypeRef) map[string]string {
-	m := make(map[string]string, len(refs))
+func buildLifeEventTypeMap(refs []MonicaLifeEventTypeRef) map[string]MonicaLifeEventTypeRef {
+	m := make(map[string]MonicaLifeEventTypeRef, len(refs))
 	for _, r := range refs {
-		m[r.UUID] = r.Properties.Name
+		m[r.UUID] = r
+	}
+	return m
+}
+
+func buildLifeEventCategoryMap(refs []MonicaLifeEventCategoryRef) map[string]MonicaLifeEventCategoryRef {
+	m := make(map[string]MonicaLifeEventCategoryRef, len(refs))
+	for _, r := range refs {
+		m[r.UUID] = r
 	}
 	return m
 }
@@ -1412,8 +1597,9 @@ type MonicaActivityTypeRef struct {
 type MonicaLifeEventTypeRef struct {
 	UUID       string `json:"uuid"`
 	Properties struct {
-		Name     string `json:"name"`
-		Category string `json:"category"`
+		Name           string `json:"name"`
+		TranslationKey string `json:"translation_key"`
+		Category       string `json:"category"`
 	} `json:"properties"`
 }
 
