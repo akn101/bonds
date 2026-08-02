@@ -45,9 +45,11 @@ type DefaultCardDAVClientFactory struct{}
 func (f *DefaultCardDAVClientFactory) NewClient(uri, username, password string) (CardDAVClient, error) {
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
-		Transport: &fallbackAuthTransport{
-			username: username,
-			password: password,
+		Transport: &davETagCompatibilityTransport{
+			base: &fallbackAuthTransport{
+				username: username,
+				password: password,
+			},
 		},
 	}
 	return carddav.NewClient(httpClient, uri)
