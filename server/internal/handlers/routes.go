@@ -133,8 +133,7 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 		log.Printf("Encrypted %d previously-plaintext OAuth client_secret values", migrated)
 	}
 
-	oauthService := services.NewOAuthService(db, &cfg.JWT, cfg.App.URL)
-	oauthService.SetSystemSettings(systemSettingService)
+	oauthService := services.NewOAuthService(db, &cfg.JWT)
 	webauthnService, err := services.NewWebAuthnService(db, &cfg.WebAuthn)
 	if err != nil {
 		log.Printf("WARNING: Failed to initialize WebAuthn: %v — WebAuthn disabled", err)

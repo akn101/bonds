@@ -9,12 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func (s *ReminderService) scheduleReminder(reminder *models.ContactReminder) {
-	if err := scheduleReminderForVaultUsers(s.db, reminder); err != nil {
-		log.Printf("[reminder] failed to schedule reminder %d: %v", reminder.ID, err)
-	}
-}
-
 func (s *ReminderService) reschedulePendingReminder(reminder *models.ContactReminder) {
 	if err := reschedulePendingReminder(s.db, reminder); err != nil {
 		log.Printf("[reminder] failed to reschedule reminder %d: %v", reminder.ID, err)

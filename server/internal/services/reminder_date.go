@@ -50,13 +50,6 @@ func isValidReminderMonthDay(month, day int) bool {
 	return isValidReminderDay(2000, month, day)
 }
 
-func inferReminderPrecision(day, month, year *int) string {
-	if day != nil && month != nil && year == nil {
-		return "month_day"
-	}
-	return "full"
-}
-
 func reminderOriginalDateForScheduling(reminder *calendarPkg.DateInfo, month, day int, year *int) {
 	reminder.Month = month
 	reminder.Day = day

@@ -244,36 +244,6 @@ func createTestNote(t *testing.T, ts *testServer, token, vaultID, contactID stri
 	return fmt.Sprintf("%v", data["id"])
 }
 
-func createTestReminder(t *testing.T, ts *testServer, token, vaultID, contactID string) string {
-	t.Helper()
-	path := fmt.Sprintf("/api/vaults/%s/contacts/%s/reminders", vaultID, contactID)
-	rec := ts.doRequest(http.MethodPost, path, `{"label":"Test Reminder","day":1,"month":1,"type":"one_time"}`, token)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("createTestReminder failed: status=%d body=%s", rec.Code, rec.Body.String())
-	}
-	resp := parseResponse(t, rec)
-	var data map[string]interface{}
-	if err := json.Unmarshal(resp.Data, &data); err != nil {
-		t.Fatalf("failed to parse reminder data: %v", err)
-	}
-	return fmt.Sprintf("%v", data["id"])
-}
-
-func createTestTask(t *testing.T, ts *testServer, token, vaultID, contactID string) string {
-	t.Helper()
-	path := fmt.Sprintf("/api/vaults/%s/contacts/%s/tasks", vaultID, contactID)
-	rec := ts.doRequest(http.MethodPost, path, `{"label":"Test Task","description":"desc"}`, token)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("createTestTask failed: status=%d body=%s", rec.Code, rec.Body.String())
-	}
-	resp := parseResponse(t, rec)
-	var data map[string]interface{}
-	if err := json.Unmarshal(resp.Data, &data); err != nil {
-		t.Fatalf("failed to parse task data: %v", err)
-	}
-	return fmt.Sprintf("%v", data["id"])
-}
-
 // ==================== A. Cross-Account Isolation ====================
 
 func TestCrossAccountVaultIsolation(t *testing.T) {

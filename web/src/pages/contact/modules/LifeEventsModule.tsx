@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   Card,
   Button,
@@ -220,9 +220,11 @@ export default function LifeEventsModule({
       };
     },
   });
-  const allTimelines = target
-    ? (timelineQueryResult?.items ?? [])
-    : paginatedTimelines;
+  const allTimelines = useMemo(
+    () =>
+      target ? (timelineQueryResult?.items ?? []) : paginatedTimelines,
+    [paginatedTimelines, target, timelineQueryResult?.items],
+  );
   const displayedLastPage = target
     ? (timelineQueryResult?.lastPage ?? 0)
     : lastLoadedPage;

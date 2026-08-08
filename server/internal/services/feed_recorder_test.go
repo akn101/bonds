@@ -8,39 +8,6 @@ import (
 	"github.com/naiba/bonds/internal/testutil"
 )
 
-func setupFeedRecorderTest(t *testing.T) (*FeedRecorder, *ContactService, *NoteService, string, string, string) {
-	t.Helper()
-	db := testutil.SetupTestDB(t)
-	cfg := testutil.TestJWTConfig()
-	authSvc := NewAuthService(db, cfg)
-	vaultSvc := NewVaultService(db)
-
-	resp, err := authSvc.Register(dto.RegisterRequest{
-		FirstName: "Test",
-		LastName:  "User",
-		Email:     "feed-recorder-test@example.com",
-		Password:  "password123",
-	}, "en")
-	if err != nil {
-		t.Fatalf("Register failed: %v", err)
-	}
-
-	vault, err := vaultSvc.CreateVault(resp.User.AccountID, resp.User.ID, dto.CreateVaultRequest{Name: "Test Vault"}, "en")
-	if err != nil {
-		t.Fatalf("CreateVault failed: %v", err)
-	}
-
-	fr := NewFeedRecorder(db)
-
-	contactSvc := NewContactService(db)
-	contactSvc.SetFeedRecorder(fr)
-
-	noteSvc := NewNoteService(db)
-	noteSvc.SetFeedRecorder(fr)
-
-	return fr, contactSvc, noteSvc, vault.ID, resp.User.ID, resp.User.AccountID
-}
-
 func TestRecordFeedItem(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	fr := NewFeedRecorder(db)

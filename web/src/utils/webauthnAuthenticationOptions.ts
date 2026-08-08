@@ -7,7 +7,7 @@ import type {
   UserVerificationRequirement,
 } from "@simplewebauthn/browser";
 
-export class InvalidWebAuthnAuthenticationOptionsError extends Error {
+class InvalidWebAuthnAuthenticationOptionsError extends Error {
   constructor() {
     super("WebAuthn authentication options response is invalid");
     this.name = "InvalidWebAuthnAuthenticationOptionsError";

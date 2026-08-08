@@ -69,7 +69,7 @@ export default function OAuthProviders() {
     const jwt = localStorage.getItem("token") ?? "";
     const state = crypto.randomUUID();
     window.location.assign(
-      `/api/auth/${provider}?mode=link&token=${encodeURIComponent(jwt)}&state=${encodeURIComponent(state)}`
+      `/api/auth/${encodeURIComponent(provider)}?mode=link&token=${encodeURIComponent(jwt)}&state=${encodeURIComponent(state)}`
     );
   };
 

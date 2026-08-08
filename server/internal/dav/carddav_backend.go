@@ -641,13 +641,3 @@ func strPtrOrNil(s string) *string {
 	}
 	return &s
 }
-
-func buildFullName(firstName, lastName string) string {
-	if firstName != "" && lastName != "" {
-		return firstName + " " + lastName
-	}
-	if firstName != "" {
-		return firstName
-	}
-	return lastName
-}

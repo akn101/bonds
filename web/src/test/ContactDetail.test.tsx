@@ -452,9 +452,6 @@ vi.mock("@/pages/contact/modules/GoalsModule", () => ({
 vi.mock("@/pages/contact/modules/LifeEventsModule", () => ({
   default: () => <div>LifeEventsModule</div>,
 }));
-vi.mock("@/pages/contact/modules/MoodTrackingModule", () => ({
-  default: () => <div>MoodTrackingModule</div>,
-}));
 vi.mock("@/pages/contact/modules/QuickFactsModule", () => ({
   default: ({ readOnly }: { readOnly?: boolean }) => (
     <div>QuickFactsModule:{readOnly ? "read" : "edit"}</div>

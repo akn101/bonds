@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/containrrr/shoutrrr"
+	"github.com/nicholas-fedor/shoutrrr"
 )
 
 // NotificationSender sends notifications through non-email channels (telegram, ntfy, gotify, webhook).

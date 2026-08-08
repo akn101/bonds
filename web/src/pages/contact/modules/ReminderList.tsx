@@ -13,7 +13,7 @@ const frequencyColors: Readonly<Record<string, string>> = {
   recurring_year: "purple",
 };
 
-export type ReminderFrequencyOption = {
+type ReminderFrequencyOption = {
   readonly value: string;
   readonly label: string;
 };

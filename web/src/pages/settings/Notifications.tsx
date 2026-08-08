@@ -391,7 +391,7 @@ export default function Notifications() {
             }
             extra={
               formType === "shoutrrr"
-                ? <span>{t("settings.notifications.shoutrrr_help")} — <a href="https://containrrr.dev/shoutrrr/v0.8/services/overview/" target="_blank" rel="noopener noreferrer">{t("settings.notifications.shoutrrr_docs_link")}</a></span>
+                ? <span>{t("settings.notifications.shoutrrr_help")} — <a href="https://shoutrrr.nickfedor.com/services/overview/" target="_blank" rel="noopener noreferrer">{t("settings.notifications.shoutrrr_docs_link")}</a></span>
                 : isEditing && editingChannel?.type === "email"
                   ? t("settings.notifications.content_changed_reverify")
                   : null

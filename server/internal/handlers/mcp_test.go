@@ -23,17 +23,6 @@ type mcpResponse struct {
 	} `json:"error"`
 }
 
-func (ts *testServer) doMCPRequest(body, token string) *mcpResponseRecorder {
-	rec := ts.doRequest(http.MethodPost, "/mcp", body, token)
-	return &mcpResponseRecorder{ResponseRecorder: rec}
-}
-
-type mcpResponseRecorder struct {
-	ResponseRecorder interface {
-		Result() *http.Response
-	}
-}
-
 type mcpBearerTransport struct {
 	token string
 	base  http.RoundTripper

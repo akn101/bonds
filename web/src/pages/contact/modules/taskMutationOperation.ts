@@ -43,7 +43,7 @@ export type TaskDeleteMutationRequest = {
   readonly previousAssigneeContactIds: readonly string[];
 };
 
-export type TaskDeleteMutationImpact =
+type TaskDeleteMutationImpact =
   | {
       readonly kind: "exact";
       readonly assigneeContactIds: readonly string[];

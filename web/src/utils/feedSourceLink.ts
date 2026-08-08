@@ -121,7 +121,7 @@ export function parseCanonicalPositiveSafeInteger(
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
-export function normalizeFeedSource(
+function normalizeFeedSource(
   source: Readonly<FeedSource> | null | undefined,
 ): NormalizedFeedSource | null {
   if (

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/naiba/bonds/internal/models"
@@ -304,12 +303,4 @@ func validateProtocolVersionHeader(c echo.Context) error {
 		return nil
 	}
 	return fmt.Errorf("unsupported MCP-Protocol-Version: %s", version)
-}
-
-func validateAcceptHeader(c echo.Context) error {
-	accept := c.Request().Header.Get("Accept")
-	if accept == "" || strings.Contains(accept, "application/json") || strings.Contains(accept, "*/*") {
-		return nil
-	}
-	return fmt.Errorf("Accept header must allow application/json")
 }

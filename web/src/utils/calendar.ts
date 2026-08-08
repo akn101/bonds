@@ -8,7 +8,7 @@ export interface CalendarDate {
   year: number;
 }
 
-export interface MonthOption {
+interface MonthOption {
   value: number;
   label: string;
 }

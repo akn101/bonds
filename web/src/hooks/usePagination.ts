@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import type { PaginationMeta } from "@/api";
 
-export const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 export interface UsePaginationResult {
   page: number;

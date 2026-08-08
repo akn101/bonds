@@ -24,7 +24,7 @@ export type ReminderSaveFormValues = {
   readonly frequency: string;
 };
 
-export type ReminderMutationContext = {
+type ReminderMutationContext = {
   readonly source: ContactQueryScope;
   readonly listQueryKey: QueryKey;
   readonly affectedScopes: QueryInvalidationScopes;

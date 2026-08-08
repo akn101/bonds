@@ -377,13 +377,14 @@ export default function Login() {
               <Divider>{t("oauth.continueWith")}</Divider>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {(instanceInfo?.oauth_providers ?? []).map(name => {
+                  const displayName = instanceInfo?.oauth_provider_details?.find(provider => provider.name === name)?.display_name;
                   const icon = name === "github" ? <GithubOutlined /> : name === "google" ? <GoogleOutlined /> : <LinkOutlined />;
-                  const label = name === "github" ? t("oauth.github") : name === "google" ? t("oauth.google") : name === "openid-connect" ? t("oauth.sso") : name;
+                  const label = displayName || (name === "github" ? t("oauth.github") : name === "google" ? t("oauth.google") : name === "openid-connect" ? t("oauth.sso") : name);
                   return (
                     <Button
                       key={name}
                       icon={icon}
-                      href={`/api/auth/${name}`}
+                      href={`/api/auth/${encodeURIComponent(name)}`}
                       style={{ flex: 1, minWidth: 120, borderColor: token.colorBorderSecondary }}
                     >
                       {label}

@@ -124,10 +124,6 @@ func (s *VaultFileService) Delete(id uint, vaultID string) error {
 	return s.deleteFileRecord(&file)
 }
 
-func (s *VaultFileService) AssignToQuickFact(fileID uint, quickFactID uint, vaultID string) error {
-	return assignFileToQuickFact(s.db, fileID, quickFactID, vaultID)
-}
-
 func assignFileToQuickFact(db *gorm.DB, fileID uint, quickFactID uint, vaultID string) error {
 	quickFactType := "QuickFact"
 	return db.Model(&models.File{}).Where("id = ? AND vault_id = ?", fileID, vaultID).Updates(map[string]interface{}{

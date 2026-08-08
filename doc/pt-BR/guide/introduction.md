@@ -56,5 +56,5 @@ Bonds está sobre os ombros de [@djaiss](https://github.com/djaiss), [@asbiin](h
 
 - **Indivíduos**: Gratuito para qualquer uso não comercial
 - **Organizações**: Uso comercial requer uma licença paga
-- **Data de Alteração**: 13 de junho de 2030 — converte automaticamente para AGPL-3.0
+- **Data de Alteração**: 31 de dezembro de 2030 — converte automaticamente para AGPL-3.0
 - **Contribuições**: Enviar uma contribuição significa aceitar os [termos de contribuição](https://github.com/naiba/bonds/blob/main/CONTRIBUTING.md), incluindo a renúncia de todos os direitos de propriedade e outros direitos ou reivindicações sobre essa contribuição na extensão máxima permitida por lei

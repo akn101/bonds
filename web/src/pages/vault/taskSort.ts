@@ -1,6 +1,6 @@
 import type { VaultTask } from "@/api";
 
-export const TASK_SORT_STORAGE_KEY = "bonds_vault_tasks_sort";
+const TASK_SORT_STORAGE_KEY = "bonds_vault_tasks_sort";
 
 export type TaskSortMode = "custom" | "due_date";
 

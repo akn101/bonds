@@ -29,25 +29,12 @@ type OAuthLinkInfo struct {
 }
 
 type OAuthService struct {
-	db       *gorm.DB
-	jwt      *config.JWTConfig
-	appURL   string
-	settings *SystemSettingService
+	db  *gorm.DB
+	jwt *config.JWTConfig
 }
 
-func NewOAuthService(db *gorm.DB, jwt *config.JWTConfig, appURL string) *OAuthService {
-	return &OAuthService{db: db, jwt: jwt, appURL: appURL}
-}
-
-func (s *OAuthService) SetSystemSettings(settings *SystemSettingService) {
-	s.settings = settings
-}
-
-func (s *OAuthService) getAppURL() string {
-	if s.settings != nil {
-		return s.settings.GetWithDefault("app.url", s.appURL)
-	}
-	return s.appURL
+func NewOAuthService(db *gorm.DB, jwt *config.JWTConfig) *OAuthService {
+	return &OAuthService{db: db, jwt: jwt}
 }
 
 // FindOrCreateUser looks up a user by OAuth provider+providerUserID.
@@ -269,16 +256,4 @@ func (s *OAuthService) LinkOAuthAndRegister(linkToken string, req dto.OAuthLinkR
 func (s *OAuthService) generateAuthResponse(user *models.User) (*dto.AuthResponse, error) {
 	authSvc := NewAuthService(s.db, s.jwt)
 	return authSvc.generateAuthResponse(user)
-}
-
-func parseName(name string) (string, string) {
-	if name == "" {
-		return "", ""
-	}
-	for i, ch := range name {
-		if ch == ' ' {
-			return name[:i], name[i+1:]
-		}
-	}
-	return name, ""
 }

@@ -41,7 +41,7 @@ export type DeleteVaultTaskRequest = {
   readonly taskId: number;
   readonly rootAssigneeContactIds: readonly string[];
 };
-export type DeleteVaultTaskImpact =
+type DeleteVaultTaskImpact =
   | {
       readonly kind: "exact";
       readonly assigneeContactIds: readonly string[];
@@ -62,9 +62,6 @@ type UpdateOperationInput = CreateOperationInput & {
 type DeleteRequestInput = {
   readonly vaultId: string;
   readonly task: VaultTask & { readonly id: number };
-};
-type DeleteOperationInput = DeleteRequestInput & {
-  readonly allTasks: readonly VaultTask[];
 };
 
 function freezeRecord<T extends object>(record: T): Readonly<T> {
@@ -237,13 +234,4 @@ export function resolveDeleteVaultTaskOperation(
     ]),
   });
   return freezeRecord({ ...request, impact });
-}
-
-export function deleteVaultTaskOperation(
-  input: DeleteOperationInput,
-): DeleteVaultTaskOperation {
-  return resolveDeleteVaultTaskOperation(
-    createDeleteVaultTaskRequest(input),
-    input.allTasks,
-  );
 }

@@ -83,7 +83,7 @@ export function enableDesktopKanban(): void {
   });
 }
 
-export function expectInvalidationState(
+function expectInvalidationState(
   queryClient: QueryClient,
   queryKeys: readonly QueryKey[],
   expected: boolean,

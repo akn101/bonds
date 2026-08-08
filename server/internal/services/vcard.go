@@ -577,11 +577,6 @@ type vcardNameComponents struct {
 	suffix     string
 }
 
-func extractNameFromCard(card vcard.Card) (string, string) {
-	c := extractFullNameFromCard(card)
-	return c.firstName, c.lastName
-}
-
 func extractFullNameFromCard(card vcard.Card) vcardNameComponents {
 	name := card.Name()
 	if name != nil && (name.GivenName != "" || name.FamilyName != "") {
@@ -598,16 +593,6 @@ func extractFullNameFromCard(card vcard.Card) vcardNameComponents {
 		return vcardNameComponents{firstName: fn}
 	}
 	return vcardNameComponents{}
-}
-
-func buildFullName(firstName, lastName string) string {
-	if firstName != "" && lastName != "" {
-		return firstName + " " + lastName
-	}
-	if firstName != "" {
-		return firstName
-	}
-	return lastName
 }
 
 // UpsertContactFromVCard creates or updates a contact from a vCard.

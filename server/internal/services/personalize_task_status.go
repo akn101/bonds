@@ -179,20 +179,3 @@ func (s *PersonalizeService) listTaskStatuses(accountID string) ([]dto.Personali
 	}
 	return results, nil
 }
-
-// DefaultTaskStatusSlug returns the slug of the account's default status.
-// Used by VaultTaskService.Create when the request leaves Status empty.
-// Falls back to "todo" if the account somehow has no default seeded.
-func (s *PersonalizeService) DefaultTaskStatusSlug(accountID string) string {
-	var status models.TaskStatus
-	if err := s.db.Where("account_id = ? AND is_default = ?", accountID, true).
-		First(&status).Error; err == nil {
-		return status.Slug
-	}
-	if err := s.db.Where("account_id = ?", accountID).
-		Order("position ASC").
-		First(&status).Error; err == nil {
-		return status.Slug
-	}
-	return "todo"
-}

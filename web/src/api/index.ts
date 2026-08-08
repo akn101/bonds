@@ -404,7 +404,6 @@ export type * from "./generated/data-contracts";
 // ---------------------------------------------------------------------------
 
 // API envelope
-export type { GithubComNaibaBondsPkgResponseAPIResponse as APIResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsPkgResponseAPIError as APIError } from "./generated/data-contracts";
 export type { GithubComNaibaBondsPkgResponseMeta as PaginationMeta } from "./generated/data-contracts";
 
@@ -412,7 +411,6 @@ export type { GithubComNaibaBondsPkgResponseMeta as PaginationMeta } from "./gen
 export type { GithubComNaibaBondsInternalDtoUserResponse as User } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoLoginRequest as LoginRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoRegisterRequest as RegisterRequest } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoAuthResponse as AuthResponse } from "./generated/data-contracts";
 
 // Contacts
 export type { GithubComNaibaBondsInternalDtoContactResponse as Contact } from "./generated/data-contracts";
@@ -420,10 +418,8 @@ export type { GithubComNaibaBondsInternalDtoCreateContactRequest as CreateContac
 export type { GithubComNaibaBondsInternalDtoUpdateContactRequest as UpdateContactRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoUpdateContactReligionRequest as UpdateContactReligionRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactLabelResponse as ContactLabel } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoContactSearchItem as ContactSelectorItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabsResponse as ContactTabsResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabPage as ContactTabPage } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoContactTabModule as ContactTabModule } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCatchUpPromptResponse as CatchUpPrompt } from "./generated/data-contracts";
 
 // Vault
@@ -440,8 +436,6 @@ export type { GithubComNaibaBondsInternalDtoTaskResponse as Task } from "./gener
 export type { GithubComNaibaBondsInternalDtoVaultTaskResponse as VaultTask } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCreateVaultTaskRequest as CreateVaultTaskRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoUpdateVaultTaskRequest as UpdateVaultTaskRequest } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoUpdateTaskStatusRequest as UpdateTaskStatusRequest } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoUpdateTaskPositionRequest as UpdateTaskPositionRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCallResponse as Call } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoAddressResponse as Address } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactInformationResponse as ContactInfo } from "./generated/data-contracts";
@@ -455,18 +449,12 @@ export type { GithubComNaibaBondsInternalDtoRelationshipResponse as Relationship
 export type { GithubComNaibaBondsInternalDtoRelationshipTypeWithGroupResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCrossVaultContactItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoGoalResponse as Goal } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoStreakResponse as Streak } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoTimelineEventResponse as TimelineEvent } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoLifeEventResponse as LifeEvent } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoMoodTrackingEventResponse as MoodTrackingEvent } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoMoodTrackingParameterResponse as MoodTrackingParameter } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoQuickFactResponse as QuickFact } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoQuickFactGroupResponse as QuickFactGroup } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoQuickFactFileResponse as QuickFactFileResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCreateQuickFactRequest as CreateQuickFactRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoUpdateQuickFactRequest as UpdateQuickFactRequest } from "./generated/data-contracts";
-export type { ContactsQuickFactsFileCreatePayload as QuickFactFileCreatePayload } from "./generated/data-contracts";
-export type { ContactsQuickFactsFileUpdatePayload as QuickFactFileUpdatePayload } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoVaultFileResponse as Photo } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoVaultFileResponse as Document } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoJournalResponse as Journal } from "./generated/data-contracts";
@@ -482,13 +470,8 @@ export type { GithubComNaibaBondsInternalDtoPersonalizeEntityResponse as Persona
 export type { GithubComNaibaBondsInternalDtoCompanyResponse as Company } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoLifeMetricResponse as LifeMetric } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoLifeMetricStats as LifeMetricStats } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoLifeMetricDetailResponse as LifeMetricDetail } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoLifeMetricMonthData as LifeMetricMonthData } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactJobResponse as ContactJob } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoCreateContactJobRequest as CreateContactJobRequest } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoUpdateContactJobRequest as UpdateContactJobRequest } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoAddEmployeeRequest as AddEmployeeRequest } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoCompanyContactBrief as CompanyContactBrief } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoPostTagResponse as PostTag } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoPostMetricResponse as PostMetric } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoJournalMetricResponse as JournalMetric } from "./generated/data-contracts";
@@ -504,15 +487,10 @@ export type { GithubComNaibaBondsInternalDtoInvitationResponse as InvitationType
 
 // Settings — WebAuthn, 2FA, Storage, Currency
 export type { GithubComNaibaBondsInternalDtoWebAuthnCredentialResponse as WebAuthnCredential } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoTwoFactorStatusResponse as TwoFactorStatus } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoTwoFactorSetupResponse as TwoFactorSetup } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCurrencyResponse as Currency } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoStorageResponse as StorageUsage } from "./generated/data-contracts";
 
 // Vault Settings
-export type { GithubComNaibaBondsInternalDtoVaultSettingsResponse as VaultSettingsResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoLabelResponse as LabelResponse } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoTagResponse as TagResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoImportantDateTypeResponse as ImportantDateTypeResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoMoodTrackingParameterResponse as MoodTrackingParameterResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoLifeEventCategoryResponse as LifeEventCategoryResponse } from "./generated/data-contracts";
@@ -522,21 +500,18 @@ export type { GithubComNaibaBondsInternalDtoCreateQuickFactTemplateRequest as Cr
 export type { GithubComNaibaBondsInternalDtoUpdateQuickFactTemplateRequest as UpdateQuickFactTemplateRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoVaultUserResponse as VaultUserResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoUpdateVaultSettingsRequest as UpdateVaultSettingsRequest } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoUpdateVaultNameOrderRequest as UpdateVaultNameOrderRequest } from "./generated/data-contracts";
 
 // Reports
 export type { GithubComNaibaBondsInternalDtoAddressReportItem as AddressReportItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoImportantDateReportItem as ImportantDateReportItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoMoodReportItem as MoodReportItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoAddressContactItem as AddressContactItem } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoReportOverviewResponse as ReportOverviewResponse } from "./generated/data-contracts";
 
 // DAV Subscriptions
 export type { GithubComNaibaBondsInternalDtoDavSubscriptionResponse as DavSubscription } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoDavSyncLogResponse as DavSyncLog } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCreateDavSubscriptionRequest as CreateDavSubscriptionRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoUpdateDavSubscriptionRequest as UpdateDavSubscriptionRequest } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoTestDavConnectionRequest as TestDavConnectionRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoTestDavConnectionResponse as TestDavConnectionResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoAddressBookInfo as AddressBookInfo } from "./generated/data-contracts";
 
@@ -551,6 +526,5 @@ export interface OAuthProvider {
 
 // Admin
 export type { GithubComNaibaBondsInternalDtoAdminUserResponse as AdminUser } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoSystemSettingsResponse as SystemSettings } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoSystemSettingItem as SystemSettingItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoInstanceInfoResponse as InstanceInfo } from "./generated/data-contracts";

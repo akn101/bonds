@@ -43,14 +43,21 @@ type UpdateSystemSettingsRequest struct {
 	Settings []SystemSettingItem `json:"settings" validate:"required"`
 }
 
+// OAuthProviderInfo pairs an OAuth provider's URL slug with its display label.
+type OAuthProviderInfo struct {
+	Name        string `json:"name" example:"nextcloud-sso"`
+	DisplayName string `json:"display_name" example:"Nextcloud SSO"`
+}
+
 type InstanceInfoResponse struct {
-	Version             string   `json:"version" example:"v0.1.5"`
-	RegistrationEnabled bool     `json:"registration_enabled" example:"true"`
-	PasswordAuthEnabled bool     `json:"password_auth_enabled" example:"true"`
-	RequireEmailVerification bool     `json:"require_email_verification" example:"false"`
-	OAuthProviders      []string `json:"oauth_providers" example:"github,google"`
-	WebAuthnEnabled     bool     `json:"webauthn_enabled" example:"true"`
-	AppName             string   `json:"app_name" example:"Bonds"`
+	Version                  string              `json:"version" example:"v0.1.5"`
+	RegistrationEnabled      bool                `json:"registration_enabled" example:"true"`
+	PasswordAuthEnabled      bool                `json:"password_auth_enabled" example:"true"`
+	RequireEmailVerification bool                `json:"require_email_verification" example:"false"`
+	OAuthProviders           []string            `json:"oauth_providers" example:"github,google"`
+	OAuthProviderDetails     []OAuthProviderInfo `json:"oauth_provider_details"`
+	WebAuthnEnabled          bool                `json:"webauthn_enabled" example:"true"`
+	AppName                  string              `json:"app_name" example:"Bonds"`
 }
 
 type RebuildSearchIndexResponse struct {

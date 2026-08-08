@@ -130,6 +130,27 @@ describe("Login", () => {
     ).toBeInTheDocument();
   }, 15000);
 
+  it("uses the OAuth slug in the URL and the display name as the label", async () => {
+    vi.mocked(api.instance.infoList).mockResolvedValue({
+      data: {
+        version: "v0.1.5",
+        password_auth_enabled: true,
+        registration_enabled: true,
+        require_email_verification: false,
+        webauthn_enabled: false,
+        oauth_providers: ["my-sso"],
+        oauth_provider_details: [
+          { name: "my-sso", display_name: "My SSO" },
+        ],
+      },
+    } satisfies Awaited<ReturnType<typeof api.instance.infoList>>);
+
+    renderLogin();
+
+    const link = await screen.findByRole("link", { name: /My SSO/ });
+    expect(link).toHaveAttribute("href", "/api/auth/my-sso");
+  });
+
   it("sends the typed email through the passkey login flow", async () => {
     const user = userEvent.setup();
     mockInstanceInfo(true);

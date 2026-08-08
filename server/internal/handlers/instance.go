@@ -48,12 +48,15 @@ func (h *InstanceHandler) GetInfo(c echo.Context) error {
 
 	providers := h.oauthService.ListAvailableProviders()
 	oauthNames := make([]string, len(providers))
+	oauthDetails := make([]dto.OAuthProviderInfo, len(providers))
 	for i, p := range providers {
-		if dn, ok := p["display_name"]; ok && dn != "" {
-			oauthNames[i] = dn
-		} else {
-			oauthNames[i] = p["name"]
+		name := p["name"]
+		displayName := p["display_name"]
+		if displayName == "" {
+			displayName = name
 		}
+		oauthNames[i] = name
+		oauthDetails[i] = dto.OAuthProviderInfo{Name: name, DisplayName: displayName}
 	}
 
 	webauthnEnabled := h.webauthnService.IsEnabled()
@@ -63,6 +66,7 @@ func (h *InstanceHandler) GetInfo(c echo.Context) error {
 		RegistrationEnabled:      registrationEnabled,
 		PasswordAuthEnabled:      passwordAuthEnabled,
 		OAuthProviders:           oauthNames,
+		OAuthProviderDetails:     oauthDetails,
 		WebAuthnEnabled:          webauthnEnabled,
 		AppName:                  appName,
 		RequireEmailVerification: emailVerificationActive,

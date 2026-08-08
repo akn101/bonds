@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/markbates/goth"
 	"github.com/naiba/bonds/internal/config"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/handlers"
@@ -5220,6 +5221,45 @@ func TestInstanceInfo(t *testing.T) {
 	}
 }
 
+func TestInstanceInfoOAuthProviderUsesSlugAndDisplayName(t *testing.T) {
+	ts := setupTestServer(t)
+	defer goth.ClearProviders()
+
+	providerService := services.NewOAuthProviderService(ts.db)
+	if _, err := providerService.Create(dto.CreateOAuthProviderRequest{
+		Type:         "github",
+		Name:         "github",
+		ClientID:     "client-id",
+		ClientSecret: "client-secret",
+		DisplayName:  "GitHub Corp",
+	}); err != nil {
+		t.Fatalf("failed to create OAuth provider: %v", err)
+	}
+
+	rec := ts.doRequest(http.MethodGet, "/api/instance/info", "", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	resp := parseResponse(t, rec)
+	var info struct {
+		OAuthProviders       []string                `json:"oauth_providers"`
+		OAuthProviderDetails []dto.OAuthProviderInfo `json:"oauth_provider_details"`
+	}
+	if err := json.Unmarshal(resp.Data, &info); err != nil {
+		t.Fatalf("failed to parse instance info: %v", err)
+	}
+	if len(info.OAuthProviders) != 1 || info.OAuthProviders[0] != "github" {
+		t.Fatalf("expected OAuth slug github, got %#v", info.OAuthProviders)
+	}
+	if len(info.OAuthProviderDetails) != 1 {
+		t.Fatalf("expected one OAuth provider detail, got %#v", info.OAuthProviderDetails)
+	}
+	detail := info.OAuthProviderDetails[0]
+	if detail.Name != "github" || detail.DisplayName != "GitHub Corp" {
+		t.Errorf("unexpected OAuth provider detail: %#v", detail)
+	}
+}
+
 func TestAdminListUsers_Pagination(t *testing.T) {
 	ts := setupTestServer(t)
 
@@ -7157,7 +7197,7 @@ func TestPersonalizeUpdatePositionUnsupportedEntityReturnsBadRequest(t *testing.
 
 func (ts *testServer) generateOAuthLinkToken(t *testing.T) string {
 	t.Helper()
-	oauthSvc := services.NewOAuthService(ts.db, &ts.cfg.JWT, ts.cfg.App.URL)
+	oauthSvc := services.NewOAuthService(ts.db, &ts.cfg.JWT)
 	linkToken, err := oauthSvc.GenerateLinkToken(&services.OAuthLinkInfo{
 		Provider:       "github",
 		ProviderUserID: "gh-handler-test",

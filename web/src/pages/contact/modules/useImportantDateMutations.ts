@@ -16,7 +16,7 @@ import {
 import type { ImportantDateFormValues } from "@/utils/importantDatePrecision";
 import type { ContactSaveMutationOperation } from "./contactSaveMutationOperation";
 
-export type ImportantDateMutationContext = {
+type ImportantDateMutationContext = {
   readonly source: ContactQueryScope;
   readonly listQueryKey: QueryKey;
   readonly affectedScopes: QueryInvalidationScopes;
