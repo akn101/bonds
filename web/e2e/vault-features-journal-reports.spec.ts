@@ -613,7 +613,7 @@ test.describe("Vault - Feed, Calendar, Journal and Settings", () => {
       .first()
       .click();
 
-    await modal.locator("input.ant-input").fill("Graduated from university");
+    await modal.getByRole("textbox", { name: "Label" }).fill("Graduated from university");
     await modal.locator("textarea").fill("Got my degree");
 
     const dashboardLifeEventResp = page.waitForResponse(

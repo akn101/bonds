@@ -395,6 +395,7 @@ export default function VaultDetail() {
                 vaultId={vaultId}
                 createSignal={activityCreateSignal}
                 onCreateClosed={() => setActivityCreateSignal(0)}
+                userContactId={vault.user_contact_id}
               />
             )}
             {currentTab === "life_metrics" && (
@@ -660,12 +661,15 @@ function LifeEventsTab({
   vaultId,
   createSignal,
   onCreateClosed,
+  userContactId,
 }: {
   vaultId: string;
   createSignal: number;
   onCreateClosed: () => void;
+  userContactId?: string;
 }) {
-  return <LifeEventsModule key={createSignal} vaultId={vaultId} initiallyOpen={createSignal > 0} onModalClose={onCreateClosed} />;
+  if (!userContactId) return null;
+  return <LifeEventsModule key={createSignal} vaultId={vaultId} contactId={userContactId} initiallyOpen={createSignal > 0} onModalClose={onCreateClosed} />;
 }
 // ─── Life Metrics Tab ────────────────────────────────────────────
 function LifeMetricsTab({ vaultId }: { vaultId: string }) {

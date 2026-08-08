@@ -299,6 +299,14 @@ export default function LifeEventsModule({
           : formatDate(event.end_date, dateFormats);
     return `${start} – ${end}`;
   };
+  const descriptionContacts = (event: LifeEvent) => {
+    const byId = new Map(
+      [...(event.participants ?? []), ...(event.mentioned_contacts ?? [])].flatMap(
+        (contact) => (contact.id ? [[contact.id, contact] as const] : []),
+      ),
+    );
+    return [...byId.values()];
+  };
 
   return (
     <Card
@@ -351,7 +359,7 @@ export default function LifeEventsModule({
                   <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
                     <ContactMentionText
                       vaultId={String(vaultId)}
-                      contacts={event.mentioned_contacts ?? []}
+                      contacts={descriptionContacts(event)}
                     >
                       {event.description}
                     </ContactMentionText>
