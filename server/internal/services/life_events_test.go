@@ -82,3 +82,48 @@ func TestContactMentionIDsDedupe(t *testing.T) {
 		t.Fatalf("ids=%v", ids)
 	}
 }
+
+func TestLifeEventExplicitParticipantsKeepDescriptionMentionsIndependent(t *testing.T) {
+	svc, vaultID, primary, mentioned, typeID := setupUnifiedLifeEventTest(t)
+	start := time.Now().UTC().Truncate(time.Second)
+	empty := []string{}
+	description := fmt.Sprintf("和 @[Mentioned](contact:%s) 吃饭，@[Mentioned](contact:%s) 喝吐了", mentioned.ID, mentioned.ID)
+	event, err := svc.Create(vaultID, dto.LifeEventUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &empty, LifeEventTypeID: typeID, Title: "吃饭", Description: description, StartDate: &start})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(event.Participants) != 1 || event.Participants[0].ID != primary.ID {
+		t.Fatalf("participants=%+v", event.Participants)
+	}
+	if len(event.MentionedContacts) != 1 || event.MentionedContacts[0].ID != mentioned.ID {
+		t.Fatalf("mentions=%+v", event.MentionedContacts)
+	}
+	if event.Description != description {
+		t.Fatalf("description changed: %q", event.Description)
+	}
+}
+
+func TestLifeEventInteractionUpdatesAllParticipantsMonotonically(t *testing.T) {
+	svc, vaultID, primary, other, typeID := setupUnifiedLifeEventTest(t)
+	if err := svc.db.Model(&models.LifeEventType{}).Where("id = ?", typeID).Update("counts_as_interaction", true).Error; err != nil {
+		t.Fatal(err)
+	}
+	participants := []string{other.ID}
+	newer := time.Now().UTC().Add(-time.Hour)
+	if _, err := svc.Create(vaultID, dto.LifeEventUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &participants, LifeEventTypeID: typeID, Title: "见面", StartDate: &newer}); err != nil {
+		t.Fatal(err)
+	}
+	older := newer.Add(-24 * time.Hour)
+	if _, err := svc.Create(vaultID, dto.LifeEventUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &participants, LifeEventTypeID: typeID, Title: "旧见面", StartDate: &older}); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{primary.ID, other.ID} {
+		var contact models.Contact
+		if err := svc.db.First(&contact, "id = ?", id).Error; err != nil {
+			t.Fatal(err)
+		}
+		if contact.LastTalkedTo == nil || !contact.LastTalkedTo.Equal(newer) {
+			t.Fatalf("contact %s last_talked_to=%v", id, contact.LastTalkedTo)
+		}
+	}
+}

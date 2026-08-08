@@ -143,6 +143,7 @@ export default function VaultDetail() {
   const defaultTab =
     (vault?.default_activity_tab as DashboardTab) || "activity";
   const [activeTab, setActiveTab] = useState<DashboardTab | null>(null);
+  const [activityCreateSignal, setActivityCreateSignal] = useState(0);
   const currentTab = activeTab ?? defaultTab;
 
   const handleTabChange = useCallback(
@@ -245,13 +246,14 @@ export default function VaultDetail() {
             <Button type="text" icon={<SettingOutlined />} />
           </Dropdown>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => navigate(`/vaults/${vaultId}/contacts/create`)}
-        >
-          {t("vault.detail.add_contact")}
-        </Button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button icon={<PlusOutlined />} onClick={() => { handleTabChange("life_events"); setActivityCreateSignal((value) => value + 1); }}>
+            {t("modules.life_events.add_activity")}
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(`/vaults/${vaultId}/contacts/create`)}>
+            {t("vault.detail.add_contact")}
+          </Button>
+        </div>
       </div>
 
       {/* ─── 3-Column Dashboard ──────────────────────────────── */}
@@ -391,7 +393,8 @@ export default function VaultDetail() {
             {currentTab === "life_events" && (
               <LifeEventsTab
                 vaultId={vaultId}
-                userContactId={vault.user_contact_id}
+                createSignal={activityCreateSignal}
+                onCreateClosed={() => setActivityCreateSignal(0)}
               />
             )}
             {currentTab === "life_metrics" && (
@@ -655,16 +658,14 @@ function ActivityTab({ vaultId }: { vaultId: string }) {
 // ─── Life Events Tab ─────────────────────────────────────────────
 function LifeEventsTab({
   vaultId,
-  userContactId,
+  createSignal,
+  onCreateClosed,
 }: {
   vaultId: string;
-  userContactId?: string;
+  createSignal: number;
+  onCreateClosed: () => void;
 }) {
-  const { t } = useTranslation();
-  if (!userContactId) {
-    return <Empty description={t("vault.dashboard.no_life_events")} />;
-  }
-  return <LifeEventsModule vaultId={vaultId} contactId={userContactId} />;
+  return <LifeEventsModule key={createSignal} vaultId={vaultId} initiallyOpen={createSignal > 0} onModalClose={onCreateClosed} />;
 }
 // ─── Life Metrics Tab ────────────────────────────────────────────
 function LifeMetricsTab({ vaultId }: { vaultId: string }) {

@@ -179,23 +179,33 @@ type LifeEventCategoryResponse struct {
 }
 
 type CreateLifeEventTypeRequest struct {
-	Label    string `json:"label" validate:"required,min=1" example:"Birthdate"`
-	Position *int   `json:"position" example:"1"`
+	Label               string  `json:"label" validate:"required,min=1" example:"Birthdate"`
+	Position            *int    `json:"position" example:"1"`
+	Icon                *string `json:"icon" example:"coffee"`
+	Color               *string `json:"color" example:"#8B5CF6"`
+	CountsAsInteraction bool    `json:"counts_as_interaction" example:"true"`
 }
 
 type UpdateLifeEventTypeRequest struct {
-	Label    string `json:"label" validate:"required,min=1" example:"Birthdate"`
-	Position *int   `json:"position" example:"1"`
+	Label               string  `json:"label" validate:"required,min=1" example:"Birthdate"`
+	Position            *int    `json:"position" example:"1"`
+	Icon                *string `json:"icon" example:"coffee"`
+	Color               *string `json:"color" example:"#8B5CF6"`
+	CountsAsInteraction bool    `json:"counts_as_interaction" example:"true"`
 }
 
 type LifeEventTypeResponse struct {
-	ID           uint      `json:"id" example:"1"`
-	CategoryID   uint      `json:"category_id" example:"1"`
-	Label        string    `json:"label" example:"Birthdate"`
-	CanBeDeleted bool      `json:"can_be_deleted" example:"false"`
-	Position     *int      `json:"position" example:"1"`
-	CreatedAt    time.Time `json:"created_at" example:"2026-01-15T10:30:00Z"`
-	UpdatedAt    time.Time `json:"updated_at" example:"2026-01-15T10:30:00Z"`
+	ID                  uint      `json:"id" example:"1"`
+	CategoryID          uint      `json:"category_id" example:"1"`
+	Label               string    `json:"label" example:"Birthdate"`
+	CanBeDeleted        bool      `json:"can_be_deleted" example:"false"`
+	Position            *int      `json:"position" example:"1"`
+	SystemKind          string    `json:"system_kind" example:"phone_call"`
+	Icon                string    `json:"icon" example:"phone"`
+	Color               string    `json:"color" example:"#1677ff"`
+	CountsAsInteraction bool      `json:"counts_as_interaction" example:"true"`
+	CreatedAt           time.Time `json:"created_at" example:"2026-01-15T10:30:00Z"`
+	UpdatedAt           time.Time `json:"updated_at" example:"2026-01-15T10:30:00Z"`
 }
 
 // --- Quick Fact Templates ---

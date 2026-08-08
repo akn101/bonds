@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
@@ -51,20 +52,24 @@ func (s *LifeEventService) List(vaultID, contactID string, page, perPage int) ([
 		perPage = 15
 	}
 	var events []models.LifeEvent
-	if err := query.Distinct("life_events.*").Preload("Participants").
+	if err := query.Distinct("life_events.*").Preload("Participants").Preload("LifeEventType.LifeEventCategory").
 		Order("start_date IS NULL, start_date DESC, life_events.id DESC").
 		Offset((page - 1) * perPage).Limit(perPage).Find(&events).Error; err != nil {
 		return nil, response.Meta{}, err
 	}
 	items := make([]dto.LifeEventResponse, len(events))
 	for i := range events {
-		items[i] = toLifeEventResponse(&events[i])
+		item, err := s.toLifeEventResponse(&events[i])
+		if err != nil {
+			return nil, response.Meta{}, err
+		}
+		items[i] = item
 	}
 	return items, response.Meta{Page: page, PerPage: perPage, Total: total, TotalPages: int(math.Ceil(float64(total) / float64(perPage)))}, nil
 }
 
 func (s *LifeEventService) Create(vaultID string, req dto.LifeEventUpsertRequest) (*dto.LifeEventResponse, error) {
-	event, contactIDs, err := s.eventFromRequest(vaultID, req)
+	event, contactIDs, err := s.eventFromRequest(vaultID, req, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +77,10 @@ func (s *LifeEventService) Create(vaultID string, req dto.LifeEventUpsertRequest
 		if err := tx.Create(&event).Error; err != nil {
 			return err
 		}
-		return replaceLifeEventParticipants(tx, event.ID, contactIDs)
+		if err := replaceLifeEventParticipants(tx, event.ID, contactIDs); err != nil {
+			return err
+		}
+		return updateInteractionLastTalkedTo(tx, event.LifeEventTypeID, event.StartDate, contactIDs)
 	}); err != nil {
 		return nil, err
 	}
@@ -85,13 +93,17 @@ func (s *LifeEventService) Create(vaultID string, req dto.LifeEventUpsertRequest
 
 func (s *LifeEventService) Update(vaultID string, id uint, req dto.LifeEventUpsertRequest) (*dto.LifeEventResponse, error) {
 	var current models.LifeEvent
-	if err := s.db.Where("id = ? AND vault_id = ?", id, vaultID).First(&current).Error; err != nil {
+	if err := s.db.Preload("Participants").Where("id = ? AND vault_id = ?", id, vaultID).First(&current).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLifeEventNotFound
 		}
 		return nil, err
 	}
-	replacement, contactIDs, err := s.eventFromRequest(vaultID, req)
+	currentParticipantIDs := make([]string, len(current.Participants))
+	for i := range current.Participants {
+		currentParticipantIDs[i] = current.Participants[i].ID
+	}
+	replacement, contactIDs, err := s.eventFromRequest(vaultID, req, currentParticipantIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +115,10 @@ func (s *LifeEventService) Update(vaultID string, id uint, req dto.LifeEventUpse
 		if err := tx.Save(&replacement).Error; err != nil {
 			return err
 		}
-		return replaceLifeEventParticipantsLocked(tx, id, contactIDs)
+		if err := replaceLifeEventParticipantsLocked(tx, id, contactIDs); err != nil {
+			return err
+		}
+		return updateInteractionLastTalkedTo(tx, replacement.LifeEventTypeID, replacement.StartDate, contactIDs)
 	}); err != nil {
 		return nil, err
 	}
@@ -131,17 +146,20 @@ func (s *LifeEventService) Delete(vaultID string, id uint) error {
 
 func (s *LifeEventService) get(vaultID string, id uint) (*dto.LifeEventResponse, error) {
 	var event models.LifeEvent
-	if err := s.db.Preload("Participants").Where("id = ? AND vault_id = ?", id, vaultID).First(&event).Error; err != nil {
+	if err := s.db.Preload("Participants").Preload("LifeEventType.LifeEventCategory").Where("id = ? AND vault_id = ?", id, vaultID).First(&event).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLifeEventNotFound
 		}
 		return nil, err
 	}
-	resp := toLifeEventResponse(&event)
+	resp, err := s.toLifeEventResponse(&event)
+	if err != nil {
+		return nil, err
+	}
 	return &resp, nil
 }
 
-func (s *LifeEventService) eventFromRequest(vaultID string, req dto.LifeEventUpsertRequest) (models.LifeEvent, []string, error) {
+func (s *LifeEventService) eventFromRequest(vaultID string, req dto.LifeEventUpsertRequest, existingParticipantIDs []string) (models.LifeEvent, []string, error) {
 	if strings.TrimSpace(req.Title) == "" || req.LifeEventTypeID == 0 {
 		return models.LifeEvent{}, nil, ErrInvalidLifeEventInput
 	}
@@ -165,7 +183,17 @@ func (s *LifeEventService) eventFromRequest(vaultID string, req dto.LifeEventUps
 			return models.LifeEvent{}, nil, ErrLifeEventNotFound
 		}
 	}
-	contactIDs := mergeContactIDs([]string{req.PrimaryContactID}, contactMentionIDs(req.Description))
+	var contactIDs []string
+	if req.ParticipantIDs != nil {
+		contactIDs = mergeContactIDs([]string{req.PrimaryContactID}, *req.ParticipantIDs)
+	} else if len(existingParticipantIDs) > 0 {
+		// Older API clients do not send participant_ids. Preserve associations on
+		// update rather than allowing an unrelated description edit to remove them.
+		contactIDs = mergeContactIDs([]string{req.PrimaryContactID}, existingParticipantIDs)
+	} else {
+		// Creation fallback for clients generated before participant_ids existed.
+		contactIDs = mergeContactIDs([]string{req.PrimaryContactID}, contactMentionIDs(req.Description))
+	}
 	if len(contactIDs) == 0 {
 		return models.LifeEvent{}, nil, ErrContactNotFound
 	}
@@ -245,7 +273,7 @@ func validateLifeEventTypeBelongsToVault(db *gorm.DB, id uint, vaultID string) e
 	return nil
 }
 
-func toLifeEventResponse(le *models.LifeEvent) dto.LifeEventResponse {
+func (s *LifeEventService) toLifeEventResponse(le *models.LifeEvent) (dto.LifeEventResponse, error) {
 	resp := dto.LifeEventResponse{ID: le.ID, VaultID: le.VaultID, ParentID: le.ParentID, LifeEventTypeID: le.LifeEventTypeID,
 		Title: le.Title, Description: ptrToStr(le.Description), StartDate: le.StartDate, StartPrecision: le.StartPrecision,
 		EndDate: le.EndDate, EndPrecision: le.EndPrecision, EndStatus: le.EndStatus, CalendarType: le.CalendarType,
@@ -253,10 +281,43 @@ func toLifeEventResponse(le *models.LifeEvent) dto.LifeEventResponse {
 		Costs: le.Costs, CurrencyID: le.CurrencyID, DurationInMinutes: le.DurationInMinutes, Distance: le.Distance,
 		DistanceUnit: ptrToStr(le.DistanceUnit), FromPlace: ptrToStr(le.FromPlace), ToPlace: ptrToStr(le.ToPlace),
 		Place: ptrToStr(le.Place), Participants: contactRefs(le.Participants), CreatedAt: le.CreatedAt, UpdatedAt: le.UpdatedAt}
-	for i := range le.Milestones {
-		resp.Milestones = append(resp.Milestones, toLifeEventResponse(&le.Milestones[i]))
+	if le.LifeEventType != nil {
+		resp.LifeEventType = &dto.LifeEventTypeResponse{ID: le.LifeEventType.ID, CategoryID: le.LifeEventType.LifeEventCategoryID,
+			Label: ptrToStr(le.LifeEventType.Label), CanBeDeleted: le.LifeEventType.CanBeDeleted, Position: le.LifeEventType.Position,
+			SystemKind: ptrToStr(le.LifeEventType.SystemKind), Icon: ptrToStr(le.LifeEventType.Icon), Color: ptrToStr(le.LifeEventType.Color),
+			CountsAsInteraction: le.LifeEventType.CountsAsInteraction, CreatedAt: le.LifeEventType.CreatedAt, UpdatedAt: le.LifeEventType.UpdatedAt}
 	}
-	return resp
+	mentionIDs := contactMentionIDs(ptrToStr(le.Description))
+	if len(mentionIDs) > 0 {
+		var mentioned []models.Contact
+		if err := s.db.Where("vault_id = ? AND id IN ?", le.VaultID, mentionIDs).Find(&mentioned).Error; err != nil {
+			return dto.LifeEventResponse{}, err
+		}
+		resp.MentionedContacts = contactRefs(mentioned)
+	}
+	for i := range le.Milestones {
+		milestone, err := s.toLifeEventResponse(&le.Milestones[i])
+		if err != nil {
+			return dto.LifeEventResponse{}, err
+		}
+		resp.Milestones = append(resp.Milestones, milestone)
+	}
+	return resp, nil
+}
+
+func updateInteractionLastTalkedTo(tx *gorm.DB, typeID *uint, happenedAt *time.Time, contactIDs []string) error {
+	if typeID == nil || happenedAt == nil || len(contactIDs) == 0 {
+		return nil
+	}
+	var eventType models.LifeEventType
+	if err := tx.Select("counts_as_interaction").First(&eventType, *typeID).Error; err != nil {
+		return err
+	}
+	if !eventType.CountsAsInteraction {
+		return nil
+	}
+	return tx.Model(&models.Contact{}).Where("id IN ? AND (last_talked_to IS NULL OR last_talked_to < ?)", contactIDs, *happenedAt).
+		Update("last_talked_to", *happenedAt).Error
 }
 
 func replaceLifeEventParticipants(tx *gorm.DB, lifeEventID uint, contactIDs []string) error {

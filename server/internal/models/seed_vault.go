@@ -10,6 +10,7 @@ func SeedVaultDefaults(tx *gorm.DB, vaultID, locale string) error {
 		seedContactImportantDateTypes,
 		seedMoodTrackingParameters,
 		seedLifeEventCategoriesAndTypes,
+		seedInteractionLifeEventTypes,
 		seedVaultQuickFactsTemplates,
 	}
 	for _, fn := range seeders {
@@ -123,33 +124,80 @@ func seedLifeEventCategoriesAndTypes(tx *gorm.DB, vaultID, locale string) error 
 		}},
 	}
 
-		for _, cat := range categories {
-			pos := cat.position
-			// Life event seed defaults are editable in Settings, so persist them as
-			// deletable here. Older vaults seeded before this flag was set are
-			// repaired by BackfillLifeEventDefaultDeletability on boot.
-			category := LifeEventCategory{
-				VaultID:             vaultID,
-				Label:               strPtr(i18n.T(locale, cat.key)),
-				LabelTranslationKey: strPtr(cat.key),
-				Position:            &pos,
-				CanBeDeleted:        true,
-			}
+	for _, cat := range categories {
+		pos := cat.position
+		// Life event seed defaults are editable in Settings, so persist them as
+		// deletable here. Older vaults seeded before this flag was set are
+		// repaired by BackfillLifeEventDefaultDeletability on boot.
+		category := LifeEventCategory{
+			VaultID:             vaultID,
+			Label:               strPtr(i18n.T(locale, cat.key)),
+			LabelTranslationKey: strPtr(cat.key),
+			Position:            &pos,
+			CanBeDeleted:        true,
+		}
 		if err := tx.Create(&category).Error; err != nil {
 			return err
 		}
 		for idx, typeKey := range cat.types {
 			typePos := idx + 1
-				lifeEventType := LifeEventType{
-					LifeEventCategoryID: category.ID,
-					Label:               strPtr(i18n.T(locale, typeKey)),
-					LabelTranslationKey: strPtr(typeKey),
-					Position:            &typePos,
-					CanBeDeleted:        true,
-				}
+			lifeEventType := LifeEventType{
+				LifeEventCategoryID: category.ID,
+				Label:               strPtr(i18n.T(locale, typeKey)),
+				LabelTranslationKey: strPtr(typeKey),
+				Position:            &typePos,
+				CanBeDeleted:        true,
+			}
 			if err := tx.Create(&lifeEventType).Error; err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+type interactionLifeEventTypeDef struct {
+	key        string
+	systemKind string
+	icon       string
+	color      string
+}
+
+var interactionLifeEventTypeDefs = []interactionLifeEventTypeDef{
+	{"seed.life_event_types.phone_call", "phone_call", "phone", "#1677ff"},
+	{"seed.life_event_types.video_call", "video_call", "video-camera", "#722ed1"},
+	{"seed.life_event_types.in_person_meeting", "in_person_meeting", "team", "#52c41a"},
+}
+
+func seedInteractionLifeEventTypes(tx *gorm.DB, vaultID, locale string) error {
+	categoryKey := "seed.life_event_categories.interactions"
+	position := 5
+	category := LifeEventCategory{
+		VaultID:             vaultID,
+		Label:               strPtr(i18n.T(locale, categoryKey)),
+		LabelTranslationKey: &categoryKey,
+		Position:            &position,
+		CanBeDeleted:        true,
+	}
+	if err := tx.Create(&category).Error; err != nil {
+		return err
+	}
+	for idx, def := range interactionLifeEventTypeDefs {
+		position := idx + 1
+		def := def
+		typeModel := LifeEventType{
+			LifeEventCategoryID: category.ID,
+			Label:               strPtr(i18n.T(locale, def.key)),
+			LabelTranslationKey: strPtr(def.key),
+			Position:            &position,
+			CanBeDeleted:        true,
+			SystemKind:          &def.systemKind,
+			Icon:                &def.icon,
+			Color:               &def.color,
+			CountsAsInteraction: true,
+		}
+		if err := tx.Create(&typeModel).Error; err != nil {
+			return err
 		}
 	}
 	return nil

@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"net/http"
-	"path/filepath"
 
 	"github.com/labstack/echo/v4"
 	"github.com/naiba/bonds/internal/dto"
@@ -50,9 +49,7 @@ func (h *AvatarHandler) GetAvatar(c echo.Context) error {
 	}
 
 	if contact.FileID != nil {
-		var file models.File
-		if err := h.db.First(&file, *contact.FileID).Error; err == nil {
-			filePath := filepath.Join(h.vaultFileService.UploadDir(), file.UUID)
+		if _, filePath, err := h.vaultFileService.ResolvePath(*contact.FileID, vaultID); err == nil {
 			return c.File(filePath)
 		}
 	}

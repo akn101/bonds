@@ -67,8 +67,8 @@ func TestCreateVault(t *testing.T) {
 
 	var catCount int64
 	db.Model(&models.LifeEventCategory{}).Where("vault_id = ?", vault.ID).Count(&catCount)
-	if catCount != 4 {
-		t.Errorf("expected 4 LifeEventCategories, got %d", catCount)
+	if catCount != 5 {
+		t.Errorf("expected 5 LifeEventCategories, got %d", catCount)
 	}
 
 	var qfCount int64

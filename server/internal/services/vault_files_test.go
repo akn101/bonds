@@ -125,6 +125,61 @@ func TestVaultFileDeleteNotFound(t *testing.T) {
 	}
 }
 
+func TestVaultFileMigrateLegacyPathAndRejectTraversal(t *testing.T) {
+	svc, vaultID, file := setupVaultFileTest(t)
+	legacyDir := filepath.Join(svc.uploadDir, "2024", "01", "02")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacyPath := filepath.Join(legacyDir, "legacy.pdf")
+	if err := os.WriteFile(legacyPath, []byte("legacy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.db.Model(file).Update("original_url", legacyPath).Error; err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := svc.MigrateLegacyPaths()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if migrated != 1 {
+		t.Fatalf("migrated=%d", migrated)
+	}
+	_, path, err := svc.ResolvePath(file.ID, vaultID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != filepath.Join(svc.uploadDir, file.UUID) {
+		t.Fatalf("path=%q", path)
+	}
+	if content, err := os.ReadFile(path); err != nil || string(content) != "legacy" {
+		t.Fatalf("content=%q err=%v", content, err)
+	}
+	var reloaded models.File
+	if err := svc.db.First(&reloaded, file.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.OriginalURL != nil {
+		t.Fatalf("original_url not cleared: %v", reloaded.OriginalURL)
+	}
+
+	outside := filepath.Join(filepath.Dir(svc.uploadDir), "outside-secret")
+	if err := os.WriteFile(outside, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(outside) })
+	if err := svc.db.Model(file).Updates(map[string]any{"uuid": "missing", "original_url": outside}).Error; err != nil {
+		t.Fatal(err)
+	}
+	_, path, err = svc.ResolvePath(file.ID, vaultID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path == outside {
+		t.Fatal("path traversal escaped upload directory")
+	}
+}
+
 func TestUploadFile(t *testing.T) {
 	svc, vaultID, _ := setupVaultFileTest(t)
 

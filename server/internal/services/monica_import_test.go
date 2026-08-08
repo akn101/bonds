@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -961,8 +962,8 @@ func TestMonicaImportNotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Import failed: %v", err)
 	}
-	if resp.ImportedNotes != 4 {
-		t.Errorf("expected 4 imported notes (1 note + 1 reminder description + 1 activity + 1 conversation), got %d", resp.ImportedNotes)
+	if resp.ImportedNotes != 3 {
+		t.Errorf("expected 3 imported notes (activity is a life event), got %d", resp.ImportedNotes)
 	}
 
 	var john models.Contact
@@ -973,8 +974,8 @@ func TestMonicaImportNotes(t *testing.T) {
 	if err := svc.DB.Where("contact_id = ?", john.ID).Find(&notes).Error; err != nil {
 		t.Fatalf("failed to query notes: %v", err)
 	}
-	if len(notes) != 4 {
-		t.Fatalf("expected 4 notes, got %d", len(notes))
+	if len(notes) != 3 {
+		t.Fatalf("expected 3 notes, got %d", len(notes))
 	}
 	foundOriginal := false
 	for _, n := range notes {
@@ -1277,8 +1278,8 @@ func TestMonicaImportLifeEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Import failed: %v", err)
 	}
-	if resp.ImportedLifeEvents != 1 {
-		t.Errorf("expected 1 imported life event, got %d", resp.ImportedLifeEvents)
+	if resp.ImportedLifeEvents != 2 {
+		t.Errorf("expected life event and activity, got %d", resp.ImportedLifeEvents)
 	}
 
 	var john models.Contact
@@ -1289,11 +1290,11 @@ func TestMonicaImportLifeEvents(t *testing.T) {
 	if err := svc.DB.Where("contact_id = ?", john.ID).Find(&participants).Error; err != nil {
 		t.Fatalf("failed to query life_event_participants: %v", err)
 	}
-	if len(participants) != 1 {
-		t.Fatalf("expected 1 life_event_participant, got %d", len(participants))
+	if len(participants) != 2 {
+		t.Fatalf("expected life-event and activity participants, got %d", len(participants))
 	}
 	var le models.LifeEvent
-	if err := svc.DB.First(&le, participants[0].LifeEventID).Error; err != nil {
+	if err := svc.DB.Where("title = ?", "Got promoted").First(&le).Error; err != nil {
 		t.Fatalf("life event not found: %v", err)
 	}
 	if le.Title != "Got promoted" {
@@ -1468,33 +1469,28 @@ func TestMonicaImportActivities(t *testing.T) {
 		t.Fatalf("John not found: %v", err)
 	}
 
-	var notes []models.Note
-	if err := svc.DB.Where("contact_id = ?", john.ID).Find(&notes).Error; err != nil {
-		t.Fatalf("failed to query notes: %v", err)
+	var event models.LifeEvent
+	if err := svc.DB.Preload("Participants").Preload("LifeEventType").Where("vault_id = ? AND source_type = ?", vaultID, "monica_activity").First(&event).Error; err != nil {
+		t.Fatalf("imported activity event not found: %v", err)
 	}
-
-	foundActivity := false
-	for _, n := range notes {
-		if strings.Contains(n.Body, "[Activity: Ate together]") && strings.Contains(n.Body, "Dinner at Italian restaurant") {
-			if !strings.Contains(n.Body, "Had a great time catching up over pasta") {
-				t.Error("expected activity note to contain description")
-			}
-			if n.SourceType == nil || *n.SourceType != "monica_activity" {
-				t.Errorf("expected activity note source type monica_activity, got %v", n.SourceType)
-			}
-			if n.SourceUUID == nil || *n.SourceUUID != "550e8400-e29b-41d4-a716-446655440010" {
-				t.Errorf("expected activity note source UUID to be preserved, got %v", n.SourceUUID)
-			}
-			wantHappenedAt, _ := time.Parse(time.RFC3339, "2024-01-03T18:00:00Z")
-			if n.HappenedAt == nil || !n.HappenedAt.Equal(wantHappenedAt) {
-				t.Errorf("expected activity happened_at=%v, got %v", wantHappenedAt, n.HappenedAt)
-			}
-			foundActivity = true
-			break
-		}
+	if event.Title != "Dinner at Italian restaurant" || event.Description == nil || !strings.Contains(*event.Description, "great time") {
+		t.Fatalf("unexpected imported activity: %#v", event)
 	}
-	if !foundActivity {
-		t.Errorf("expected to find activity degraded as note, notes: %d, resp.ImportedNotes: %d", len(notes), resp.ImportedNotes)
+	if event.SourceUUID == nil || *event.SourceUUID != "550e8400-e29b-41d4-a716-446655440010" {
+		t.Fatalf("source UUID not preserved: %v", event.SourceUUID)
+	}
+	wantHappenedAt, _ := time.Parse(time.RFC3339, "2024-01-03T18:00:00Z")
+	if event.StartDate == nil || !event.StartDate.Equal(wantHappenedAt) {
+		t.Fatalf("happened_at=%v, want %v", event.StartDate, wantHappenedAt)
+	}
+	if len(event.Participants) != 1 || event.Participants[0].ID != john.ID {
+		t.Fatalf("participants=%v", event.Participants)
+	}
+	if event.LifeEventType == nil || event.LifeEventType.Label == nil || *event.LifeEventType.Label != "Ate together" {
+		t.Fatalf("activity type not preserved: %#v", event.LifeEventType)
+	}
+	if resp.ImportedLifeEvents == 0 {
+		t.Fatal("expected imported life event count")
 	}
 }
 
@@ -1627,7 +1623,7 @@ func TestMonicaImportPhotos(t *testing.T) {
 	}
 
 	var files []models.File
-	if err := svc.DB.Where("vault_id = ? AND type = ?", vaultID, "photo").Find(&files).Error; err != nil {
+	if err := svc.DB.Where("vault_id = ?", vaultID).Where("type IN ?", []string{"photo", "avatar"}).Find(&files).Error; err != nil {
 		t.Fatalf("failed to query files: %v", err)
 	}
 	if len(files) != 1 {
@@ -1639,11 +1635,11 @@ func TestMonicaImportPhotos(t *testing.T) {
 	if files[0].Name != "john-profile.png" {
 		t.Errorf("expected name=john-profile.png, got %s", files[0].Name)
 	}
-	if files[0].OriginalURL == nil {
-		t.Fatal("expected original_url to be set")
+	if files[0].OriginalURL != nil {
+		t.Fatalf("canonical imported file must not store local original_url: %v", files[0].OriginalURL)
 	}
-	if _, err := os.Stat(*files[0].OriginalURL); err != nil {
-		t.Errorf("expected file to exist on disk at %s: %v", *files[0].OriginalURL, err)
+	if _, err := os.Stat(filepath.Join(svc.UploadDir, files[0].UUID)); err != nil {
+		t.Errorf("expected canonical file to exist: %v", err)
 	}
 }
 
@@ -1668,8 +1664,11 @@ func TestMonicaImportPhotos_Avatar(t *testing.T) {
 	if err := svc.DB.First(&file, *john.FileID).Error; err != nil {
 		t.Fatalf("avatar file not found: %v", err)
 	}
-	if file.Type != "photo" {
-		t.Errorf("expected avatar file type=photo, got %s", file.Type)
+	if file.Type != "avatar" {
+		t.Errorf("expected avatar file type=avatar, got %s", file.Type)
+	}
+	if file.FileableType == nil || *file.FileableType != "Contact" {
+		t.Errorf("expected Contact fileable type, got %v", file.FileableType)
 	}
 	if file.UfileableID == nil || *file.UfileableID != john.ID {
 		t.Errorf("expected photo UfileableID=%s, got %v", john.ID, file.UfileableID)

@@ -396,6 +396,7 @@
   "seed.life_event_categories.social": "Soziales",
   "seed.life_event_categories.sport": "Sport",
   "seed.life_event_categories.work": "Arbeit",
+  "seed.life_event_categories.interactions": "Interaktionen",
 
   "seed.life_event_types.rode_a_bike": "Fahrrad gefahren",
   "seed.life_event_types.drove": "Auto gefahren",
@@ -417,6 +418,9 @@
   "seed.life_event_types.quit_job": "Job gekündigt",
   "seed.life_event_types.got_fired": "Entlassen worden",
   "seed.life_event_types.had_a_promotion": "Befördert worden",
+  "seed.life_event_types.phone_call": "Telefonanruf",
+  "seed.life_event_types.video_call": "Videoanruf",
+  "seed.life_event_types.in_person_meeting": "Persönliches Treffen",
 
   "seed.quick_facts.how_we_met": "Wie wir uns kennengelernt haben",
   "seed.quick_facts.hobbies": "Hobbys",

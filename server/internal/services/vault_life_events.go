@@ -113,6 +113,9 @@ func (s *VaultLifeEventService) CreateType(categoryID uint, vaultID string, req 
 		Label:               &label,
 		Position:            req.Position,
 		CanBeDeleted:        true,
+		Icon:                req.Icon,
+		Color:               req.Color,
+		CountsAsInteraction: req.CountsAsInteraction,
 	}
 	if err := s.db.Create(&lt).Error; err != nil {
 		return nil, err
@@ -139,6 +142,9 @@ func (s *VaultLifeEventService) UpdateType(typeID, categoryID uint, vaultID stri
 	label := req.Label
 	lt.Label = &label
 	lt.Position = req.Position
+	lt.Icon = req.Icon
+	lt.Color = req.Color
+	lt.CountsAsInteraction = req.CountsAsInteraction
 	if err := s.db.Save(&lt).Error; err != nil {
 		return nil, err
 	}
@@ -208,12 +214,16 @@ func toLifeEventCategoryResponse(c *models.LifeEventCategory) dto.LifeEventCateg
 
 func toLifeEventTypeResponse(t *models.LifeEventType) dto.LifeEventTypeResponse {
 	return dto.LifeEventTypeResponse{
-		ID:           t.ID,
-		CategoryID:   t.LifeEventCategoryID,
-		Label:        ptrToStr(t.Label),
-		CanBeDeleted: t.CanBeDeleted,
-		Position:     t.Position,
-		CreatedAt:    t.CreatedAt,
-		UpdatedAt:    t.UpdatedAt,
+		ID:                  t.ID,
+		CategoryID:          t.LifeEventCategoryID,
+		Label:               ptrToStr(t.Label),
+		CanBeDeleted:        t.CanBeDeleted,
+		Position:            t.Position,
+		SystemKind:          ptrToStr(t.SystemKind),
+		Icon:                ptrToStr(t.Icon),
+		Color:               ptrToStr(t.Color),
+		CountsAsInteraction: t.CountsAsInteraction,
+		CreatedAt:           t.CreatedAt,
+		UpdatedAt:           t.UpdatedAt,
 	}
 }

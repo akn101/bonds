@@ -402,6 +402,7 @@
   "seed.life_event_categories.social": "社交",
   "seed.life_event_categories.sport": "运动",
   "seed.life_event_categories.work": "工作",
+  "seed.life_event_categories.interactions": "互动",
 
   "seed.life_event_types.rode_a_bike": "骑自行车",
   "seed.life_event_types.drove": "开车",
@@ -423,6 +424,9 @@
   "seed.life_event_types.quit_job": "辞职",
   "seed.life_event_types.got_fired": "被解雇",
   "seed.life_event_types.had_a_promotion": "升职",
+  "seed.life_event_types.phone_call": "电话通话",
+  "seed.life_event_types.video_call": "视频通话",
+  "seed.life_event_types.in_person_meeting": "线下见面",
 
   "seed.quick_facts.how_we_met": "如何认识",
   "seed.quick_facts.hobbies": "兴趣爱好",

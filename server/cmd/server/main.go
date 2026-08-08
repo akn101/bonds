@@ -70,6 +70,12 @@ func main() {
 	oauthProviderService.ReloadProviders()
 
 	migrateUploadDir(cfg.Storage.UploadDir)
+	legacyFileService := services.NewVaultFileService(db, cfg.Storage.UploadDir)
+	if migrated, err := legacyFileService.MigrateLegacyPaths(); err != nil {
+		log.Printf("WARNING: failed to migrate legacy Monica file paths: %v", err)
+	} else if migrated > 0 {
+		log.Printf("Migrated %d legacy Monica files to canonical storage", migrated)
+	}
 	migrateModulesToContactPage(db)
 	services.BackfillImportantDateReminderSchedules(db)
 	if err := models.BackfillTaskStatuses(db); err != nil {
@@ -86,6 +92,12 @@ func main() {
 	}
 	if err := models.BackfillLifeEventDefaultDeletability(db); err != nil {
 		log.Printf("WARNING: failed to backfill life event default deletability: %v", err)
+	}
+	if err := models.BackfillInteractionLifeEventTypes(db); err != nil {
+		log.Printf("WARNING: failed to backfill interaction life event types: %v", err)
+	}
+	if err := models.BackfillMonicaActivityNotes(db); err != nil {
+		log.Printf("WARNING: failed to migrate Monica activity notes: %v", err)
 	}
 	if err := models.BackfillGiftContactModules(db); err != nil {
 		log.Printf("WARNING: failed to backfill gift contact modules: %v", err)

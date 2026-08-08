@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -296,7 +295,7 @@ func (h *VaultFileHandler) Serve(c echo.Context) error {
 		return response.BadRequest(c, "err.invalid_file_id", nil)
 	}
 
-	file, err := h.vaultFileService.Get(uint(id), vaultID)
+	file, filePath, err := h.vaultFileService.ResolvePath(uint(id), vaultID)
 	if err != nil {
 		if errors.Is(err, services.ErrFileNotFound) {
 			return response.NotFound(c, "err.file_not_found")
@@ -304,7 +303,6 @@ func (h *VaultFileHandler) Serve(c echo.Context) error {
 		return response.InternalError(c, "err.failed_to_get_file")
 	}
 
-	filePath := filepath.Join(h.vaultFileService.UploadDir(), file.UUID)
 	c.Response().Header().Set("X-Content-Type-Options", "nosniff")
 	if c.QueryParam("preview") == "true" && (strings.HasPrefix(file.MimeType, "image/") || strings.HasPrefix(file.MimeType, "video/")) {
 		c.Response().Header().Set(echo.HeaderContentType, file.MimeType)

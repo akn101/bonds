@@ -4,7 +4,6 @@ import (
 	"errors"
 	"math"
 	"os"
-	"path/filepath"
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
@@ -80,7 +79,7 @@ func (s *VaultFileService) DeleteContactPhoto(fileID uint, contactID, vaultID st
 		return err
 	}
 
-	destPath := filepath.Join(s.uploadDir, file.UUID)
+	destPath := s.localPath(&file)
 	os.Remove(destPath)
 
 	return s.db.Delete(&file).Error
@@ -133,7 +132,7 @@ func (s *VaultFileService) DeleteContactDocument(fileID uint, contactID, vaultID
 		return err
 	}
 
-	destPath := filepath.Join(s.uploadDir, file.UUID)
+	destPath := s.localPath(&file)
 	os.Remove(destPath)
 
 	return s.db.Delete(&file).Error

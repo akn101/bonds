@@ -23,6 +23,10 @@ type LifeEventType struct {
 	LabelTranslationKey *string   `json:"label_translation_key"`
 	CanBeDeleted        bool      `json:"can_be_deleted" gorm:"default:false"`
 	Position            *int      `json:"position"`
+	SystemKind          *string   `json:"system_kind" gorm:"size:64;index"`
+	Icon                *string   `json:"icon" gorm:"size:64"`
+	Color               *string   `json:"color" gorm:"size:32"`
+	CountsAsInteraction bool      `json:"counts_as_interaction" gorm:"not null;default:false"`
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
 
@@ -32,7 +36,7 @@ type LifeEventType struct {
 
 type LifeEvent struct {
 	ID              uint       `json:"id" gorm:"primaryKey;autoIncrement"`
-	VaultID         string     `json:"vault_id" gorm:"type:text;not null;index"`
+	VaultID         string     `json:"vault_id" gorm:"type:text;not null;index;uniqueIndex:idx_life_event_source"`
 	ParentID        *uint      `json:"parent_id" gorm:"index"`
 	LifeEventTypeID *uint      `json:"life_event_type_id" gorm:"index"`
 	EmotionID       *uint      `json:"emotion_id" gorm:"index"`
@@ -65,6 +69,8 @@ type LifeEvent struct {
 	FromPlace         *string   `json:"from_place"`
 	ToPlace           *string   `json:"to_place"`
 	Place             *string   `json:"place"`
+	SourceType        *string   `json:"source_type" gorm:"size:64;uniqueIndex:idx_life_event_source"`
+	SourceUUID        *string   `json:"source_uuid" gorm:"size:191;uniqueIndex:idx_life_event_source"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 
@@ -81,7 +87,7 @@ type LifeEvent struct {
 type LifeEventParticipant struct {
 	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement"`
 	ContactID   string    `json:"contact_id" gorm:"type:text;not null;uniqueIndex:idx_life_event_participant_unique"`
-	LifeEventID uint      `json:"life_event_id" gorm:"not null;uniqueIndex:idx_life_event_participant_unique"`
+	LifeEventID uint      `json:"life_event_id" gorm:"not null;uniqueIndex:idx_life_event_participant_unique;index"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
