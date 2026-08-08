@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
 let counter = 0;
 
@@ -6,351 +6,476 @@ function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now()}-${++counter}-${Math.random().toString(36).slice(2, 6)}@example.com`;
 }
 
-async function registerAndCreateVault(page: import('@playwright/test').Page, prefix: string) {
+async function registerAndCreateVault(
+  page: import("@playwright/test").Page,
+  prefix: string,
+) {
   const email = uniqueEmail(prefix);
-  await page.goto('/register');
-  await page.getByPlaceholder('First name').fill('VaultExt');
-  await page.getByPlaceholder('Last name').fill('Tester');
-  await page.getByPlaceholder('Email').fill(email);
-  await page.getByPlaceholder(/password/i).fill('password123');
-  await page.getByRole('button', { name: /create account/i }).click();
+  await page.goto("/register");
+  await page.getByPlaceholder("First name").fill("VaultExt");
+  await page.getByPlaceholder("Last name").fill("Tester");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.getByPlaceholder(/password/i).fill("password123");
+  await page.getByRole("button", { name: /create account/i }).click();
   await expect(page).toHaveURL(/\/vaults/, { timeout: 15000 });
 
-  await page.getByRole('button', { name: /new vault/i }).click();
-  await page.getByPlaceholder(/e\.g\. family/i).fill('Test Vault');
-  await page.getByPlaceholder(/what is this vault/i).fill('For testing');
-  await page.getByRole('button', { name: /create vault/i }).click();
+  await page.getByRole("button", { name: /new vault/i }).click();
+  await page.getByPlaceholder(/e\.g\. family/i).fill("Test Vault");
+  await page.getByPlaceholder(/what is this vault/i).fill("For testing");
+  await page.getByRole("button", { name: /create vault/i }).click();
   await expect(page).toHaveURL(/\/vaults\/[a-f0-9-]{36}$/, { timeout: 20000 });
-  await page.waitForLoadState('networkidle');
-  await expect(page.getByRole('heading', { name: 'Test Vault' })).toBeVisible({ timeout: 10000 });
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: "Test Vault" })).toBeVisible({
+    timeout: 10000,
+  });
 }
 
-function getVaultUrl(page: import('@playwright/test').Page): string {
+function getVaultUrl(page: import("@playwright/test").Page): string {
   return page.url();
 }
 
-async function navigateToContactTab(page: import('@playwright/test').Page, tabName: string, exact = false) {
-  await page.locator('.ant-segmented-item-label').getByText('Full view', { exact: true }).click();
-  const tab = page.getByRole('tab', { name: tabName, exact });
+async function navigateToContactTab(
+  page: import("@playwright/test").Page,
+  tabName: string,
+  exact = false,
+) {
+  await page
+    .locator(".ant-segmented-item-label")
+    .getByText("Full view", { exact: true })
+    .click();
+  const tab = page.getByRole("tab", { name: tabName, exact });
   await expect(tab).toBeVisible({ timeout: 10000 });
   await tab.click();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState("networkidle");
 }
 
-async function createJournalAndNavigate(page: import('@playwright/test').Page, vaultUrl: string, journalName: string) {
-  await page.goto(vaultUrl + '/journals');
-  await page.getByRole('button', { name: 'New Journal' }).click();
-  const modal = page.locator('.ant-modal').filter({ hasText: /new journal/i });
+async function createJournalAndNavigate(
+  page: import("@playwright/test").Page,
+  vaultUrl: string,
+  journalName: string,
+) {
+  await page.goto(vaultUrl + "/journals");
+  await page.getByRole("button", { name: "New Journal" }).click();
+  const modal = page.locator(".ant-modal").filter({ hasText: /new journal/i });
   await expect(modal).toBeVisible({ timeout: 5000 });
-  await modal.locator('#name').fill(journalName);
-  await modal.getByRole('button', { name: 'OK' }).click();
+  await modal.locator("#name").fill(journalName);
+  await modal.getByRole("button", { name: "OK" }).click();
   await expect(modal).not.toBeVisible({ timeout: 10000 });
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState("networkidle");
 
   await page.getByText(journalName).click();
   await expect(page).toHaveURL(/\/journals\/\d+$/, { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
-  await expect(page.getByRole('heading', { name: journalName })).toBeVisible({ timeout: 10000 });
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: journalName })).toBeVisible({
+    timeout: 10000,
+  });
 }
 
-async function createPostInJournal(page: import('@playwright/test').Page, postTitle: string) {
-  await page.getByRole('button', { name: 'New Post' }).click();
-  const modal = page.locator('.ant-modal').filter({ hasText: /new post/i });
+async function createPostInJournal(
+  page: import("@playwright/test").Page,
+  postTitle: string,
+) {
+  await page.getByRole("button", { name: "New Post" }).click();
+  const modal = page.locator(".ant-modal").filter({ hasText: /new post/i });
   await expect(modal).toBeVisible({ timeout: 5000 });
-  await modal.getByRole('textbox', { name: /title/i }).fill(postTitle);
+  await modal.getByRole("textbox", { name: /title/i }).fill(postTitle);
   const postResp = page.waitForResponse(
-    (resp) => resp.url().includes('/posts') && resp.request().method() === 'POST' && resp.status() < 400
+    (resp) =>
+      resp.url().includes("/posts") &&
+      resp.request().method() === "POST" &&
+      resp.status() < 400,
   );
-  await modal.getByRole('button', { name: 'OK' }).click();
+  await modal.getByRole("button", { name: "OK" }).click();
   await postResp;
   await expect(modal).not.toBeVisible({ timeout: 15000 });
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState("networkidle");
   await expect(page.getByText(postTitle)).toBeVisible({ timeout: 10000 });
 }
 
-async function navigateToPostDetail(page: import('@playwright/test').Page, postTitle: string) {
+async function navigateToPostDetail(
+  page: import("@playwright/test").Page,
+  postTitle: string,
+) {
   await page.getByText(postTitle).click();
   await expect(page).toHaveURL(/\/posts\/\d+$/, { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState("networkidle");
 }
 
-test.describe('Vault - Feed, Calendar, Journal and Settings', () => {
-
-  test('Vault Feed - renders feed page', async ({ page }) => {
-    await registerAndCreateVault(page, 'vfeed');
+test.describe("Vault - Feed, Calendar, Journal and Settings", () => {
+  test("Vault Feed - renders feed page", async ({ page }) => {
+    await registerAndCreateVault(page, "vfeed");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/feed');
+    await page.goto(vaultUrl + "/feed");
     await expect(page).toHaveURL(/\/feed$/, { timeout: 10000 });
     await expect(
-      page.getByRole('heading', { level: 4 }).filter({ hasText: 'Activity Feed' })
+      page
+        .getByRole("heading", { level: 4 })
+        .filter({ hasText: "Activity Feed" }),
     ).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.ant-list').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".ant-list").first()).toBeVisible({
+      timeout: 10000,
+    });
   });
 
-  test('Vault Tasks - renders tasks page', async ({ page }) => {
-    await registerAndCreateVault(page, 'vtasks');
+  test("Vault Tasks - renders tasks page", async ({ page }) => {
+    await registerAndCreateVault(page, "vtasks");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/tasks');
+    await page.goto(vaultUrl + "/tasks");
     await expect(page).toHaveURL(/\/tasks$/, { timeout: 10000 });
     await expect(
-      page.getByRole('heading', { level: 4 }).filter({ hasText: 'All Tasks' })
+      page.getByRole("heading", { level: 4 }).filter({ hasText: "All Tasks" }),
     ).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.ant-card').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".ant-card").first()).toBeVisible({
+      timeout: 10000,
+    });
   });
 
-  test('Vault Calendar - renders calendar with month view', async ({ page }) => {
-    await registerAndCreateVault(page, 'vcal');
+  test("Vault Calendar - renders calendar with month view", async ({
+    page,
+  }) => {
+    await registerAndCreateVault(page, "vcal");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/calendar');
+    await page.goto(vaultUrl + "/calendar");
     await expect(page).toHaveURL(/\/calendar$/, { timeout: 10000 });
     await expect(
-      page.getByRole('heading', { level: 4 }).filter({ hasText: 'Calendar' })
+      page.getByRole("heading", { level: 4 }).filter({ hasText: "Calendar" }),
     ).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.ant-picker-calendar')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".ant-picker-calendar")).toBeVisible({
+      timeout: 10000,
+    });
   });
 
-  test('Journal Post - create post, verify and navigate to detail', async ({ page }) => {
-    await registerAndCreateVault(page, 'jpost');
+  test("Journal Post - create post, verify and navigate to detail", async ({
+    page,
+  }) => {
+    await registerAndCreateVault(page, "jpost");
     const vaultUrl = getVaultUrl(page);
 
-    await createJournalAndNavigate(page, vaultUrl, 'Post Test Journal');
-    await createPostInJournal(page, 'My First Post');
+    await createJournalAndNavigate(page, vaultUrl, "Post Test Journal");
+    await createPostInJournal(page, "My First Post");
 
-    await navigateToPostDetail(page, 'My First Post');
-    await expect(page.getByRole('heading', { name: 'My First Post' })).toBeVisible({ timeout: 10000 });
+    await navigateToPostDetail(page, "My First Post");
+    await expect(
+      page.getByRole("heading", { name: "My First Post" }),
+    ).toBeVisible({ timeout: 10000 });
   });
 
-  test('Journal Post Tags - add a tag to a post', async ({ page }) => {
-    await registerAndCreateVault(page, 'jtag');
+  test("Journal Post Tags - add a tag to a post", async ({ page }) => {
+    await registerAndCreateVault(page, "jtag");
     const vaultUrl = getVaultUrl(page);
 
-    await createJournalAndNavigate(page, vaultUrl, 'Tag Test Journal');
-    await createPostInJournal(page, 'Tagged Post');
-    await navigateToPostDetail(page, 'Tagged Post');
+    await createJournalAndNavigate(page, vaultUrl, "Tag Test Journal");
+    await createPostInJournal(page, "Tagged Post");
+    await navigateToPostDetail(page, "Tagged Post");
 
-    await page.getByText('Add tag').click();
-    const tagInput = page.getByPlaceholder('Tag name');
+    await page.getByText("Add tag").click();
+    const tagInput = page.getByPlaceholder("Tag name");
     await expect(tagInput).toBeVisible({ timeout: 5000 });
-    await tagInput.fill('e2e-tag');
+    await tagInput.fill("e2e-tag");
 
     const tagResponse = page.waitForResponse(
-      (resp) => resp.url().includes('/tags') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/tags") && resp.request().method() === "POST",
     );
-    await tagInput.press('Enter');
+    await tagInput.press("Enter");
     await tagResponse;
 
-    await expect(page.locator('.ant-tag').filter({ hasText: 'e2e-tag' })).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.locator(".ant-tag").filter({ hasText: "e2e-tag" }),
+    ).toBeVisible({ timeout: 10000 });
   });
 
-  test('Journal Slices of Life - create a slice', async ({ page }) => {
-    await registerAndCreateVault(page, 'jslice');
+  test("Journal Slices of Life - create a slice", async ({ page }) => {
+    await registerAndCreateVault(page, "jslice");
     const vaultUrl = getVaultUrl(page);
 
-    await createJournalAndNavigate(page, vaultUrl, 'Slice Test Journal');
-    await expect(page.getByText('Slices of Life', { exact: true }).first()).toBeVisible({ timeout: 5000 });
+    await createJournalAndNavigate(page, vaultUrl, "Slice Test Journal");
+    await expect(
+      page.getByText("Slices of Life", { exact: true }).first(),
+    ).toBeVisible({ timeout: 5000 });
 
-    await page.getByRole('button', { name: 'New Slice' }).click();
-    const sliceModal = page.locator('.ant-modal').filter({ hasText: /new slice/i });
+    await page.getByRole("button", { name: "New Slice" }).click();
+    const sliceModal = page
+      .locator(".ant-modal")
+      .filter({ hasText: /new slice/i });
     await expect(sliceModal).toBeVisible({ timeout: 5000 });
-    await sliceModal.locator('#name').fill('Summer 2025');
-    await sliceModal.locator('#description').fill('A great summer');
+    await sliceModal.locator("#name").fill("Summer 2025");
+    await sliceModal.locator("#description").fill("A great summer");
 
     const sliceResponse = page.waitForResponse(
-      (resp) => resp.url().includes('/slices') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/slices") && resp.request().method() === "POST",
     );
-    await sliceModal.getByRole('button', { name: 'OK' }).click();
+    await sliceModal.getByRole("button", { name: "OK" }).click();
     await sliceResponse;
     await expect(sliceModal).not.toBeVisible({ timeout: 10000 });
 
-    await expect(page.getByText('Summer 2025')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Summer 2025")).toBeVisible({ timeout: 10000 });
   });
 
-  test('Vault Settings Labels - create a label', async ({ page }) => {
-    await registerAndCreateVault(page, 'vlabel');
+  test("Vault Settings Labels - create a label", async ({ page }) => {
+    await registerAndCreateVault(page, "vlabel");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/settings');
-    await expect(page.locator('.ant-tabs')).toBeVisible({ timeout: 10000 });
+    await page.goto(vaultUrl + "/settings");
+    await expect(page.locator(".ant-tabs")).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('tab', { name: 'Labels' }).click();
-    await page.waitForLoadState('networkidle');
+    await page.getByRole("tab", { name: "Labels" }).click();
+    await page.waitForLoadState("networkidle");
 
-    const nameInput = page.getByPlaceholder('Name');
+    const nameInput = page.getByPlaceholder("Name");
     await expect(nameInput).toBeVisible({ timeout: 10000 });
-    await nameInput.fill('e2e-label');
+    await nameInput.fill("e2e-label");
 
     const labelResponse = page.waitForResponse(
-      (resp) => resp.url().includes('/labels') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/labels") && resp.request().method() === "POST",
     );
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole("button", { name: "Add" }).click();
     await labelResponse;
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText('e2e-label')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("e2e-label")).toBeVisible({ timeout: 10000 });
   });
 
-  test('Vault Settings Tags - create a tag', async ({ page }) => {
-    await registerAndCreateVault(page, 'vtag');
+  test("Vault Settings Tags - create a tag", async ({ page }) => {
+    await registerAndCreateVault(page, "vtag");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/settings');
-    await expect(page.locator('.ant-tabs')).toBeVisible({ timeout: 10000 });
+    await page.goto(vaultUrl + "/settings");
+    await expect(page.locator(".ant-tabs")).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('tab', { name: 'Tags' }).click();
-    await page.waitForLoadState('networkidle');
+    await page.getByRole("tab", { name: "Tags" }).click();
+    await page.waitForLoadState("networkidle");
 
-    const nameInput = page.getByPlaceholder('Name');
+    const nameInput = page.getByPlaceholder("Name");
     await expect(nameInput).toBeVisible({ timeout: 10000 });
-    await nameInput.fill('e2e-vault-tag');
+    await nameInput.fill("e2e-vault-tag");
 
     const tagResponse = page.waitForResponse(
-      (resp) => resp.url().includes('/tags') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/tags") && resp.request().method() === "POST",
     );
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole("button", { name: "Add" }).click();
     await tagResponse;
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText('e2e-vault-tag')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("e2e-vault-tag")).toBeVisible({
+      timeout: 10000,
+    });
   });
 
-  test('Vault Settings Date Types - seed types and CRUD', async ({ page }) => {
-    await registerAndCreateVault(page, 'vdate');
+  test("Vault Settings Date Types - seed types and CRUD", async ({ page }) => {
+    await registerAndCreateVault(page, "vdate");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/settings');
-    await expect(page.locator('.ant-tabs')).toBeVisible({ timeout: 10000 });
-    await page.getByRole('tab', { name: 'Important Date Types' }).click();
-    await page.waitForLoadState('networkidle');
-    await expect(page.getByText('Birthdate', { exact: true })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Deceased date', { exact: true })).toBeVisible({ timeout: 10000 });
-    const nameInput = page.getByPlaceholder('Name');
+    await page.goto(vaultUrl + "/settings");
+    await expect(page.locator(".ant-tabs")).toBeVisible({ timeout: 10000 });
+    await page.getByRole("tab", { name: "Important Date Types" }).click();
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Birthdate", { exact: true })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByText("Deceased date", { exact: true })).toBeVisible({
+      timeout: 10000,
+    });
+    const nameInput = page.getByPlaceholder("Name");
     await expect(nameInput).toBeVisible({ timeout: 10000 });
-    await nameInput.fill('Graduation Day');
+    await nameInput.fill("Graduation Day");
 
     const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/dateTypes') && resp.request().method() === 'POST' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/dateTypes") &&
+        resp.request().method() === "POST" &&
+        resp.status() < 400,
     );
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole("button", { name: "Add" }).click();
     await createResp;
 
-    await expect(page.getByText('Graduation Day')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Graduation Day")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const createdRow = page.locator('.ant-list-item').filter({ hasText: 'Graduation Day' });
-    await createdRow.getByRole('button', { name: 'delete' }).click();
+    const createdRow = page
+      .locator(".ant-list-item")
+      .filter({ hasText: "Graduation Day" });
+    await createdRow.getByRole("button", { name: "delete" }).click();
     const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/dateTypes') && resp.request().method() === 'DELETE' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/dateTypes") &&
+        resp.request().method() === "DELETE" &&
+        resp.status() < 400,
     );
-    await page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click();
+    await page
+      .locator(".ant-popconfirm")
+      .getByRole("button", { name: /ok|yes/i })
+      .click();
     await deleteResp;
 
-    await expect(page.getByText('Graduation Day')).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Graduation Day")).not.toBeVisible({
+      timeout: 10000,
+    });
   });
 
-  test('Vault Settings Mood Parameters - seed and CRUD', async ({ page }) => {
-    await registerAndCreateVault(page, 'vmood');
+  test("Vault Settings Mood Parameters - seed and CRUD", async ({ page }) => {
+    await registerAndCreateVault(page, "vmood");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/settings');
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('.ant-tabs')).toBeVisible({ timeout: 15000 });
+    await page.goto(vaultUrl + "/settings");
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator(".ant-tabs")).toBeVisible({ timeout: 15000 });
 
-    await page.getByRole('tab', { name: 'Mood Parameters' }).click();
-    await page.waitForLoadState('networkidle');
+    await page.getByRole("tab", { name: "Mood Parameters" }).click();
+    await page.waitForLoadState("networkidle");
 
-    await expect(page.locator('.ant-list-item').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.ant-list-item')).toHaveCount(5, { timeout: 10000 });
+    await expect(page.locator(".ant-list-item").first()).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.locator(".ant-list-item")).toHaveCount(5, {
+      timeout: 10000,
+    });
 
-    const nameInput = page.getByPlaceholder('Name');
+    const nameInput = page.getByPlaceholder("Name");
     await expect(nameInput).toBeVisible({ timeout: 10000 });
-    await nameInput.fill('Super Happy');
+    await nameInput.fill("Super Happy");
 
     const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/moodParams') && resp.request().method() === 'POST' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/moodParams") &&
+        resp.request().method() === "POST" &&
+        resp.status() < 400,
     );
-    await page.getByRole('button', { name: 'Add' }).click();
+    await page.getByRole("button", { name: "Add" }).click();
     await createResp;
 
-    await expect(page.getByText('Super Happy')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Super Happy")).toBeVisible({ timeout: 10000 });
 
-    const createdRow = page.locator('.ant-list-item').filter({ hasText: 'Super Happy' });
-    await createdRow.getByRole('button', { name: 'delete' }).click();
+    const createdRow = page
+      .locator(".ant-list-item")
+      .filter({ hasText: "Super Happy" });
+    await createdRow.getByRole("button", { name: "delete" }).click();
     const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/moodParams') && resp.request().method() === 'DELETE' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/moodParams") &&
+        resp.request().method() === "DELETE" &&
+        resp.status() < 400,
     );
-    await page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click();
+    await page
+      .locator(".ant-popconfirm")
+      .getByRole("button", { name: /ok|yes/i })
+      .click();
     await deleteResp;
 
-    await expect(page.getByText('Super Happy')).not.toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.ant-list-item')).toHaveCount(5, { timeout: 10000 });
+    await expect(page.getByText("Super Happy")).not.toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.locator(".ant-list-item")).toHaveCount(5, {
+      timeout: 10000,
+    });
   });
 
-  test('Vault Settings Quick Fact Templates - seed and CRUD', async ({ page }) => {
-    await registerAndCreateVault(page, 'vqft');
+  test("Vault Settings Quick Fact Templates - seed and CRUD", async ({
+    page,
+  }) => {
+    await registerAndCreateVault(page, "vqft");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/settings');
-    await expect(page.locator('.ant-tabs')).toBeVisible({ timeout: 10000 });
+    await page.goto(vaultUrl + "/settings");
+    await expect(page.locator(".ant-tabs")).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('tab', { name: 'Quick Fact Templates' }).click();
-    await page.waitForLoadState('networkidle');
+    await page.getByRole("tab", { name: "Quick Fact Templates" }).click();
+    await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText('How we met')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Hobbies')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Food preferences')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("How we met")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Hobbies")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Food preferences")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const quickFactTemplateForm = page.locator('.ant-card').filter({ hasText: 'Add quick fact template' });
-    const nameInput = quickFactTemplateForm.getByPlaceholder('e.g. Favorite restaurant');
+    const quickFactTemplateForm = page
+      .locator(".ant-card")
+      .filter({ hasText: "Add quick fact template" });
+    const nameInput = quickFactTemplateForm.getByPlaceholder(
+      "e.g. Favorite restaurant",
+    );
     await expect(nameInput).toBeVisible({ timeout: 10000 });
-    await nameInput.fill('Favorite Movies');
+    await nameInput.fill("Favorite Movies");
 
     const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/quickFactTemplates') && resp.request().method() === 'POST' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/quickFactTemplates") &&
+        resp.request().method() === "POST" &&
+        resp.status() < 400,
     );
-    await quickFactTemplateForm.getByRole('button', { name: 'Add' }).click();
+    await quickFactTemplateForm.getByRole("button", { name: "Add" }).click();
     await createResp;
 
-    await expect(page.getByText('Favorite Movies')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Favorite Movies")).toBeVisible({
+      timeout: 10000,
+    });
 
-    const createdRow = page.locator('.ant-list-item').filter({ hasText: 'Favorite Movies' });
-    await createdRow.getByRole('button', { name: 'delete' }).click();
+    const createdRow = page
+      .locator(".ant-list-item")
+      .filter({ hasText: "Favorite Movies" });
+    await createdRow.getByRole("button", { name: "delete" }).click();
     const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/quickFactTemplates') && resp.request().method() === 'DELETE' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/quickFactTemplates") &&
+        resp.request().method() === "DELETE" &&
+        resp.status() < 400,
     );
-    await page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click();
+    await page
+      .locator(".ant-popconfirm")
+      .getByRole("button", { name: /ok|yes/i })
+      .click();
     await deleteResp;
 
-    await expect(page.getByText('Favorite Movies')).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Favorite Movies")).not.toBeVisible({
+      timeout: 10000,
+    });
   });
 
-  test('Vault Settings Mood Parameters - reorder position', async ({ page }) => {
-    await registerAndCreateVault(page, 'vmoodpos');
+  test("Vault Settings Mood Parameters - reorder position", async ({
+    page,
+  }) => {
+    await registerAndCreateVault(page, "vmoodpos");
     const vaultUrl = getVaultUrl(page);
-    await page.goto(vaultUrl + '/settings');
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('.ant-tabs')).toBeVisible({ timeout: 15000 });
-    await page.getByRole('tab', { name: 'Mood Parameters' }).click();
-    await page.waitForLoadState('networkidle');
+    await page.goto(vaultUrl + "/settings");
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator(".ant-tabs")).toBeVisible({ timeout: 15000 });
+    await page.getByRole("tab", { name: "Mood Parameters" }).click();
+    await page.waitForLoadState("networkidle");
 
     // Wait for list items and get the second item text
-    await expect(page.locator('.ant-list-item').first()).toBeVisible({ timeout: 10000 });
-    const secondItem = page.locator('.ant-list-item').nth(1);
+    await expect(page.locator(".ant-list-item").first()).toBeVisible({
+      timeout: 10000,
+    });
+    const secondItem = page.locator(".ant-list-item").nth(1);
     await expect(secondItem).toBeVisible({ timeout: 5000 });
-    const secondItemText = (await secondItem.locator('.ant-list-item-meta-title').textContent()) ?? '';
-    expect(secondItemText).not.toBe('');
+    const secondItemText =
+      (await secondItem.locator(".ant-list-item-meta-title").textContent()) ??
+      "";
+    expect(secondItemText).not.toBe("");
 
     // Click the UP arrow on the second item to move it to position 0
-    const upArrow = secondItem.locator('.anticon-arrow-up');
+    const upArrow = secondItem.locator(".anticon-arrow-up");
     await expect(upArrow).toBeVisible({ timeout: 5000 });
 
     // Set up response listeners before click to avoid race condition
     const posRespPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/moodParams') && resp.url().includes('/position') && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/moodParams") &&
+        resp.url().includes("/position") &&
+        resp.status() < 400,
     );
     const refetchPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/moodParams') && resp.request().method() === 'GET' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/moodParams") &&
+        resp.request().method() === "GET" &&
+        resp.status() < 400,
     );
     await upArrow.click();
     const posResp = await posRespPromise;
@@ -358,35 +483,52 @@ test.describe('Vault - Feed, Calendar, Journal and Settings', () => {
     const posBody = await posResp.json();
     expect(posBody.success).toBe(true);
     await refetchPromise;
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('.ant-list-item').first().locator('.ant-list-item-meta-title')).toHaveText(secondItemText);
+    await page.waitForLoadState("networkidle");
+    await expect(
+      page
+        .locator(".ant-list-item")
+        .first()
+        .locator(".ant-list-item-meta-title"),
+    ).toHaveText(secondItemText);
   });
 
-  test('Vault Settings Quick Fact Templates - reorder position', async ({ page }) => {
-    await registerAndCreateVault(page, 'vqftpos');
+  test("Vault Settings Quick Fact Templates - reorder position", async ({
+    page,
+  }) => {
+    await registerAndCreateVault(page, "vqftpos");
     const vaultUrl = getVaultUrl(page);
-    await page.goto(vaultUrl + '/settings');
-    await page.waitForLoadState('networkidle');
-    await page.getByRole('tab', { name: 'Quick Fact Templates' }).click();
-    await page.waitForLoadState('networkidle');
+    await page.goto(vaultUrl + "/settings");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("tab", { name: "Quick Fact Templates" }).click();
+    await page.waitForLoadState("networkidle");
 
     // Wait for list items and get the second item text
-    await expect(page.locator('.ant-list-item').first()).toBeVisible({ timeout: 10000 });
-    const secondItem = page.locator('.ant-list-item').nth(1);
+    await expect(page.locator(".ant-list-item").first()).toBeVisible({
+      timeout: 10000,
+    });
+    const secondItem = page.locator(".ant-list-item").nth(1);
     await expect(secondItem).toBeVisible({ timeout: 5000 });
-    const secondItemText = (await secondItem.locator('.ant-list-item-meta-title').textContent()) ?? '';
-    expect(secondItemText).not.toBe('');
+    const secondItemText =
+      (await secondItem.locator(".ant-list-item-meta-title").textContent()) ??
+      "";
+    expect(secondItemText).not.toBe("");
 
     // Click the UP arrow on the second item to move it to position 0
-    const upArrow = secondItem.locator('.anticon-arrow-up');
+    const upArrow = secondItem.locator(".anticon-arrow-up");
     await expect(upArrow).toBeVisible({ timeout: 5000 });
 
     // Set up response listeners before click to avoid race condition
     const posRespPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/quickFactTemplates') && resp.url().includes('/position') && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/quickFactTemplates") &&
+        resp.url().includes("/position") &&
+        resp.status() < 400,
     );
     const refetchPromise = page.waitForResponse(
-      (resp) => resp.url().includes('/quickFactTemplates') && resp.request().method() === 'GET' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/quickFactTemplates") &&
+        resp.request().method() === "GET" &&
+        resp.status() < 400,
     );
     await upArrow.click();
     const posResp = await posRespPromise;
@@ -394,493 +536,675 @@ test.describe('Vault - Feed, Calendar, Journal and Settings', () => {
     const posBody = await posResp.json();
     expect(posBody.success).toBe(true);
     await refetchPromise;
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('.ant-list-item').first().locator('.ant-list-item-meta-title')).toHaveText(secondItemText);
+    await page.waitForLoadState("networkidle");
+    await expect(
+      page
+        .locator(".ant-list-item")
+        .first()
+        .locator(".ant-list-item-meta-title"),
+    ).toHaveText(secondItemText);
   });
 
-  test('Dashboard mood recording - record a mood', async ({ page }) => {
-    await registerAndCreateVault(page, 'vmoodrec');
+  test("Dashboard mood recording - record a mood", async ({ page }) => {
+    await registerAndCreateVault(page, "vmoodrec");
 
     // Mood widget is in the right sidebar with SmileOutlined icon and "Record your mood" heading
-    const moodWidget = page.locator('div').filter({ hasText: /Record your mood/ }).first();
+    const moodWidget = page
+      .locator("div")
+      .filter({ hasText: /Record your mood/ })
+      .first();
     await expect(moodWidget).toBeVisible({ timeout: 10000 });
 
     // Wait for the Radio.Group with seeded mood parameters (5 levels) to appear
-    await expect(page.locator('.ant-radio-input').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".ant-radio-input").first()).toBeVisible({
+      timeout: 10000,
+    });
 
     // Select the first mood parameter (e.g. "🥳 Awesome")
-    await page.locator('.ant-radio-input').first().click();
+    await page.locator(".ant-radio-input").first().click();
 
     // Set up response listener before clicking Record button to avoid race condition
     const moodResp = page.waitForResponse(
-      (resp) => resp.url().includes('/moodTrackingEvents') && resp.request().method() === 'POST' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/moodTrackingEvents") &&
+        resp.request().method() === "POST" &&
+        resp.status() < 400,
     );
 
     // Click "Record your mood" button
-    await page.getByRole('button', { name: 'Record your mood' }).click();
+    await page.getByRole("button", { name: "Record your mood" }).click();
     await moodResp;
 
     // Verify success message appears
-    await expect(page.locator('.ant-message')).toContainText('mood has been recorded', { timeout: 10000 });
+    await expect(page.locator(".ant-message")).toContainText(
+      "mood has been recorded",
+      { timeout: 10000 },
+    );
 
     // After success, the radio group should be deselected (form reset) —
     // verify no radio is checked
-    await expect(page.locator('.ant-radio-input:checked')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator(".ant-radio-input:checked")).toHaveCount(0, {
+      timeout: 5000,
+    });
   });
 
-  test('Dashboard life events - add a life event', async ({ page }) => {
-    await registerAndCreateVault(page, 'vlifeevent');
+  test("Dashboard life events - add a life event", async ({ page }) => {
+    await registerAndCreateVault(page, "vlifeevent");
 
     // Click the "Life Events" tab in the center Segmented control
-    await page.locator('.ant-segmented-item').filter({ hasText: 'Life Events' }).click();
+    await page
+      .locator(".ant-segmented-item")
+      .filter({ hasText: "Life Events" })
+      .click();
 
-    // Wait for the "Add a life event" button to appear
-    const addBtn = page.getByRole('button', { name: 'Add a life event' });
+    // Dashboard reuses the same Life Event module as contact detail.
+    const addBtn = page.getByRole("button", { name: "Add life event" });
     await expect(addBtn).toBeVisible({ timeout: 10000 });
 
     // Click "Add a life event" — opens the modal
     await addBtn.click();
-    const modal = page.locator('.ant-modal:visible');
+    const modal = page.locator(".ant-modal:visible");
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    // Select a Life Event Category (seed: "Transportation", "Social", "Sport", "Work")
-    await modal.locator('.ant-select').first().click();
-    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
+    // Select a grouped Life Event type.
+    await modal.locator(".ant-select").first().click();
+    await page
+      .locator(".ant-select-dropdown:visible .ant-select-item-option")
+      .first()
+      .click();
 
-    // Close category dropdown before interacting with type Select
-    await modal.locator('.ant-modal-header').click();
-    await expect(page.locator('.ant-select-dropdown:visible')).toHaveCount(0, { timeout: 5000 });
-
-    // Wait for type Select to become enabled after category selection
-    await expect(modal.locator('.ant-select').nth(1)).not.toHaveClass(/ant-select-disabled/, { timeout: 5000 });
-
-    // Select a Life Event Type (populated after category selection)
-    await modal.locator('.ant-select').nth(1).click();
-    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
-
-    // Close type dropdown
-    await modal.locator('.ant-modal-header').click();
-
-    // Date is pre-filled with today (initialValues={{ happened_at: dayjs() }}), skip it
-
-    // Fill Summary
-    await modal.locator('#summary').fill('Graduated from university');
-
-    // Fill Description
-    await modal.locator('#description').fill('Got my degree');
+    await modal.locator("input.ant-input").fill("Graduated from university");
+    await modal.locator("textarea").fill("Got my degree");
 
     const dashboardLifeEventResp = page.waitForResponse(
-      (resp) => resp.url().includes('/dashboard/lifeEvents') && resp.request().method() === 'POST' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/lifeEvents") &&
+        resp.request().method() === "POST" &&
+        resp.status() < 400,
     );
 
     // Click OK button
-    await modal.getByRole('button', { name: 'OK' }).click();
+    await modal.getByRole("button", { name: "OK" }).click();
     await dashboardLifeEventResp;
 
     await expect(modal).not.toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByText("Graduated from university", { exact: true }),
+    ).toBeVisible({ timeout: 10000 });
 
-    await expect(page.getByText('Graduated from university').first()).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByText("Graduated from university").first(),
+    ).toBeVisible({ timeout: 10000 });
   });
 
-  test('Dashboard mood recording - progressive disclosure fields', async ({ page }) => {
-    await registerAndCreateVault(page, 'vmoodextra');
+  test("Dashboard mood recording - progressive disclosure fields", async ({
+    page,
+  }) => {
+    await registerAndCreateVault(page, "vmoodextra");
 
     // Wait for mood widget and radio buttons
-    await expect(page.locator('.ant-radio-input').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".ant-radio-input").first()).toBeVisible({
+      timeout: 10000,
+    });
 
     // Select a mood parameter
-    await page.locator('.ant-radio-input').first().click();
+    await page.locator(".ant-radio-input").first().click();
 
     // Click "+ change date" link button → verify DatePicker appears
-    await page.getByRole('button', { name: '+ change date' }).click();
-    await expect(page.locator('.ant-picker').first()).toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "+ change date" }).click();
+    await expect(page.locator(".ant-picker").first()).toBeVisible({
+      timeout: 5000,
+    });
 
     // Click "+ note" link button → verify TextArea appears
-    await page.getByRole('button', { name: '+ note' }).click();
-    await expect(page.locator('textarea')).toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "+ note" }).click();
+    await expect(page.locator("textarea")).toBeVisible({ timeout: 5000 });
 
     // Click "+ number of hours slept" link button → verify InputNumber appears
-    await page.getByRole('button', { name: '+ number of hours slept' }).click();
-    await expect(page.locator('.ant-input-number')).toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "+ number of hours slept" }).click();
+    await expect(page.locator(".ant-input-number")).toBeVisible({
+      timeout: 5000,
+    });
 
     // Fill optional fields
-    await page.locator('textarea').fill('Feeling great today');
-    await page.locator('.ant-input-number-input').fill('8');
+    await page.locator("textarea").fill("Feeling great today");
+    await page.locator(".ant-input-number-input").fill("8");
 
     // Set up response listener and record
     const moodResp = page.waitForResponse(
-      (resp) => resp.url().includes('/moodTrackingEvents') && resp.request().method() === 'POST' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/moodTrackingEvents") &&
+        resp.request().method() === "POST" &&
+        resp.status() < 400,
     );
 
-    await page.getByRole('button', { name: 'Record your mood' }).click();
+    await page.getByRole("button", { name: "Record your mood" }).click();
     await moodResp;
 
     // Verify success
-    await expect(page.locator('.ant-message')).toContainText('mood has been recorded', { timeout: 10000 });
+    await expect(page.locator(".ant-message")).toContainText(
+      "mood has been recorded",
+      { timeout: 10000 },
+    );
   });
 });
 
-test.describe('Vault Reports', () => {
-  test('should render reports with data sections', async ({ page }) => {
-    await registerAndCreateVault(page, 'reports');
+test.describe("Vault Reports", () => {
+  test("should render reports with data sections", async ({ page }) => {
+    await registerAndCreateVault(page, "reports");
 
-    await page.getByText('Reports').click();
+    await page.getByText("Reports").click();
     await expect(page).toHaveURL(/\/reports/, { timeout: 10000 });
 
-    await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.ant-statistic').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.locator(".ant-statistic").first()).toBeVisible({
+      timeout: 10000,
+    });
 
-    await expect(page.getByText('Address Distribution')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Important Dates Overview')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Mood Trends')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Address Distribution")).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByText("Important Dates Overview")).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByText("Mood Trends")).toBeVisible({ timeout: 5000 });
   });
 });
 
-test.describe('Vault Reminders Page', () => {
-  test('should show reminders page with a created reminder', async ({ page }) => {
-    await registerAndCreateVault(page, 'vrem');
+test.describe("Vault Reminders Page", () => {
+  test("should show reminders page with a created reminder", async ({
+    page,
+  }) => {
+    await registerAndCreateVault(page, "vrem");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/contacts');
-    await page.waitForLoadState('networkidle');
-    await page.getByRole('button', { name: /add contact/i }).click();
-    await page.getByPlaceholder('First name').fill('ReminderTest');
-    await page.getByPlaceholder('Last name').fill('User');
-    await page.getByRole('button', { name: /create contact/i }).click();
+    await page.goto(vaultUrl + "/contacts");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: /add contact/i }).click();
+    await page.getByPlaceholder("First name").fill("ReminderTest");
+    await page.getByPlaceholder("Last name").fill("User");
+    await page.getByRole("button", { name: /create contact/i }).click();
     await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+$/, { timeout: 10000 });
-    await expect(page.getByText('ReminderTest User').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("ReminderTest User").first()).toBeVisible({
+      timeout: 10000,
+    });
 
-    await navigateToContactTab(page, 'Information', true);
+    await navigateToContactTab(page, "Information", true);
 
-    const remindersCard = page.locator('.ant-card').filter({ hasText: /Reminders/ });
+    const remindersCard = page
+      .locator(".ant-card")
+      .filter({ hasText: /Reminders/ });
     await expect(remindersCard).toBeVisible({ timeout: 10000 });
-    await remindersCard.getByRole('button', { name: /add/i }).click();
+    await remindersCard.getByRole("button", { name: /add/i }).click();
 
-    const modal = page.locator('.ant-modal').filter({ hasText: /reminder/i });
+    const modal = page.locator(".ant-modal").filter({ hasText: /reminder/i });
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    await modal.locator('input#label').fill('Test Vault Reminder');
+    await modal.locator("input#label").fill("Test Vault Reminder");
 
-    await modal.getByText('Month & day', { exact: true }).click();
+    await modal.getByText("Month & day", { exact: true }).click();
 
-    const compactSelects = modal.locator('.ant-space-compact .ant-select');
+    const compactSelects = modal.locator(".ant-space-compact .ant-select");
     await expect(compactSelects).toHaveCount(2, { timeout: 5000 });
 
     await compactSelects.nth(0).click();
-    await page.locator('.ant-select-dropdown').last().locator('.ant-select-item-option').first().click();
-    await modal.locator('.ant-modal-header').click();
+    await page
+      .locator(".ant-select-dropdown")
+      .last()
+      .locator(".ant-select-item-option")
+      .first()
+      .click();
+    await modal.locator(".ant-modal-header").click();
 
     await compactSelects.nth(1).click();
-    await page.locator('.ant-select-dropdown').last().locator('.ant-select-item-option').first().click();
-    await modal.locator('.ant-modal-header').click();
+    await page
+      .locator(".ant-select-dropdown")
+      .last()
+      .locator(".ant-select-item-option")
+      .first()
+      .click();
+    await modal.locator(".ant-modal-header").click();
 
-    const freqFormItem = modal.locator('.ant-form-item').filter({ hasText: /frequency/i });
-    await freqFormItem.locator('.ant-select').click();
-    await page.locator('.ant-select-dropdown').last().locator('.ant-select-item-option').filter({ hasText: /yearly/i }).click();
-    await modal.locator('.ant-modal-header').click();
+    const freqFormItem = modal
+      .locator(".ant-form-item")
+      .filter({ hasText: /frequency/i });
+    await freqFormItem.locator(".ant-select").click();
+    await page
+      .locator(".ant-select-dropdown")
+      .last()
+      .locator(".ant-select-item-option")
+      .filter({ hasText: /yearly/i })
+      .click();
+    await modal.locator(".ant-modal-header").click();
 
     const reminderResp = page.waitForResponse(
-      (resp) => resp.url().includes('/reminders') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/reminders") && resp.request().method() === "POST",
     );
-    await page.locator('.ant-modal-footer .ant-btn-primary').click();
+    await page.locator(".ant-modal-footer .ant-btn-primary").click();
     await reminderResp;
 
-    await expect(remindersCard.getByText('Test Vault Reminder')).toBeVisible({ timeout: 10000 });
+    await expect(remindersCard.getByText("Test Vault Reminder")).toBeVisible({
+      timeout: 10000,
+    });
 
-    await page.goto(vaultUrl + '/reminders');
+    await page.goto(vaultUrl + "/reminders");
     await expect(page).toHaveURL(/\/reminders$/, { timeout: 10000 });
     await expect(
-      page.getByRole('heading', { level: 4 }).filter({ hasText: 'All Reminders' })
+      page
+        .getByRole("heading", { level: 4 })
+        .filter({ hasText: "All Reminders" }),
     ).toBeVisible({ timeout: 10000 });
 
-    await expect(page.getByText('Test Vault Reminder')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('ReminderTest')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Test Vault Reminder")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByText("ReminderTest")).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
-test.describe('Vault Life Metrics', () => {
-  test('should create and delete a life metric', async ({ page }) => {
-    await registerAndCreateVault(page, 'vlm');
+test.describe("Vault Life Metrics", () => {
+  test("should create and delete a life metric", async ({ page }) => {
+    await registerAndCreateVault(page, "vlm");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/life-metrics');
+    await page.goto(vaultUrl + "/life-metrics");
     await expect(page).toHaveURL(/\/life-metrics$/, { timeout: 10000 });
     await expect(
-      page.getByRole('heading', { level: 4 }).filter({ hasText: 'Life Metrics' })
+      page
+        .getByRole("heading", { level: 4 })
+        .filter({ hasText: "Life Metrics" }),
     ).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('button', { name: /add metric/i }).click();
-    const modal = page.locator('.ant-modal').filter({ hasText: /add metric|life metric/i });
+    await page.getByRole("button", { name: /add metric/i }).click();
+    const modal = page
+      .locator(".ant-modal")
+      .filter({ hasText: /add metric|life metric/i });
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    await modal.locator('input#label').fill('Health Score');
+    await modal.locator("input#label").fill("Health Score");
 
     const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/lifeMetrics') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/lifeMetrics") &&
+        resp.request().method() === "POST",
     );
-    await modal.getByRole('button', { name: /ok/i }).click();
+    await modal.getByRole("button", { name: /ok/i }).click();
     await createResp;
 
-    await expect(page.getByText('Health Score')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Health Score")).toBeVisible({
+      timeout: 10000,
+    });
 
     await page.locator('[aria-label="delete"]').first().click();
     const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/lifeMetrics') && resp.request().method() === 'DELETE'
+      (resp) =>
+        resp.url().includes("/lifeMetrics") &&
+        resp.request().method() === "DELETE",
     );
-    await page.locator('.ant-modal-confirm').getByRole('button', { name: /delete|ok/i }).click();
+    await page
+      .locator(".ant-modal-confirm")
+      .getByRole("button", { name: /delete|ok/i })
+      .click();
     await deleteResp;
 
-    await expect(page.getByText('Health Score')).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Health Score")).not.toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
-test.describe('Journal CRUD', () => {
-  test('should create, edit, and delete a journal', async ({ page }) => {
-    await registerAndCreateVault(page, 'jcrud');
+test.describe("Journal CRUD", () => {
+  test("should create, edit, and delete a journal", async ({ page }) => {
+    await registerAndCreateVault(page, "jcrud");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/journals');
+    await page.goto(vaultUrl + "/journals");
     await expect(
-      page.getByRole('heading', { level: 4 }).filter({ hasText: 'Journals' })
+      page.getByRole("heading", { level: 4 }).filter({ hasText: "Journals" }),
     ).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('button', { name: /new journal/i }).click();
-    const modal = page.locator('.ant-modal').filter({ hasText: /new journal/i });
+    await page.getByRole("button", { name: /new journal/i }).click();
+    const modal = page
+      .locator(".ant-modal")
+      .filter({ hasText: /new journal/i });
     await expect(modal).toBeVisible({ timeout: 5000 });
-    await modal.locator('#name').fill('My CRUD Journal');
-    await modal.locator('#description').fill('A test journal');
+    await modal.locator("#name").fill("My CRUD Journal");
+    await modal.locator("#description").fill("A test journal");
 
     const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/journals') && resp.request().method() === 'POST' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/journals") &&
+        resp.request().method() === "POST" &&
+        resp.status() < 400,
     );
-    await modal.getByRole('button', { name: /ok/i }).click();
+    await modal.getByRole("button", { name: /ok/i }).click();
     await createResp;
     await expect(modal).not.toBeVisible({ timeout: 10000 });
 
-    await expect(page.getByText('My CRUD Journal')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("My CRUD Journal")).toBeVisible({
+      timeout: 10000,
+    });
 
-    await page.locator('.ant-list-item').filter({ hasText: 'My CRUD Journal' }).locator('.anticon-edit').click();
-    const editModal = page.locator('.ant-modal:visible');
+    await page
+      .locator(".ant-list-item")
+      .filter({ hasText: "My CRUD Journal" })
+      .locator(".anticon-edit")
+      .click();
+    const editModal = page.locator(".ant-modal:visible");
     await expect(editModal).toBeVisible({ timeout: 5000 });
-    await editModal.locator('#name').clear();
-    await editModal.locator('#name').fill('Renamed Journal');
+    await editModal.locator("#name").clear();
+    await editModal.locator("#name").fill("Renamed Journal");
 
     const updateResp = page.waitForResponse(
-      (resp) => resp.url().includes('/journals') && resp.request().method() === 'PUT' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/journals") &&
+        resp.request().method() === "PUT" &&
+        resp.status() < 400,
     );
-    await editModal.getByRole('button', { name: /ok/i }).click();
+    await editModal.getByRole("button", { name: /ok/i }).click();
     await updateResp;
 
-    await expect(page.getByText('Renamed Journal')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Renamed Journal")).toBeVisible({
+      timeout: 10000,
+    });
 
-    await page.locator('.ant-list-item').filter({ hasText: 'Renamed Journal' }).locator('.anticon-delete').click();
+    await page
+      .locator(".ant-list-item")
+      .filter({ hasText: "Renamed Journal" })
+      .locator(".anticon-delete")
+      .click();
     const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/journals') && resp.request().method() === 'DELETE' && resp.status() < 400
+      (resp) =>
+        resp.url().includes("/journals") &&
+        resp.request().method() === "DELETE" &&
+        resp.status() < 400,
     );
-    await page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click();
+    await page
+      .locator(".ant-popconfirm")
+      .getByRole("button", { name: /ok|yes/i })
+      .click();
     await deleteResp;
 
-    await expect(page.getByText('Renamed Journal')).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Renamed Journal")).not.toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
-test.describe('Journal Metrics', () => {
-  test('should add and remove a journal metric', async ({ page }) => {
-    await registerAndCreateVault(page, 'jmetric');
+test.describe("Journal Metrics", () => {
+  test("should add and remove a journal metric", async ({ page }) => {
+    await registerAndCreateVault(page, "jmetric");
     const vaultUrl = getVaultUrl(page);
 
-    await page.goto(vaultUrl + '/journals');
-    await page.getByRole('button', { name: /new journal/i }).click();
-    const modal = page.locator('.ant-modal').filter({ hasText: /new journal/i });
+    await page.goto(vaultUrl + "/journals");
+    await page.getByRole("button", { name: /new journal/i }).click();
+    const modal = page
+      .locator(".ant-modal")
+      .filter({ hasText: /new journal/i });
     await expect(modal).toBeVisible({ timeout: 5000 });
-    await modal.locator('#name').fill('Metric Test Journal');
-    await modal.getByRole('button', { name: /ok/i }).click();
+    await modal.locator("#name").fill("Metric Test Journal");
+    await modal.getByRole("button", { name: /ok/i }).click();
     await expect(modal).not.toBeVisible({ timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState("networkidle");
 
-    await page.getByText('Metric Test Journal').click();
+    await page.getByText("Metric Test Journal").click();
     await expect(page).toHaveURL(/\/journals\/\d+$/, { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState("networkidle");
 
-    const addMetricTag = page.locator('.ant-tag').filter({ hasText: /add metric/i });
+    const addMetricTag = page
+      .locator(".ant-tag")
+      .filter({ hasText: /add metric/i });
     await expect(addMetricTag).toBeVisible({ timeout: 10000 });
     await addMetricTag.click();
 
     const metricInput = page.locator('input[type="text"]').last();
     await expect(metricInput).toBeVisible({ timeout: 5000 });
-    await metricInput.fill('Productivity');
+    await metricInput.fill("Productivity");
 
     const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/metrics') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/metrics") && resp.request().method() === "POST",
     );
-    await metricInput.press('Enter');
+    await metricInput.press("Enter");
     await createResp;
 
-    const metricTag = page.locator('.ant-tag').filter({ hasText: 'Productivity' });
+    const metricTag = page
+      .locator(".ant-tag")
+      .filter({ hasText: "Productivity" });
     await expect(metricTag).toBeVisible({ timeout: 10000 });
 
     const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/metrics') && resp.request().method() === 'DELETE'
+      (resp) =>
+        resp.url().includes("/metrics") && resp.request().method() === "DELETE",
     );
-    await metricTag.locator('.anticon-close').click();
+    await metricTag.locator(".anticon-close").click();
     await deleteResp;
 
-    await expect(page.locator('.ant-tag').filter({ hasText: 'Productivity' })).not.toBeVisible({ timeout: 10000 });
+    await expect(
+      page.locator(".ant-tag").filter({ hasText: "Productivity" }),
+    ).not.toBeVisible({ timeout: 10000 });
   });
 });
 
-test.describe('Vault Reports - Overview Counts', () => {
-  test('reports page shows correct non-zero overview counts', async ({ page }) => {
+test.describe("Vault Reports - Overview Counts", () => {
+  test("reports page shows correct non-zero overview counts", async ({
+    page,
+  }) => {
     test.setTimeout(60000);
-    await registerAndCreateVault(page, 'rpt-counts');
+    await registerAndCreateVault(page, "rpt-counts");
     const vaultUrl = getVaultUrl(page);
 
     // Create first contact
-    await page.goto(vaultUrl + '/contacts');
-    await page.waitForLoadState('networkidle');
-    await page.getByRole('button', { name: /add contact/i }).click();
-    await page.getByPlaceholder('First name').fill('Report');
-    await page.getByPlaceholder('Last name').fill('One');
-    await page.getByRole('button', { name: /create contact/i }).click();
+    await page.goto(vaultUrl + "/contacts");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: /add contact/i }).click();
+    await page.getByPlaceholder("First name").fill("Report");
+    await page.getByPlaceholder("Last name").fill("One");
+    await page.getByRole("button", { name: /create contact/i }).click();
     await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+$/, { timeout: 10000 });
-    await expect(page.getByText('Report One').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Report One").first()).toBeVisible({
+      timeout: 10000,
+    });
 
     // Go back and create second contact
     await page.goto(vaultUrl);
-    await page.waitForLoadState('networkidle');
-    await page.goto(vaultUrl + '/contacts');
-    await page.waitForLoadState('networkidle');
-    await page.getByRole('button', { name: /add contact/i }).click();
-    await page.getByPlaceholder('First name').fill('Report');
-    await page.getByPlaceholder('Last name').fill('Two');
-    await page.getByRole('button', { name: /create contact/i }).click();
+    await page.waitForLoadState("networkidle");
+    await page.goto(vaultUrl + "/contacts");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: /add contact/i }).click();
+    await page.getByPlaceholder("First name").fill("Report");
+    await page.getByPlaceholder("Last name").fill("Two");
+    await page.getByRole("button", { name: /create contact/i }).click();
     await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+$/, { timeout: 10000 });
-    await expect(page.getByText('Report Two').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Report Two").first()).toBeVisible({
+      timeout: 10000,
+    });
 
     // Navigate to Contact information tab to add address
-    await navigateToContactTab(page, 'Contact information');
+    await navigateToContactTab(page, "Contact information");
 
-    const addressCard = page.locator('.ant-card').filter({ hasText: 'Addresses' });
+    const addressCard = page
+      .locator(".ant-card")
+      .filter({ hasText: "Addresses" });
     await expect(addressCard).toBeVisible({ timeout: 10000 });
-    await addressCard.getByRole('button', { name: /add/i }).click();
+    await addressCard.getByRole("button", { name: /add/i }).click();
 
-    const addrModal = page.locator('.ant-modal:visible');
+    const addrModal = page.locator(".ant-modal:visible");
     await expect(addrModal).toBeVisible({ timeout: 5000 });
 
     // Fill required address fields
-    await addrModal.locator('.ant-form-item').filter({ hasText: 'Address Line 1' }).locator('input').fill('123 Main St');
-    await addrModal.locator('.ant-form-item').filter({ hasText: 'City' }).locator('input').fill('Springfield');
-    await addrModal.locator('.ant-form-item').filter({ hasText: 'Country' }).locator('input').fill('United States');
+    await addrModal
+      .locator(".ant-form-item")
+      .filter({ hasText: "Address Line 1" })
+      .locator("input")
+      .fill("123 Main St");
+    await addrModal
+      .locator(".ant-form-item")
+      .filter({ hasText: "City" })
+      .locator("input")
+      .fill("Springfield");
+    await addrModal
+      .locator(".ant-form-item")
+      .filter({ hasText: "Country" })
+      .locator("input")
+      .fill("United States");
 
     const addrResp = page.waitForResponse(
-      (resp) => resp.url().includes('/addresses') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/addresses") && resp.request().method() === "POST",
     );
-    await addrModal.getByRole('button', { name: /ok/i }).click();
+    await addrModal.getByRole("button", { name: /ok/i }).click();
     const addrRespResult = await addrResp;
     expect(addrRespResult.status()).toBeLessThan(400);
 
     // Add an important date to the same contact (Contact information tab)
-    await navigateToContactTab(page, 'Contact information');
+    await navigateToContactTab(page, "Contact information");
 
-    const datesCard = page.locator('.ant-card').filter({ hasText: 'Important Dates' });
+    const datesCard = page
+      .locator(".ant-card")
+      .filter({ hasText: "Important Dates" });
     await expect(datesCard).toBeVisible({ timeout: 10000 });
 
-    await datesCard.getByRole('button', { name: /add/i }).click();
+    await datesCard.getByRole("button", { name: /add/i }).click();
 
-    const dateModal = page.locator('.ant-modal:visible');
+    const dateModal = page.locator(".ant-modal:visible");
     await expect(dateModal).toBeVisible({ timeout: 5000 });
 
     // Select "Birthdate" type first (auto-fills label)
-    const dateTypeSelect = dateModal.locator('.ant-form-item').filter({ hasText: 'Date Type' }).locator('.ant-select');
+    const dateTypeSelect = dateModal
+      .locator(".ant-form-item")
+      .filter({ hasText: "Date Type" })
+      .locator(".ant-select");
     await dateTypeSelect.click();
-    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: 'Birthdate' }).click();
+    await page
+      .locator(".ant-select-dropdown:visible .ant-select-item-option")
+      .filter({ hasText: "Birthdate" })
+      .click();
 
     // Close date-type dropdown by clicking modal header
-    await dateModal.locator('.ant-modal-header').click();
+    await dateModal.locator(".ant-modal-header").click();
 
-    const dateFormItem = dateModal.locator('.ant-form-item').filter({ hasText: 'Date' }).last();
-    const dateSelects = dateFormItem.locator('.ant-select');
+    const dateFormItem = dateModal
+      .locator(".ant-form-item")
+      .filter({ hasText: "Date" })
+      .last();
+    const dateSelects = dateFormItem.locator(".ant-select");
     await dateSelects.nth(1).click();
     // AntD keeps hidden portal dropdowns and virtualizes day options; use the latest portal and any rendered day.
-    await page.locator('.ant-select-dropdown').last().locator('.ant-select-item-option').nth(5).click();
+    await page
+      .locator(".ant-select-dropdown")
+      .last()
+      .locator(".ant-select-item-option")
+      .nth(5)
+      .click();
     await dateSelects.nth(2).click();
-    await page.locator('.ant-select-dropdown').last().locator('.ant-select-item-option').first().click();
-    await dateModal.locator('.ant-modal-header').click();
+    await page
+      .locator(".ant-select-dropdown")
+      .last()
+      .locator(".ant-select-item-option")
+      .first()
+      .click();
+    await dateModal.locator(".ant-modal-header").click();
 
     const dateResp = page.waitForResponse(
-      (resp) => resp.url().includes('/dates') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/dates") && resp.request().method() === "POST",
     );
-    await dateModal.getByRole('button', { name: /ok/i }).click();
+    await dateModal.getByRole("button", { name: /ok/i }).click();
     const dateRespResult = await dateResp;
     expect(dateRespResult.status()).toBeLessThan(400);
 
     // Navigate to the reports page
-    await page.goto(vaultUrl + '/reports');
-    await page.waitForLoadState('networkidle');
+    await page.goto(vaultUrl + "/reports");
+    await page.waitForLoadState("networkidle");
 
     // Verify the stats cards show correct counts
     // Total Contacts: 2
-    const totalContactsStat = page.locator('.ant-statistic').filter({ hasText: /Total Contacts/i });
+    const totalContactsStat = page
+      .locator(".ant-statistic")
+      .filter({ hasText: /Total Contacts/i });
     await expect(totalContactsStat).toBeVisible({ timeout: 10000 });
-    await expect(totalContactsStat.locator('.ant-statistic-content-value')).toHaveText('2', { timeout: 10000 });
+    await expect(
+      totalContactsStat.locator(".ant-statistic-content-value"),
+    ).toHaveText("2", { timeout: 10000 });
 
     // Total Addresses: 1
-    const totalAddressesStat = page.locator('.ant-statistic').filter({ hasText: /Total Addresses/i });
+    const totalAddressesStat = page
+      .locator(".ant-statistic")
+      .filter({ hasText: /Total Addresses/i });
     await expect(totalAddressesStat).toBeVisible({ timeout: 10000 });
-    await expect(totalAddressesStat.locator('.ant-statistic-content-value')).toHaveText('1', { timeout: 10000 });
+    await expect(
+      totalAddressesStat.locator(".ant-statistic-content-value"),
+    ).toHaveText("1", { timeout: 10000 });
 
     // Total Dates: at least 1
-    const totalDatesStat = page.locator('.ant-statistic').filter({ hasText: /Total Dates/i });
+    const totalDatesStat = page
+      .locator(".ant-statistic")
+      .filter({ hasText: /Total Dates/i });
     await expect(totalDatesStat).toBeVisible({ timeout: 10000 });
-    const datesValue = await totalDatesStat.locator('.ant-statistic-content-value').textContent();
+    const datesValue = await totalDatesStat
+      .locator(".ant-statistic-content-value")
+      .textContent();
     expect(Number(datesValue)).toBeGreaterThanOrEqual(1);
   });
 });
 
-test.describe('Vault Feed - Contact Names', () => {
-  test('vault feed displays contact name instead of UUID', async ({ page }) => {
-    await registerAndCreateVault(page, 'vfeed-name');
+test.describe("Vault Feed - Contact Names", () => {
+  test("vault feed displays contact name instead of UUID", async ({ page }) => {
+    await registerAndCreateVault(page, "vfeed-name");
     const vaultUrl = getVaultUrl(page);
 
     // Create a contact
-    await page.goto(vaultUrl + '/contacts');
-    await page.waitForLoadState('networkidle');
-    await page.getByRole('button', { name: /add contact/i }).click();
-    await page.getByPlaceholder('First name').fill('FeedName');
-    await page.getByPlaceholder('Last name').fill('Tester');
-    await page.getByRole('button', { name: /create contact/i }).click();
+    await page.goto(vaultUrl + "/contacts");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: /add contact/i }).click();
+    await page.getByPlaceholder("First name").fill("FeedName");
+    await page.getByPlaceholder("Last name").fill("Tester");
+    await page.getByRole("button", { name: /create contact/i }).click();
     await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+$/, { timeout: 10000 });
-    await expect(page.getByText('FeedName Tester').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("FeedName Tester").first()).toBeVisible({
+      timeout: 10000,
+    });
 
     // Create a note to generate a feed entry
-    await navigateToContactTab(page, 'Information', true);
+    await navigateToContactTab(page, "Information", true);
 
-    const notesCard = page.locator('.ant-card').filter({ hasText: /^Notes/ });
+    const notesCard = page.locator(".ant-card").filter({ hasText: /^Notes/ });
     await expect(notesCard).toBeVisible({ timeout: 10000 });
-    await notesCard.getByRole('button', { name: /add/i }).click();
+    await notesCard.getByRole("button", { name: /add/i }).click();
 
-    await notesCard.getByPlaceholder(/title/i).fill('Feed Test Note');
-    await notesCard.locator('textarea').fill('This note generates a feed entry');
+    await notesCard.getByPlaceholder(/title/i).fill("Feed Test Note");
+    await notesCard
+      .locator("textarea")
+      .fill("This note generates a feed entry");
 
     const noteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/notes') && resp.request().method() === 'POST'
+      (resp) =>
+        resp.url().includes("/notes") && resp.request().method() === "POST",
     );
-    await notesCard.getByRole('button', { name: /save/i }).click();
+    await notesCard.getByRole("button", { name: /save/i }).click();
     const resp = await noteResp;
     expect(resp.status()).toBeLessThan(400);
 
     // Navigate to vault feed page
-    await page.goto(vaultUrl + '/feed');
-    await page.waitForLoadState('networkidle');
+    await page.goto(vaultUrl + "/feed");
+    await page.waitForLoadState("networkidle");
 
     // Verify the feed shows the contact name, not a UUID pattern
-    await expect(page.getByText('FeedName Tester').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("FeedName Tester").first()).toBeVisible({
+      timeout: 15000,
+    });
 
     // Ensure no UUID pattern is displayed as a contact identifier in the feed list
-    const feedList = page.locator('.ant-list');
+    const feedList = page.locator(".ant-list");
     await expect(feedList).toBeVisible({ timeout: 10000 });
     const feedContent = await feedList.textContent();
     // Feed may contain UUIDs in URLs, but the visible contact name should be 'FeedName Tester'
-    expect(feedContent).toContain('FeedName Tester');
+    expect(feedContent).toContain("FeedName Tester");
   });
 });

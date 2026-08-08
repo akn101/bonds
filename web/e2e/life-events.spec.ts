@@ -126,7 +126,7 @@ async function createParticipantLifeEventViaAPI(
         life_event_type_id: typeId,
         primary_contact_id: contactId,
         title: "Shared Summer Trip",
-        start_date: "2026-06-20",
+        start_date: "2026-06-20T00:00:00Z",
         start_precision: "day",
         end_status: "none",
         calendar_type: "gregorian",
