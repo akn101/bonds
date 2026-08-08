@@ -23,7 +23,7 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/naiba/bonds' },
     ],
     footer: {
-      message: 'Released under the <a href="https://github.com/naiba/bonds/blob/main/LICENSE">BSL-1.1 License</a> (converts to AGPL-3.0 on 2030-02-17)',
+      message: 'Released under the <a href="https://github.com/naiba/bonds/blob/main/LICENSE">BSL-1.1 License</a> (each version converts to AGPL-3.0 four years after its first public release)',
       copyright: '© 2026 <a href="https://github.com/naiba">Naiba</a>',
     },
   },

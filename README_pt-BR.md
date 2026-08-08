@@ -219,8 +219,8 @@ Bonds é uma reescrita do zero inspirada pelo [Monica](https://github.com/monica
 - **Indivíduos**: Gratuito para qualquer uso não comercial.
 - **Organizações**: O uso comercial requer uma licença paga do Licenciante.
 - **Proibido**: Revender, sublicenciar ou oferecer como um serviço gerenciado/hospedado.
-- **Data de Mudança**: 31 de dezembro de 2030, converte automaticamente para [AGPL-3.0](LICENSE) (mesma do Monica original).
+- **Data de Mudança**: Cada versão é convertida automaticamente para [AGPL-3.0](LICENSE) no quarto aniversário de sua primeira distribuição pública.
 
-Após a Data de Mudança, o software se torna totalmente open source sob AGPL-3.0.
+Após sua Data de Mudança, cada versão se torna totalmente open source sob AGPL-3.0.
 
 Ao enviar código, documentação, traduções ou qualquer outra contribuição, você concorda com os [termos de contribuição](CONTRIBUTING.md), incluindo a renúncia de toda propriedade e outros direitos ou reivindicações sobre essa contribuição na extensão máxima permitida por lei.
