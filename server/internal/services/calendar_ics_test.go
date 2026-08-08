@@ -69,16 +69,10 @@ func TestExportVaultICS(t *testing.T) {
 		t.Fatalf("create task failed: %v", err)
 	}
 
-	timeline := &models.TimelineEvent{VaultID: vault.ID, StartedAt: time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)}
-	if err := db.Create(timeline).Error; err != nil {
-		t.Fatalf("create timeline event failed: %v", err)
-	}
-	summary := "Graduation"
+	start := time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)
 	if err := db.Create(&models.LifeEvent{
-		TimelineEventID: timeline.ID,
-		LifeEventTypeID: 0,
-		HappenedAt:      time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC),
-		Summary:         &summary,
+		VaultID: vault.ID, StartDate: &start, StartPrecision: "day",
+		EndStatus: "none", Title: "Graduation",
 	}).Error; err != nil {
 		t.Fatalf("create life event failed: %v", err)
 	}

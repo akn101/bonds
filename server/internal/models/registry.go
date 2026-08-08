@@ -65,8 +65,6 @@ func AllModels() []interface{} {
 
 		&LifeEventCategory{},
 		&LifeEventType{},
-		&TimelineEvent{},
-		&TimelineEventParticipant{},
 		&LifeEvent{},
 		&LifeEventParticipant{},
 

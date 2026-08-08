@@ -928,12 +928,6 @@ func (s *MonicaImportService) importLifeEvents(
 		return
 	}
 	now := time.Now()
-	teLabel := "Monica Import"
-	te := models.TimelineEvent{VaultID: vaultID, Label: &teLabel, StartedAt: now}
-	if err := tx.Create(&te).Error; err != nil {
-		return
-	}
-
 	for _, raw := range lifeRaws {
 		var ml MonicaLifeEvent
 		if err := json.Unmarshal(raw, &ml); err != nil {
@@ -957,11 +951,9 @@ func (s *MonicaImportService) importLifeEvents(
 			continue
 		}
 		le := models.LifeEvent{
-			TimelineEventID: te.ID,
-			LifeEventTypeID: let.ID,
-			HappenedAt:      happenedAt,
-			Summary:         strPtrOrNil(ml.Properties.Name),
-			Description:     strPtrOrNil(ml.Properties.Note),
+			VaultID: vaultID, LifeEventTypeID: &let.ID, StartDate: &happenedAt,
+			StartPrecision: "day", EndStatus: "none", Title: ml.Properties.Name,
+			Description: strPtrOrNil(ml.Properties.Note),
 		}
 		if t, ok := parseMonicaTimestamp(ml.CreatedAt); ok {
 			le.CreatedAt = t

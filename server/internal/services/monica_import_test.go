@@ -1296,8 +1296,8 @@ func TestMonicaImportLifeEvents(t *testing.T) {
 	if err := svc.DB.First(&le, participants[0].LifeEventID).Error; err != nil {
 		t.Fatalf("life event not found: %v", err)
 	}
-	if le.Summary == nil || *le.Summary != "Got promoted" {
-		t.Errorf("expected life event summary=Got promoted, got %v", le.Summary)
+	if le.Title != "Got promoted" {
+		t.Errorf("expected life event title=Got promoted, got %v", le.Title)
 	}
 }
 

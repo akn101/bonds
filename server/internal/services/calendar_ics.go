@@ -123,8 +123,7 @@ func (s *CalendarICSService) listVaultTasks(vaultID string, contactIDs []string)
 func (s *CalendarICSService) listVaultLifeEvents(vaultID string) ([]models.LifeEvent, error) {
 	var events []models.LifeEvent
 	if err := s.db.
-		Joins("JOIN timeline_events ON timeline_events.id = life_events.timeline_event_id").
-		Where("timeline_events.vault_id = ?", vaultID).
+		Where("life_events.vault_id = ?", vaultID).
 		Find(&events).Error; err != nil {
 		return nil, err
 	}
@@ -220,8 +219,8 @@ func icsLifeEventEvent(e *models.LifeEvent) *ical.Component {
 	event.Props.SetText(ical.PropUID, icsUID(nil, "life-event", e.ID))
 
 	summary := "Life event"
-	if e.Summary != nil && *e.Summary != "" {
-		summary = *e.Summary
+	if e.Title != "" {
+		summary = e.Title
 	}
 	event.Props.SetText(ical.PropSummary, summary)
 	event.Props.SetDateTime(ical.PropDateTimeStamp, e.UpdatedAt)
@@ -230,7 +229,12 @@ func icsLifeEventEvent(e *models.LifeEvent) *ical.Component {
 		event.Props.SetText(ical.PropDescription, *e.Description)
 	}
 
-	setDateValue(event, ical.PropDateTimeStart, e.HappenedAt.UTC())
+	if e.StartDate != nil {
+		setDateValue(event, ical.PropDateTimeStart, e.StartDate.UTC())
+	}
+	if e.EndStatus == "known" && e.EndDate != nil {
+		setDateValue(event, ical.PropDateTimeEnd, e.EndDate.UTC())
+	}
 	return event
 }
 

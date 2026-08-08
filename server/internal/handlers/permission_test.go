@@ -1856,8 +1856,8 @@ func TestViewerCannotCreateGoal(t *testing.T) {
 }
 
 func TestViewerCannotCreateLifeEvent(t *testing.T) {
-	ts, _, viewerToken, vaultID, contactID := setupViewerTest(t)
-	path := fmt.Sprintf("/api/vaults/%s/contacts/%s/timelineEvents", vaultID, contactID)
+	ts, _, viewerToken, vaultID, _ := setupViewerTest(t)
+	path := fmt.Sprintf("/api/vaults/%s/lifeEvents", vaultID)
 	rec := ts.doRequest(http.MethodPost, path, `{"label":"Hacked","started_at":"2024-01-01T00:00:00Z"}`, viewerToken)
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected 403 for Viewer creating life event, got %d: %s", rec.Code, rec.Body.String())
@@ -2630,18 +2630,23 @@ func TestCrossVaultGoalBlocked(t *testing.T) {
 	}
 }
 
-func TestCrossVaultTimelineEventBlocked(t *testing.T) {
+func TestCrossVaultLifeEventBlocked(t *testing.T) {
 	ts := setupTestServer(t)
 	token, _ := ts.registerTestUser(t, "xvault-timeline@example.com")
 	vault1 := ts.createTestVault(t, token, "Timeline Vault A")
-	contact1 := ts.createTestContact(t, token, vault1.ID, "TimelineContact")
+	contact1 := ts.createTestContact(t, token, vault1.ID, "LifeEventContact")
 	vault2 := ts.createTestVault(t, token, "Timeline Vault B")
+	var typeID uint
+	ts.db.Table("life_event_types").
+		Joins("JOIN life_event_categories ON life_event_categories.id = life_event_types.life_event_category_id").
+		Where("life_event_categories.vault_id = ?", vault2.ID).
+		Pluck("life_event_types.id", &typeID)
 
-	path := fmt.Sprintf("/api/vaults/%s/contacts/%s/timelineEvents", vault2.ID, contact1.ID)
-	body := `{"label":"Test Event","started_at":"2025-01-01T00:00:00Z"}`
+	path := fmt.Sprintf("/api/vaults/%s/lifeEvents", vault2.ID)
+	body := fmt.Sprintf(`{"life_event_type_id":%d,"primary_contact_id":%q,"title":"Test Event","start_date":"2025-01-01T00:00:00Z","start_precision":"day","end_status":"none"}`, typeID, contact1.ID)
 	rec := ts.doRequest(http.MethodPost, path, body, token)
 	if rec.Code != http.StatusNotFound {
-		t.Errorf("expected 404 for cross-vault timeline event create, got %d: %s", rec.Code, rec.Body.String())
+		t.Errorf("expected 404 for cross-vault life event create, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

@@ -69,7 +69,6 @@ type Contact struct {
 	Groups              []Group                `json:"groups,omitempty" gorm:"many2many:contact_group"`
 	Posts               []Post                 `json:"posts,omitempty" gorm:"many2many:contact_post"`
 	LifeEvents          []LifeEvent            `json:"life_events,omitempty" gorm:"many2many:life_event_participants"`
-	TimelineEvents      []TimelineEvent        `json:"timeline_events,omitempty" gorm:"many2many:timeline_event_participants"`
 	MoodTrackingEvents  []MoodTrackingEvent    `json:"mood_tracking_events,omitempty" gorm:"foreignKey:ContactID"`
 	Addresses           []Address              `json:"addresses,omitempty" gorm:"many2many:contact_address"`
 	QuickFacts          []QuickFact            `json:"quick_facts,omitempty" gorm:"foreignKey:ContactID"`

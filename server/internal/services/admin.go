@@ -341,15 +341,11 @@ func (s *AdminService) deleteVaultData(tx *gorm.DB, vaultID string) error {
 		return fmt.Errorf("delete journal metrics: %w", err)
 	}
 
-	timelineSubquery := tx.Model(&models.TimelineEvent{}).Select("id").Where("vault_id = ?", vaultID)
-	lifeEventSubquery := tx.Model(&models.LifeEvent{}).Select("id").Where("timeline_event_id IN (?)", timelineSubquery)
-	if err := tx.Where("timeline_event_id IN (?)", timelineSubquery).Delete(&models.TimelineEventParticipant{}).Error; err != nil {
-		return fmt.Errorf("delete timeline event participants: %w", err)
-	}
+	lifeEventSubquery := tx.Model(&models.LifeEvent{}).Select("id").Where("vault_id = ?", vaultID)
 	if err := tx.Where("life_event_id IN (?)", lifeEventSubquery).Delete(&models.LifeEventParticipant{}).Error; err != nil {
 		return fmt.Errorf("delete life event participants: %w", err)
 	}
-	if err := tx.Where("timeline_event_id IN (?)", timelineSubquery).Delete(&models.LifeEvent{}).Error; err != nil {
+	if err := tx.Where("vault_id = ?", vaultID).Delete(&models.LifeEvent{}).Error; err != nil {
 		return fmt.Errorf("delete life events: %w", err)
 	}
 
@@ -383,7 +379,6 @@ func (s *AdminService) deleteVaultData(tx *gorm.DB, vaultID string) error {
 		&models.Address{},
 		&models.Loan{},
 		&models.ContactTask{},
-		&models.TimelineEvent{},
 		&models.LifeMetric{},
 	}
 

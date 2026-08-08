@@ -170,7 +170,7 @@ func (s *VaultService) DeleteVault(vaultID string) error {
 //  2. Delete deepest children first: ContactReminderScheduled, Streaks, LifeEvents,
 //     PostMetrics, PostSections, PostTags, etc.
 //  3. Delete contact-level children: reminders, goals, notes, tasks, pivots, etc.
-//  4. Delete vault-level children: journals, timeline events, labels, etc.
+//  4. Delete vault-level children: journals, life events, labels, etc.
 //  5. Delete contacts themselves
 //  6. Delete the vault
 func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
@@ -255,7 +255,6 @@ func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
 			&models.ContactCompany{},
 			&models.ContactLifeMetric{},
 			&models.LifeEventParticipant{},
-			&models.TimelineEventParticipant{},
 			&models.ContactSubscriptionState{},
 		}
 		for _, m := range contactPivotModels {
@@ -331,7 +330,13 @@ func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
 		}
 	}
 
-	// LifeEventCategory cascade: LifeEvent → LifeEventType → LifeEventCategory
+	// LifeEventCategory cascade: LifeEvent participants → LifeEvent → LifeEventType → LifeEventCategory
+	if err := tx.Where("life_event_id IN (?)", tx.Model(&models.LifeEvent{}).Select("id").Where("vault_id = ?", vaultID)).Delete(&models.LifeEventParticipant{}).Error; err != nil {
+		return fmt.Errorf("delete LifeEventParticipant: %w", err)
+	}
+	if err := tx.Where("vault_id = ?", vaultID).Delete(&models.LifeEvent{}).Error; err != nil {
+		return fmt.Errorf("delete LifeEvent: %w", err)
+	}
 	var categoryIDs []uint
 	if err := tx.Model(&models.LifeEventCategory{}).Where("vault_id = ?", vaultID).Pluck("id", &categoryIDs).Error; err != nil {
 		return fmt.Errorf("pluck LifeEventCategory ids: %w", err)
@@ -351,23 +356,6 @@ func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
 		}
 		if err := tx.Where("id IN ?", categoryIDs).Delete(&models.LifeEventCategory{}).Error; err != nil {
 			return fmt.Errorf("delete LifeEventCategory: %w", err)
-		}
-	}
-
-	// TimelineEvent cascade: LifeEvent (by timeline_event_id) → TimelineEventParticipant → TimelineEvent
-	var timelineIDs []uint
-	if err := tx.Model(&models.TimelineEvent{}).Where("vault_id = ?", vaultID).Pluck("id", &timelineIDs).Error; err != nil {
-		return fmt.Errorf("pluck TimelineEvent ids: %w", err)
-	}
-	if len(timelineIDs) > 0 {
-		if err := tx.Where("timeline_event_id IN ?", timelineIDs).Delete(&models.LifeEvent{}).Error; err != nil {
-			return fmt.Errorf("delete LifeEvent by timeline_event_id: %w", err)
-		}
-		if err := tx.Where("timeline_event_id IN ?", timelineIDs).Delete(&models.TimelineEventParticipant{}).Error; err != nil {
-			return fmt.Errorf("delete TimelineEventParticipant: %w", err)
-		}
-		if err := tx.Where("id IN ?", timelineIDs).Delete(&models.TimelineEvent{}).Error; err != nil {
-			return fmt.Errorf("delete TimelineEvent: %w", err)
 		}
 	}
 

@@ -419,27 +419,24 @@ func TestMoveManyMovesFullTasksLoansAndStripsMixedPivots(t *testing.T) {
 	assertMoveCount(t, svc, &models.ContactLoan{}, "loan_id = ?", 0, mixedLoan.ID)
 }
 
-func TestMoveManyCleansLifeEventPivotsAndOrphanTimeline(t *testing.T) {
+func TestMoveManyCleansLifeEventPivotsAndOrphanEvent(t *testing.T) {
 	svc, contactID, vault1ID, vault2ID, userID := setupContactMoveTest(t)
 	lifeSvc := NewLifeEventService(svc.db)
 	typeID := getLifeEventTypeIDForMoveVault(t, svc, vault1ID)
-	created, err := lifeSvc.CreateDashboardLifeEvent(vault1ID, dto.CreateLifeEventRequest{
-		LifeEventTypeID: typeID,
-		HappenedAt:      time.Now(),
-		Summary:         "Move cleanup",
-		Participants:    []string{contactID},
+	started := time.Now()
+	created, err := lifeSvc.Create(vault1ID, dto.LifeEventUpsertRequest{
+		LifeEventTypeID: typeID, PrimaryContactID: contactID,
+		StartDate: &started, Title: "Move cleanup",
 	})
 	if err != nil {
-		t.Fatalf("CreateDashboardLifeEvent failed: %v", err)
+		t.Fatalf("Create life event failed: %v", err)
 	}
 
 	if _, err := svc.MoveMany([]string{contactID}, vault1ID, vault2ID, userID); err != nil {
 		t.Fatalf("MoveMany failed: %v", err)
 	}
 	assertMoveCount(t, svc, &models.LifeEventParticipant{}, "contact_id = ?", 0, contactID)
-	assertMoveCount(t, svc, &models.TimelineEventParticipant{}, "contact_id = ?", 0, contactID)
-	assertMoveCount(t, svc, &models.LifeEvent{}, "id = ?", 0, created.LifeEvents[0].ID)
-	assertMoveCount(t, svc, &models.TimelineEvent{}, "id = ?", 0, created.ID)
+	assertMoveCount(t, svc, &models.LifeEvent{}, "id = ?", 0, created.ID)
 }
 
 func TestMoveManyAllowsArchivedContacts(t *testing.T) {

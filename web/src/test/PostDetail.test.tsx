@@ -164,6 +164,7 @@ function mockLoadedPostQueries(
     last_name: "Person",
   },
   nameOrder = "%first_name% %last_name%",
+  content = `Hello @[Old Name](contact:${CONTACT_ID})`,
 ) {
   mockUseQuery.mockImplementation(
     (opts: {
@@ -194,7 +195,7 @@ function mockLoadedPostQueries(
               {
                 id: 2,
                 label: "Body",
-                content: `Hello @[Old Name](contact:${CONTACT_ID})`,
+                content,
                 position: 0,
               },
             ],
@@ -254,28 +255,20 @@ describe("PostDetail", () => {
     expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
   });
 
-  it("preselects post contacts and sends an explicit empty contact array after clearing them", async () => {
-    mockLoadedPostQueries();
+  it("normalizes a legacy contact association into an inline marker before saving", async () => {
+    mockLoadedPostQueries(undefined, undefined, "A legacy post");
     renderPostDetail();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /edit/i }));
-    expect(screen.getByText("Renamed Person")).toBeInTheDocument();
+    const body = screen.getByRole("textbox", { name: "Body" });
+    expect(body).toHaveValue(
+      `A legacy post @[Renamed Person](contact:${CONTACT_ID})`,
+    );
     const updateLastContacted = screen.getByRole("checkbox", {
       name: /update last contacted/i,
     });
     expect(updateLastContacted).not.toBeChecked();
-
-    const removeContact = document.querySelector(
-      ".ant-select-selection-item-remove",
-    );
-    expect(removeContact).not.toBeNull();
-    fireEvent.click(removeContact as Element);
-
-    await waitFor(() => {
-      expect(updateLastContacted).toBeDisabled();
-      expect(updateLastContacted).not.toBeChecked();
-    });
     await user.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => {
@@ -285,11 +278,11 @@ describe("PostDetail", () => {
         sections: [
           {
             label: "Body",
-            content: `Hello @[Old Name](contact:${CONTACT_ID})`,
+            content: `A legacy post @[Renamed Person](contact:${CONTACT_ID})`,
             position: 0,
           },
         ],
-        contact_ids: [],
+        contact_ids: [CONTACT_ID],
         update_last_contacted: false,
       });
     });

@@ -71,6 +71,7 @@ export default function ContactMentionText({
     ),
   );
   const content: ReactNode[] = [];
+  const renderedContactIds = new Set<string>();
   let textStart = 0;
 
   for (const mention of parseContactMentions(children)) {
@@ -83,13 +84,14 @@ export default function ContactMentionText({
       );
     }
     const contact = contactsById.get(mention.contactId.toLowerCase());
+    if (contact?.id) renderedContactIds.add(contact.id.toLowerCase());
     content.push(
       contact?.id ? (
         <ContactMentionLink
           key={`contact-${matchStart}`}
           vaultId={vaultId}
           contact={{ ...contact, id: contact.id }}
-          name={formatContactName(nameOrder, contact)}
+          name={contact.name || formatContactName(nameOrder, contact)}
         />
       ) : (
         <LinkifiedText key={`text-${matchStart}`}>
@@ -104,6 +106,23 @@ export default function ContactMentionText({
       <LinkifiedText key={`text-${textStart}`}>
         {children.slice(textStart)}
       </LinkifiedText>,
+    );
+  }
+  // Associations are authoritative. Legacy entries and partially edited text
+  // can contain an associated contact without an inline marker; keep those
+  // people visible and navigable instead of silently losing the relationship.
+  for (const contact of contacts) {
+    if (!contact.id || renderedContactIds.has(contact.id.toLowerCase()))
+      continue;
+    const name = contact.name || formatContactName(nameOrder, contact);
+    content.push(" ");
+    content.push(
+      <ContactMentionLink
+        key={`fallback-contact-${contact.id}`}
+        vaultId={vaultId}
+        contact={{ ...contact, id: contact.id }}
+        name={`@${name}`}
+      />,
     );
   }
   return <>{content}</>;

@@ -47,7 +47,7 @@ func (s *PostService) Create(journalID uint, vaultID string, req dto.CreatePostR
 	if err := validateJournalBelongsToVault(s.db, journalID, vaultID); err != nil {
 		return nil, err
 	}
-	contactIDs, err := validateAndDedupeContactIDs(req.ContactIDs)
+	contactIDs, err := validateAndDedupeContactIDs(postContactIDsFromSections(req.Sections, req.ContactIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -123,15 +123,16 @@ func (s *PostService) Update(id uint, journalID uint, vaultID string, req dto.Up
 		return nil, err
 	}
 	var contactIDs []string
-	if req.ContactIDs != nil {
+	associationsProvided := req.Sections != nil || req.ContactIDs != nil
+	if associationsProvided {
 		var err error
-		contactIDs, err = validateAndDedupeContactIDs(req.ContactIDs)
+		contactIDs, err = validateAndDedupeContactIDs(postContactIDsFromSections(req.Sections, req.ContactIDs))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	associationContactsNeedLocking := req.ContactIDs == nil && req.UpdateLastContacted
+	associationContactsNeedLocking := !associationsProvided && req.UpdateLastContacted
 	var associatedContactIDs []string
 	if associationContactsNeedLocking {
 		var err error
@@ -198,7 +199,7 @@ func (s *PostService) Update(id uint, journalID uint, vaultID string, req dto.Up
 					}
 				}
 			}
-			if req.ContactIDs != nil {
+			if associationsProvided {
 				if err := tx.Where("post_id = ?", id).Delete(&models.ContactPost{}).Error; err != nil {
 					return err
 				}
@@ -230,6 +231,20 @@ func (s *PostService) Update(id uint, journalID uint, vaultID string, req dto.Up
 		}
 	}
 	return nil, errPostContactAssociationsChanged
+}
+
+// postContactIDsFromSections makes stable inline markers authoritative. The
+// explicit IDs remain a fallback for older clients whose text predates inline
+// mentions, so upgrades do not silently discard existing associations.
+func postContactIDsFromSections(sections []dto.PostSectionInput, fallback []string) []string {
+	var markerIDs []string
+	for _, section := range sections {
+		markerIDs = append(markerIDs, contactMentionIDs(section.Content)...)
+	}
+	if len(markerIDs) > 0 {
+		return markerIDs
+	}
+	return fallback
 }
 
 func validateJournalBelongsToVault(db *gorm.DB, journalID uint, vaultID string) error {

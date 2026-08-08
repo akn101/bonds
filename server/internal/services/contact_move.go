@@ -584,52 +584,12 @@ func cloneFloat64Ptr(value *float64) *float64 {
 }
 
 func cleanMovedContactsFromLifeEvents(tx *gorm.DB, contactIDs []string) error {
-	timelineIDSet := make(map[uint]struct{})
-	var lifeParticipantTimelineIDs []uint
-	if err := tx.Model(&models.LifeEvent{}).
-		Joins("JOIN life_event_participants ON life_event_participants.life_event_id = life_events.id").
-		Where("life_event_participants.contact_id IN ?", contactIDs).
-		Pluck("DISTINCT life_events.timeline_event_id", &lifeParticipantTimelineIDs).Error; err != nil {
-		return err
-	}
-	for _, timelineID := range lifeParticipantTimelineIDs {
-		timelineIDSet[timelineID] = struct{}{}
-	}
-	var directParticipantTimelineIDs []uint
-	if err := tx.Model(&models.TimelineEventParticipant{}).
-		Where("contact_id IN ?", contactIDs).
-		Pluck("DISTINCT timeline_event_id", &directParticipantTimelineIDs).Error; err != nil {
-		return err
-	}
-	for _, timelineID := range directParticipantTimelineIDs {
-		timelineIDSet[timelineID] = struct{}{}
-	}
 	if err := tx.Where("contact_id IN ?", contactIDs).Delete(&models.LifeEventParticipant{}).Error; err != nil {
 		return err
 	}
-	if err := tx.Where("contact_id IN ?", contactIDs).Delete(&models.TimelineEventParticipant{}).Error; err != nil {
+	orphans := tx.Model(&models.LifeEventParticipant{}).Select("life_event_id")
+	if err := tx.Model(&models.LifeEvent{}).Where("id NOT IN (?)", orphans).Update("parent_id", nil).Error; err != nil {
 		return err
 	}
-	for timelineID := range timelineIDSet {
-		if err := tx.Where("timeline_event_id = ? AND id NOT IN (?)", timelineID, tx.Model(&models.LifeEventParticipant{}).Select("life_event_id")).Delete(&models.LifeEvent{}).Error; err != nil {
-			return err
-		}
-		var remaining int64
-		if err := tx.Model(&models.LifeEvent{}).Where("timeline_event_id = ?", timelineID).Count(&remaining).Error; err != nil {
-			return err
-		}
-		if remaining == 0 {
-			if err := tx.Where("timeline_event_id = ?", timelineID).Delete(&models.TimelineEventParticipant{}).Error; err != nil {
-				return err
-			}
-			if err := tx.Delete(&models.TimelineEvent{}, timelineID).Error; err != nil {
-				return err
-			}
-			continue
-		}
-		if err := syncTimelineParticipantsToLifeEvents(tx, timelineID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return tx.Where("id NOT IN (?)", orphans).Delete(&models.LifeEvent{}).Error
 }

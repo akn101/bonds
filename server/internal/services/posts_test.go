@@ -312,3 +312,18 @@ func TestPostUpdateWithContacts(t *testing.T) {
 		t.Errorf("Expected 0 contacts after clearing, got %d", len(updated2.Contacts))
 	}
 }
+
+func TestPostContactIDsFromSectionsPrefersInlineMentions(t *testing.T) {
+	markerID := "550e8400-e29b-41d4-a716-446655440000"
+	legacyID := "550e8400-e29b-41d4-a716-446655440001"
+	sections := []dto.PostSectionInput{{Content: "Dinner with @[Alice](contact:" + markerID + ")"}}
+
+	got := postContactIDsFromSections(sections, []string{legacyID})
+	if len(got) != 1 || got[0] != markerID {
+		t.Fatalf("inline marker must be authoritative, got %v", got)
+	}
+	got = postContactIDsFromSections([]dto.PostSectionInput{{Content: "Legacy text"}}, []string{legacyID})
+	if len(got) != 1 || got[0] != legacyID {
+		t.Fatalf("legacy explicit association must remain supported, got %v", got)
+	}
+}

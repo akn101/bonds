@@ -477,16 +477,6 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	goalRoutes.PUT("/:id/streaks", goalHandler.AddStreak, requireEditor)
 	goalRoutes.DELETE("/:id", goalHandler.Delete, requireEditor)
 
-	timelineRoutes := contactSub.Group("/timelineEvents")
-	timelineRoutes.GET("", lifeEventHandler.ListTimelineEvents)
-	timelineRoutes.POST("", lifeEventHandler.CreateTimelineEvent, requireEditor)
-	timelineRoutes.POST("/:id/lifeEvents", lifeEventHandler.AddLifeEvent, requireEditor)
-	timelineRoutes.PUT("/:id/lifeEvents/:lifeEventId", lifeEventHandler.UpdateLifeEvent, requireEditor)
-	timelineRoutes.PUT("/:id/toggle", lifeEventHandler.ToggleTimelineEvent, requireEditor)
-	timelineRoutes.PUT("/:id/lifeEvents/:lifeEventId/toggle", lifeEventHandler.ToggleLifeEvent, requireEditor)
-	timelineRoutes.DELETE("/:id", lifeEventHandler.DeleteTimelineEvent, requireEditor)
-	timelineRoutes.DELETE("/:id/lifeEvents/:lifeEventId", lifeEventHandler.DeleteLifeEvent, requireEditor)
-
 	moodRoutes := contactSub.Group("/moodTrackingEvents")
 	moodRoutes.POST("", moodTrackingHandler.Create, requireEditor)
 	moodRoutes.GET("", moodTrackingHandler.List)
@@ -622,10 +612,10 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	vaultScoped.POST("/lifeMetrics/:id/increment", lifeMetricHandler.Increment, requireEditor)
 	vaultScoped.GET("/lifeMetrics/:id/detail", lifeMetricHandler.GetDetail)
 
-	vaultScoped.GET("/dashboard/lifeEvents", lifeEventHandler.ListVaultTimelineEvents)
-	vaultScoped.POST("/dashboard/lifeEvents", lifeEventHandler.CreateDashboardLifeEvent, requireEditor)
-	vaultScoped.PUT("/dashboard/lifeEvents/:lifeEventId", lifeEventHandler.UpdateDashboardLifeEvent, requireEditor)
-	vaultScoped.DELETE("/dashboard/lifeEvents/:lifeEventId", lifeEventHandler.DeleteDashboardLifeEvent, requireEditor)
+	vaultScoped.GET("/lifeEvents", lifeEventHandler.List)
+	vaultScoped.POST("/lifeEvents", lifeEventHandler.Create, requireEditor)
+	vaultScoped.PUT("/lifeEvents/:id", lifeEventHandler.Update, requireEditor)
+	vaultScoped.DELETE("/lifeEvents/:id", lifeEventHandler.Delete, requireEditor)
 	vaultScoped.GET("/dashboard/catchUp", contactHandler.ListCatchUpPrompts)
 
 	vaultScoped.PUT("/defaultTab", vaultHandler.UpdateDefaultTab, requireEditor)

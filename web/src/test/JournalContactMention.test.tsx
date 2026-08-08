@@ -185,4 +185,19 @@ describe("ContactMentionText", () => {
       screen.queryByRole("link", { name: savedContactName }),
     ).not.toBeInTheDocument();
   });
+
+  it("appends an associated contact when legacy text has no matching marker", async () => {
+    const { container } = renderMentionText(
+      vi.fn(),
+      [{ id: CONTACT_ID, first_name: "Alice", last_name: "Example" }],
+      "A legacy journal entry.",
+    );
+
+    expect(container).toHaveTextContent(
+      "A legacy journal entry. @Alice Example",
+    );
+    expect(
+      await screen.findByRole("link", { name: "@Alice Example" }),
+    ).toHaveAttribute("href", `/vaults/v1/contacts/${CONTACT_ID}`);
+  });
 });

@@ -37,16 +37,16 @@ func TestMonicaImportIssue213_ResolvesLifeEventsFromSourceMetadata(t *testing.T)
 
 	bySummary := make(map[string]models.LifeEvent, len(lifeEvents))
 	for _, lifeEvent := range lifeEvents {
-		if lifeEvent.Summary == nil {
-			t.Fatal("imported life event has no summary")
+		if lifeEvent.Title == "" {
+			t.Fatal("imported life event has no title")
 		}
-		bySummary[*lifeEvent.Summary] = lifeEvent
+		bySummary[lifeEvent.Title] = lifeEvent
 	}
 
 	firstRelationship := bySummary["First relationship milestone"]
 	secondRelationship := bySummary["Second relationship milestone"]
-	if firstRelationship.LifeEventTypeID != secondRelationship.LifeEventTypeID {
-		t.Errorf("events sharing type new_relationship must reuse one type: got %d and %d", firstRelationship.LifeEventTypeID, secondRelationship.LifeEventTypeID)
+	if firstRelationship.LifeEventTypeID == nil || secondRelationship.LifeEventTypeID == nil || *firstRelationship.LifeEventTypeID != *secondRelationship.LifeEventTypeID {
+		t.Errorf("events sharing type new_relationship must reuse one type: got %v and %v", firstRelationship.LifeEventTypeID, secondRelationship.LifeEventTypeID)
 	}
 	if firstRelationship.LifeEventType.LabelTranslationKey == nil || *firstRelationship.LifeEventType.LabelTranslationKey != "new_relationship" {
 		t.Errorf("new relationship type translation key: want %q, got %v", "new_relationship", firstRelationship.LifeEventType.LabelTranslationKey)
@@ -78,8 +78,8 @@ func TestMonicaImportIssue213_ResolvesLifeEventsFromSourceMetadata(t *testing.T)
 
 	missingType := bySummary["Missing type reference"]
 	secondMissingType := bySummary["Second missing type reference"]
-	if missingType.LifeEventTypeID != secondMissingType.LifeEventTypeID {
-		t.Errorf("events sharing a missing source type reference must reuse one fallback type: got %d and %d", missingType.LifeEventTypeID, secondMissingType.LifeEventTypeID)
+	if missingType.LifeEventTypeID == nil || secondMissingType.LifeEventTypeID == nil || *missingType.LifeEventTypeID != *secondMissingType.LifeEventTypeID {
+		t.Errorf("events sharing a missing source type reference must reuse one fallback type: got %v and %v", missingType.LifeEventTypeID, secondMissingType.LifeEventTypeID)
 	}
 	if missingType.LifeEventType.Label == nil || *missingType.LifeEventType.Label != "Monica import" {
 		t.Errorf("fallback type label: want %q, got %v", "Monica import", missingType.LifeEventType.Label)

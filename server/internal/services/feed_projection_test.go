@@ -60,7 +60,7 @@ func TestFeedSourceProjectsStaticModulesForNonFileKinds(t *testing.T) {
 		{"call", "Call", "calls", func() uint { return createFeedProjectionCall(t, ctx) }},
 		{"task", "ContactTask", "tasks", func() uint { return createFeedProjectionTask(t, ctx) }},
 		{"address", "Address", "addresses", func() uint { return createFeedProjectionAddress(t, ctx) }},
-		{"life event", "TimelineEvent", "life_events", func() uint { return createFeedProjectionTimelineEvent(t, ctx) }},
+		{"life event", "LifeEvent", "life_events", func() uint { return createFeedProjectionLifeEvent(t, ctx) }},
 		{"loan", "Loan", "loans", func() uint { return createFeedProjectionLoan(t, ctx) }},
 		{"relationship", "Relationship", "relationships", func() uint { return createFeedProjectionRelationship(t, ctx, otherContact.ID) }},
 	}
@@ -260,14 +260,15 @@ func createFeedProjectionAddress(t *testing.T, ctx feedProjectionContext) uint {
 	return address.ID
 }
 
-func createFeedProjectionTimelineEvent(t *testing.T, ctx feedProjectionContext) uint {
+func createFeedProjectionLifeEvent(t *testing.T, ctx feedProjectionContext) uint {
 	t.Helper()
-	event := models.TimelineEvent{VaultID: ctx.vaultID, StartedAt: time.Now()}
+	start := time.Now()
+	event := models.LifeEvent{VaultID: ctx.vaultID, Title: "Life event", StartDate: &start, StartPrecision: "day", EndStatus: "none"}
 	if err := ctx.db.Create(&event).Error; err != nil {
-		t.Fatalf("create timeline event: %v", err)
+		t.Fatalf("create life event: %v", err)
 	}
-	if err := ctx.db.Create(&models.TimelineEventParticipant{TimelineEventID: event.ID, ContactID: ctx.contact.ID}).Error; err != nil {
-		t.Fatalf("create timeline participant: %v", err)
+	if err := ctx.db.Create(&models.LifeEventParticipant{LifeEventID: event.ID, ContactID: ctx.contact.ID}).Error; err != nil {
+		t.Fatalf("create life event participant: %v", err)
 	}
 	return event.ID
 }

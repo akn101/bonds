@@ -14,7 +14,7 @@ var feedSourceModules = map[string]string{
 	"Call":            "calls",
 	"ContactTask":     "tasks",
 	"Address":         "addresses",
-	"TimelineEvent":   "life_events",
+	"LifeEvent":       "life_events",
 	"Loan":            "loans",
 	"Relationship":    "relationships",
 }
@@ -38,8 +38,8 @@ func (s *FeedService) sourceAvailable(item models.ContactFeedItem) (*dto.FeedSou
 		query = query.Model(&models.ContactTask{}).Joins("JOIN task_contacts ON task_contacts.contact_task_id = contact_tasks.id").Where("contact_tasks.id = ? AND contact_tasks.vault_id = ? AND task_contacts.contact_id = ?", source.ID, item.VaultID, item.ContactID)
 	case "Address":
 		query = query.Model(&models.Address{}).Joins("JOIN contact_address ON contact_address.address_id = addresses.id").Where("addresses.id = ? AND addresses.vault_id = ? AND contact_address.contact_id = ?", source.ID, item.VaultID, item.ContactID)
-	case "TimelineEvent":
-		query = query.Model(&models.TimelineEvent{}).Where("timeline_events.id = ? AND timeline_events.vault_id = ? AND (EXISTS (SELECT 1 FROM timeline_event_participants WHERE timeline_event_participants.timeline_event_id = timeline_events.id AND timeline_event_participants.contact_id = ?) OR EXISTS (SELECT 1 FROM life_events JOIN life_event_participants ON life_event_participants.life_event_id = life_events.id WHERE life_events.timeline_event_id = timeline_events.id AND life_event_participants.contact_id = ?))", source.ID, item.VaultID, item.ContactID, item.ContactID)
+	case "LifeEvent":
+		query = query.Model(&models.LifeEvent{}).Where("life_events.id = ? AND life_events.vault_id = ? AND EXISTS (SELECT 1 FROM life_event_participants WHERE life_event_participants.life_event_id = life_events.id AND life_event_participants.contact_id = ?)", source.ID, item.VaultID, item.ContactID)
 	case "File":
 		return s.fileSourceAvailable(item, source)
 	case "Loan":

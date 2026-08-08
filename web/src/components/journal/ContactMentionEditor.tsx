@@ -13,7 +13,7 @@ type ContactMentionEditorProps = {
   readonly vaultId: string;
   readonly value: string;
   readonly onChange: (value: string) => void;
-  readonly onMentionSelect: (contact: JournalContactReference) => void;
+  readonly onMentionSelect?: (contact: JournalContactReference) => void;
   readonly ariaLabel: string;
   readonly placeholder: string;
   readonly rows?: number;
@@ -83,7 +83,7 @@ export default function ContactMentionEditor({
             (candidate) =>
               serializeContactMention(candidate).optionValue === option.value,
           );
-          if (contact) onMentionSelect(contact);
+          if (contact) onMentionSelect?.(contact);
         }}
         options={options}
         filterOption={false}

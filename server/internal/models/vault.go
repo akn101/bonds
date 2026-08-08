@@ -40,7 +40,6 @@ type Vault struct {
 	Files                     []File                     `json:"files,omitempty" gorm:"foreignKey:VaultID"`
 	MoodTrackingParameters    []MoodTrackingParameter    `json:"mood_tracking_parameters,omitempty" gorm:"foreignKey:VaultID"`
 	LifeEventCategories       []LifeEventCategory        `json:"life_event_categories,omitempty" gorm:"foreignKey:VaultID"`
-	TimelineEvents            []TimelineEvent            `json:"timeline_events,omitempty" gorm:"foreignKey:VaultID"`
 	Addresses                 []Address                  `json:"addresses,omitempty" gorm:"foreignKey:VaultID"`
 	QuickFactsTemplateEntries []VaultQuickFactsTemplate  `json:"quick_facts_template_entries,omitempty" gorm:"foreignKey:VaultID"`
 	LifeMetrics               []LifeMetric               `json:"life_metrics,omitempty" gorm:"foreignKey:VaultID"`

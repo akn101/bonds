@@ -427,7 +427,6 @@ func TestDeleteVault_CleanupCompleteness(t *testing.T) {
 		{"Note", &models.Note{}},
 		{"ContactTask", &models.ContactTask{}},
 		{"Journal", &models.Journal{}},
-		{"TimelineEvent", &models.TimelineEvent{}},
 		{"ContactVaultUser", &models.ContactVaultUser{}},
 		{"UserVault", &models.UserVault{}},
 	}

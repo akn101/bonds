@@ -19,6 +19,7 @@ import {
   Segmented,
   Image,
   Space,
+  Checkbox,
 } from "antd";
 import {
   PlusOutlined,
@@ -47,9 +48,8 @@ import LinkifiedText from "@/components/LinkifiedText";
 import { buildCalendarAwareValue } from "@/components/calendarAwareDateValue";
 import type { CalendarAwareDateValue } from "@/components/calendarAwareDateValue";
 import ContactMentionEditor from "@/components/journal/ContactMentionEditor";
-import ContactAssociationSelector from "@/components/journal/ContactAssociationSelector";
 import PostContactTags from "@/components/journal/PostContactTags";
-import type { JournalContactReference } from "@/components/journal/contactMentionTypes";
+import { contactIdsFromMentions } from "@/components/journal/contactMentionSerialization";
 
 const { Title, Text } = Typography;
 
@@ -71,9 +71,6 @@ export default function JournalDetail() {
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
   const [postBody, setPostBody] = useState("");
-  const [postContacts, setPostContacts] = useState<JournalContactReference[]>(
-    [],
-  );
   const [updateLastContacted, setUpdateLastContacted] = useState(false);
   const postDraftRevisionRef = useRef(0);
   const advancePostDraftRevision = () => {
@@ -342,7 +339,6 @@ export default function JournalDetail() {
       setOpen(false);
       form.resetFields();
       setPostBody("");
-      setPostContacts([]);
       setUpdateLastContacted(false);
     },
     onError: (e: APIError) => message.error(e.message),
@@ -623,7 +619,6 @@ export default function JournalDetail() {
             onClick={() => {
               advancePostDraftRevision();
               setPostBody("");
-              setPostContacts([]);
               setUpdateLastContacted(false);
               setOpen(true);
             }}
@@ -812,7 +807,6 @@ export default function JournalDetail() {
           setOpen(false);
           form.resetFields();
           setPostBody("");
-          setPostContacts([]);
           setUpdateLastContacted(false);
         }}
         onOk={() => form.submit()}
@@ -839,7 +833,7 @@ export default function JournalDetail() {
                     position: 0,
                   },
                 ],
-                contact_ids: postContacts.map((contact) => contact.id),
+                contact_ids: contactIdsFromMentions(postBody),
                 update_last_contacted: updateLastContacted,
               },
             })
@@ -876,33 +870,21 @@ export default function JournalDetail() {
                 advancePostDraftRevision();
                 setPostBody(value);
               }}
-              onMentionSelect={(contact) => {
-                advancePostDraftRevision();
-                setPostContacts((current) =>
-                  current.some((selected) => selected.id === contact.id)
-                    ? current
-                    : [...current, contact],
-                );
-              }}
               ariaLabel={t("vault.journal_mentions.body_label")}
               placeholder={t("vault.journal_mentions.body_placeholder")}
               showHint
             />
           </Form.Item>
-          <Form.Item label={t("vault.journal_mentions.contacts_label")}>
-            <ContactAssociationSelector
-              vaultId={vaultId}
-              contacts={postContacts}
-              updateLastContacted={updateLastContacted}
-              onContactsChange={(contacts) => {
+          <Form.Item>
+            <Checkbox
+              checked={updateLastContacted}
+              onChange={(event) => {
                 advancePostDraftRevision();
-                setPostContacts(contacts);
+                setUpdateLastContacted(event.target.checked);
               }}
-              onUpdateLastContactedChange={(checked) => {
-                advancePostDraftRevision();
-                setUpdateLastContacted(checked);
-              }}
-            />
+            >
+              {t("vault.journal_mentions.update_last_contacted")}
+            </Checkbox>
           </Form.Item>
         </Form>
       </Modal>

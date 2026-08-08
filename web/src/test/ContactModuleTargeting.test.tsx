@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import NotesModule from "@/pages/contact/modules/NotesModule";
 import TasksModule from "@/pages/contact/modules/TasksModule";
-import LifeEventsModule from "@/pages/contact/modules/LifeEventsModule";
 import CallsModule from "@/pages/contact/modules/CallsModule";
 import PhotosModule from "@/pages/contact/modules/PhotosModule";
 import DocumentsModule from "@/pages/contact/modules/DocumentsModule";
@@ -36,16 +35,7 @@ vi.mock("@/api", () => ({
       contactsTasksToggleUpdate: vi.fn(),
       contactsTasksDelete: vi.fn(),
     },
-    lifeEvents: {
-      contactsTimelineEventsList: vi.fn(),
-      contactsTimelineEventsCreate: vi.fn(),
-      contactsTimelineEventsDelete: vi.fn(),
-      contactsTimelineEventsToggleUpdate: vi.fn(),
-      contactsTimelineEventsLifeEventsCreate: vi.fn(),
-      contactsTimelineEventsLifeEventsUpdate: vi.fn(),
-      contactsTimelineEventsLifeEventsDelete: vi.fn(),
-      contactsTimelineEventsLifeEventsToggleUpdate: vi.fn(),
-    },
+    lifeEvents: {},
     calls: {
       contactsCallsList: vi.fn(),
       contactsCallsCreate: vi.fn(),
@@ -202,74 +192,6 @@ describe("contact module source targeting", () => {
       document.querySelector('[data-source-record="ContactTask:7"]'),
     ).toBeInTheDocument();
     expect(api.tasks.contactsTasksCompletedList).toHaveBeenCalledTimes(1);
-  });
-
-  it("matches the outer TimelineEvent id, loads later pages, and expands the target", async () => {
-    vi.mocked(api.lifeEvents.contactsTimelineEventsList).mockImplementation(
-      async (_vaultId, _contactId, params) => {
-        if (params?.page === 2) {
-          return {
-            data: [
-              {
-                id: 22,
-                label: "Target timeline",
-                started_at: "2026-02-01T00:00:00Z",
-                life_events: [
-                  {
-                    id: 220,
-                    summary: "Nested life event",
-                    happened_at: "2026-02-02T00:00:00Z",
-                  },
-                ],
-              },
-            ],
-            meta: { page: 2, per_page: 15, total: 2, total_pages: 2 },
-          };
-        }
-        return {
-          data: [
-            {
-              id: 11,
-              label: "First timeline",
-              started_at: "2026-01-01T00:00:00Z",
-              life_events: [],
-            },
-          ],
-          meta: { page: 1, per_page: 15, total: 2, total_pages: 2 },
-        };
-      },
-    );
-
-    renderModule(
-      <LifeEventsModule
-        vaultId="v1"
-        contactId="c1"
-        target={{ id: 22, kind: "TimelineEvent", module: "life_events" }}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(api.lifeEvents.contactsTimelineEventsList).toHaveBeenCalledWith(
-        "v1",
-        "c1",
-        { page: 2, per_page: 15 },
-      );
-    });
-    const markedTimeline = await waitFor(() => {
-      const record = document.querySelector(
-        '[data-source-record="TimelineEvent:22"]',
-      );
-      expect(record).toBeInTheDocument();
-      return record;
-    });
-    expect(markedTimeline).toHaveTextContent("Target timeline");
-    expect(await screen.findByText("Nested life event")).toBeVisible();
-    expect(markedTimeline?.closest(".ant-collapse-item")).toHaveClass(
-      "ant-collapse-item-active",
-    );
-    expect(
-      document.querySelector('[data-source-record="TimelineEvent:220"]'),
-    ).not.toBeInTheDocument();
   });
 
   it("loads call pages sequentially until the target is available", async () => {

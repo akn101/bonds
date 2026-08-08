@@ -6,6 +6,8 @@ import { App as AntApp, ConfigProvider } from "antd";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ContactMentionEditor from "@/components/journal/ContactMentionEditor";
 import {
+  appendMissingContactMentions,
+  contactIdsFromMentions,
   parseContactMentions,
   serializeContactMention,
 } from "@/components/journal/contactMentionSerialization";
@@ -114,5 +116,14 @@ describe("journal contact mention serialization", () => {
     expect(parseContactMentions(serializedMention.marker)[0]?.displayName).toBe(
       "Research Line Break Team",
     );
+  });
+
+  it("normalizes legacy associations into stable inline markers without duplicates", () => {
+    const alice = { id: CONTACT_ID, name: "Alice" };
+    const normalized = appendMissingContactMentions("Dinner together", [alice]);
+
+    expect(normalized).toBe(`Dinner together @[Alice](contact:${CONTACT_ID})`);
+    expect(appendMissingContactMentions(normalized, [alice])).toBe(normalized);
+    expect(contactIdsFromMentions(normalized)).toEqual([CONTACT_ID]);
   });
 });

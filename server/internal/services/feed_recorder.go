@@ -83,7 +83,7 @@ func validateFeedActionSource(action string, feedableID *uint, feedableType *str
 		ActionTaskCreated:       "ContactTask",
 		ActionTaskCompleted:     "ContactTask",
 		ActionAddressAdded:      "Address",
-		ActionLifeEventCreated:  "TimelineEvent",
+		ActionLifeEventCreated:  "LifeEvent",
 		ActionFileUploaded:      "File",
 		ActionLoanCreated:       "Loan",
 		ActionRelationshipAdded: "Relationship",

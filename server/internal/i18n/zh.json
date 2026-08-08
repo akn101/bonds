@@ -136,15 +136,12 @@
   "err.failed_to_add_streak": "添加连续记录失败",
   "err.failed_to_delete_goal": "删除目标失败",
 
-  "err.failed_to_list_timeline_events": "获取时间线事件列表失败",
-  "err.failed_to_create_timeline_event": "创建时间线事件失败",
-  "err.invalid_timeline_event_id": "无效的时间线事件ID",
-  "err.timeline_event_not_found": "时间线事件未找到",
   "err.failed_to_add_life_event": "添加人生事件失败",
+  "err.failed_to_list_life_events": "获取人生事件列表失败",
+  "err.invalid_life_event_time": "人生事件时间无效",
   "err.invalid_life_event_id": "无效的人生事件ID",
   "err.life_event_not_found": "人生事件未找到",
   "err.failed_to_update_life_event": "更新人生事件失败",
-  "err.failed_to_delete_timeline_event": "删除时间线事件失败",
   "err.failed_to_delete_life_event": "删除人生事件失败",
 
   "err.failed_to_create_mood_tracking_event": "创建心情追踪事件失败",

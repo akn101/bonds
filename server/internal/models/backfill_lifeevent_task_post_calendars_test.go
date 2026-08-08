@@ -35,7 +35,8 @@ func TestBackfillLifeEventTaskPostCalendarTypes(t *testing.T) {
 	db := setupLifeEventTaskPostDB(t)
 
 	now := time.Now()
-	legacyLifeEvent := LifeEvent{TimelineEventID: 1, LifeEventTypeID: 1, HappenedAt: now}
+	typeID := uint(1)
+	legacyLifeEvent := LifeEvent{VaultID: "v1", LifeEventTypeID: &typeID, StartDate: &now, Title: "Legacy"}
 	legacyTask := ContactTask{VaultID: "v1", AuthorName: "a", Label: "l", DueAt: &now}
 	legacyPost := Post{JournalID: 1, WrittenAt: now}
 	if err := db.Create(&legacyLifeEvent).Error; err != nil {
@@ -106,7 +107,7 @@ func TestBackfillPreservesNonGregorianRows(t *testing.T) {
 	now := time.Now()
 	d, m, y := 15, 8, 2026
 	lunarEvent := LifeEvent{
-		TimelineEventID: 1, LifeEventTypeID: 1, HappenedAt: now,
+		VaultID: "v1", LifeEventTypeID: func() *uint { value := uint(1); return &value }(), StartDate: &now, Title: "Lunar",
 		CalendarType: "lunar", OriginalDay: &d, OriginalMonth: &m, OriginalYear: &y,
 	}
 	if err := db.Create(&lunarEvent).Error; err != nil {

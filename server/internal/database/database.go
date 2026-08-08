@@ -53,6 +53,9 @@ func Connect(cfg *config.DatabaseConfig, debug bool) (*gorm.DB, error) {
 
 func AutoMigrate(db *gorm.DB) error {
 	existingSQLiteSchema := db.Dialector.Name() == "sqlite" && db.Migrator().HasTable(&models.Account{})
+	if err := migrateLegacyTimelineLifeEvents(db); err != nil {
+		return err
+	}
 	if err := migrateLegacyContactTasks(db); err != nil {
 		return err
 	}
@@ -86,7 +89,6 @@ type participantPivotMigration struct {
 
 func migrateLegacyLifeEventParticipantPivots(db *gorm.DB) error {
 	migrations := []participantPivotMigration{
-		{tableName: "timeline_event_participants", entityColumn: "timeline_event_id", model: &models.TimelineEventParticipant{}},
 		{tableName: "life_event_participants", entityColumn: "life_event_id", model: &models.LifeEventParticipant{}},
 	}
 	for _, migration := range migrations {

@@ -136,15 +136,12 @@
   "err.failed_to_add_streak": "Failed to add streak",
   "err.failed_to_delete_goal": "Failed to delete goal",
 
-  "err.failed_to_list_timeline_events": "Failed to list timeline events",
-  "err.failed_to_create_timeline_event": "Failed to create timeline event",
-  "err.invalid_timeline_event_id": "Invalid timeline event ID",
-  "err.timeline_event_not_found": "Timeline event not found",
   "err.failed_to_add_life_event": "Failed to add life event",
+  "err.failed_to_list_life_events": "Failed to list life events",
+  "err.invalid_life_event_time": "Invalid life event time",
   "err.invalid_life_event_id": "Invalid life event ID",
   "err.life_event_not_found": "Life event not found",
   "err.failed_to_update_life_event": "Failed to update life event",
-  "err.failed_to_delete_timeline_event": "Failed to delete timeline event",
   "err.failed_to_delete_life_event": "Failed to delete life event",
 
   "err.failed_to_create_mood_tracking_event": "Failed to create mood tracking event",

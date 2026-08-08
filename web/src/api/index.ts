@@ -308,8 +308,7 @@ httpClient.instance.interceptors.response.use(
       }
     }
     const apiError = error.response?.data as
-      | GithubComNaibaBondsPkgResponseAPIResponse
-      | undefined;
+      GithubComNaibaBondsPkgResponseAPIResponse | undefined;
     return Promise.reject(
       apiError?.error ?? { code: "NETWORK_ERROR", message: error.message },
     );
@@ -449,7 +448,6 @@ export type { GithubComNaibaBondsInternalDtoRelationshipResponse as Relationship
 export type { GithubComNaibaBondsInternalDtoRelationshipTypeWithGroupResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCrossVaultContactItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoGoalResponse as Goal } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoTimelineEventResponse as TimelineEvent } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoLifeEventResponse as LifeEvent } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoQuickFactResponse as QuickFact } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoQuickFactGroupResponse as QuickFactGroup } from "./generated/data-contracts";

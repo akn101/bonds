@@ -10,436 +10,120 @@ import (
 	"github.com/naiba/bonds/pkg/response"
 )
 
-type LifeEventHandler struct {
-	lifeEventService *services.LifeEventService
+type LifeEventHandler struct{ lifeEventService *services.LifeEventService }
+
+func NewLifeEventHandler(service *services.LifeEventService) *LifeEventHandler {
+	return &LifeEventHandler{lifeEventService: service}
 }
 
-func NewLifeEventHandler(lifeEventService *services.LifeEventService) *LifeEventHandler {
-	return &LifeEventHandler{lifeEventService: lifeEventService}
-}
-
-// ListVaultTimelineEvents godoc
+// List godoc
 //
-//	@Summary		List vault-level timeline events
-//	@Description	Return paginated timeline events for the entire vault (dashboard view)
-//	@Tags			life-events
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string	true	"Vault ID"
-//	@Param			page		query		integer	false	"Page number"
-//	@Param			per_page	query		integer	false	"Items per page"
-//	@Success		200			{object}	response.APIResponse{data=[]dto.TimelineEventResponse}
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/dashboard/lifeEvents [get]
-func (h *LifeEventHandler) ListVaultTimelineEvents(c echo.Context) error {
-	vaultID := c.Param("vault_id")
+//	@Summary List life events
+//	@Tags life-events
+//	@Produce json
+//	@Security BearerAuth
+//	@Param vault_id path string true "Vault ID"
+//	@Param contact_id query string false "Contact ID"
+//	@Param page query integer false "Page"
+//	@Param per_page query integer false "Items per page"
+//	@Success 200 {object} response.APIResponse{data=[]dto.LifeEventResponse}
+//	@Router /vaults/{vault_id}/lifeEvents [get]
+func (h *LifeEventHandler) List(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
-
-	events, meta, err := h.lifeEventService.ListVaultTimelineEvents(vaultID, page, perPage)
-	if err != nil {
-		return response.InternalError(c, "err.failed_to_list_timeline_events")
-	}
-	return response.Paginated(c, events, meta)
-}
-
-// CreateDashboardLifeEvent godoc
-//
-//	@Summary		Create a dashboard life event
-//	@Description	Create a vault-scoped dashboard timeline event with one life event
-//	@Tags			life-events
-//	@Accept			json
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string						true	"Vault ID"
-//	@Param			request		body		dto.CreateLifeEventRequest	true	"Life event details"
-//	@Success		201			{object}	response.APIResponse{data=dto.TimelineEventResponse}
-//	@Failure		400			{object}	response.APIResponse
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/dashboard/lifeEvents [post]
-func (h *LifeEventHandler) CreateDashboardLifeEvent(c echo.Context) error {
-	vaultID := c.Param("vault_id")
-	var req dto.CreateLifeEventRequest
-	if err := c.Bind(&req); err != nil {
-		return response.BadRequest(c, "err.invalid_request_body", nil)
-	}
-	event, err := h.lifeEventService.CreateDashboardLifeEvent(vaultID, req)
+	items, meta, err := h.lifeEventService.List(c.Param("vault_id"), c.QueryParam("contact_id"), page, perPage)
 	if err != nil {
 		if errors.Is(err, services.ErrContactNotFound) {
 			return response.NotFound(c, "err.contact_not_found")
 		}
-		if errors.Is(err, services.ErrLifeEventNotFound) {
-			return response.NotFound(c, "err.life_event_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_create_life_event")
+		return response.InternalError(c, "err.failed_to_list_life_events")
 	}
-	return response.Created(c, event)
+	return response.Paginated(c, items, meta)
 }
 
-// UpdateDashboardLifeEvent godoc
+// Create godoc
 //
-//	@Summary		Update a dashboard life event
-//	@Description	Update a vault-scoped dashboard life event
-//	@Tags			life-events
-//	@Accept			json
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id		path		string						true	"Vault ID"
-//	@Param			lifeEventId		path		integer						true	"Life Event ID"
-//	@Param			request			body		dto.UpdateLifeEventRequest	true	"Life event details"
-//	@Success		200				{object}	response.APIResponse{data=dto.LifeEventResponse}
-//	@Failure		400				{object}	response.APIResponse
-//	@Failure		401				{object}	response.APIResponse
-//	@Failure		404				{object}	response.APIResponse
-//	@Failure		500				{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/dashboard/lifeEvents/{lifeEventId} [put]
-func (h *LifeEventHandler) UpdateDashboardLifeEvent(c echo.Context) error {
-	vaultID := c.Param("vault_id")
-	lifeEventID, err := strconv.ParseUint(c.Param("lifeEventId"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_life_event_id", nil)
-	}
-	var req dto.UpdateLifeEventRequest
+//	@Summary Create a life event
+//	@Tags life-events
+//	@Accept json
+//	@Produce json
+//	@Security BearerAuth
+//	@Param vault_id path string true "Vault ID"
+//	@Param request body dto.LifeEventUpsertRequest true "Life event"
+//	@Success 201 {object} response.APIResponse{data=dto.LifeEventResponse}
+//	@Router /vaults/{vault_id}/lifeEvents [post]
+func (h *LifeEventHandler) Create(c echo.Context) error {
+	var req dto.LifeEventUpsertRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
-	event, err := h.lifeEventService.UpdateDashboardLifeEvent(vaultID, uint(lifeEventID), req)
+	item, err := h.lifeEventService.Create(c.Param("vault_id"), req)
 	if err != nil {
-		if errors.Is(err, services.ErrLifeEventNotFound) {
-			return response.NotFound(c, "err.life_event_not_found")
-		}
-		if errors.Is(err, services.ErrContactNotFound) {
-			return response.NotFound(c, "err.contact_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_update_life_event")
+		return lifeEventError(c, err, "err.failed_to_create_life_event")
 	}
-	return response.OK(c, event)
+	return response.Created(c, item)
 }
 
-// DeleteDashboardLifeEvent godoc
+// Update godoc
 //
-//	@Summary		Delete a dashboard life event
-//	@Description	Delete a vault-scoped dashboard life event and remove an empty parent timeline
-//	@Tags			life-events
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string	true	"Vault ID"
-//	@Param			lifeEventId	path		integer	true	"Life Event ID"
-//	@Success		204			{object}	nil
-//	@Failure		400			{object}	response.APIResponse
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/dashboard/lifeEvents/{lifeEventId} [delete]
-func (h *LifeEventHandler) DeleteDashboardLifeEvent(c echo.Context) error {
-	vaultID := c.Param("vault_id")
-	lifeEventID, err := strconv.ParseUint(c.Param("lifeEventId"), 10, 64)
+//	@Summary Update a life event
+//	@Tags life-events
+//	@Accept json
+//	@Produce json
+//	@Security BearerAuth
+//	@Param vault_id path string true "Vault ID"
+//	@Param id path integer true "Life event ID"
+//	@Param request body dto.LifeEventUpsertRequest true "Life event"
+//	@Success 200 {object} response.APIResponse{data=dto.LifeEventResponse}
+//	@Router /vaults/{vault_id}/lifeEvents/{id} [put]
+func (h *LifeEventHandler) Update(c echo.Context) error {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_life_event_id", nil)
 	}
-	if err := h.lifeEventService.DeleteDashboardLifeEvent(vaultID, uint(lifeEventID)); err != nil {
-		if errors.Is(err, services.ErrLifeEventNotFound) {
-			return response.NotFound(c, "err.life_event_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_delete_life_event")
+	var req dto.LifeEventUpsertRequest
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "err.invalid_request_body", nil)
+	}
+	item, err := h.lifeEventService.Update(c.Param("vault_id"), uint(id), req)
+	if err != nil {
+		return lifeEventError(c, err, "err.failed_to_update_life_event")
+	}
+	return response.OK(c, item)
+}
+
+// Delete godoc
+//
+//	@Summary Delete a life event
+//	@Tags life-events
+//	@Produce json
+//	@Security BearerAuth
+//	@Param vault_id path string true "Vault ID"
+//	@Param id path integer true "Life event ID"
+//	@Success 204
+//	@Router /vaults/{vault_id}/lifeEvents/{id} [delete]
+func (h *LifeEventHandler) Delete(c echo.Context) error {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "err.invalid_life_event_id", nil)
+	}
+	if err := h.lifeEventService.Delete(c.Param("vault_id"), uint(id)); err != nil {
+		return lifeEventError(c, err, "err.failed_to_delete_life_event")
 	}
 	return response.NoContent(c)
 }
 
-// ListTimelineEvents godoc
-//
-//	@Summary		List timeline events for a contact
-//	@Description	Return paginated timeline events belonging to a contact
-//	@Tags			life-events
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string	true	"Vault ID"
-//	@Param			contact_id	path		string	true	"Contact ID"
-//	@Param			page		query		integer	false	"Page number"
-//	@Param			per_page	query		integer	false	"Items per page"
-//	@Success		200			{object}	response.APIResponse{data=[]dto.TimelineEventResponse}
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/contacts/{contact_id}/timelineEvents [get]
-func (h *LifeEventHandler) ListTimelineEvents(c echo.Context) error {
-	contactID := c.Param("contact_id")
-	vaultID := c.Param("vault_id")
-	page, _ := strconv.Atoi(c.QueryParam("page"))
-	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
-
-	events, meta, err := h.lifeEventService.ListTimelineEvents(contactID, vaultID, page, perPage)
-	if err != nil {
-		if errors.Is(err, services.ErrContactNotFound) {
-			return response.NotFound(c, "err.contact_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_list_timeline_events")
-	}
-	return response.Paginated(c, events, meta)
-}
-
-// CreateTimelineEvent godoc
-//
-//	@Summary		Create a timeline event
-//	@Description	Create a new timeline event for a contact
-//	@Tags			life-events
-//	@Accept			json
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string								true	"Vault ID"
-//	@Param			contact_id	path		string								true	"Contact ID"
-//	@Param			request		body		dto.CreateTimelineEventRequest		true	"Timeline event details"
-//	@Success		201			{object}	response.APIResponse{data=dto.TimelineEventResponse}
-//	@Failure		400			{object}	response.APIResponse
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/contacts/{contact_id}/timelineEvents [post]
-func (h *LifeEventHandler) CreateTimelineEvent(c echo.Context) error {
-	contactID := c.Param("contact_id")
-	vaultID := c.Param("vault_id")
-	var req dto.CreateTimelineEventRequest
-	if err := c.Bind(&req); err != nil {
+func lifeEventError(c echo.Context, err error, fallback string) error {
+	switch {
+	case errors.Is(err, services.ErrLifeEventNotFound):
+		return response.NotFound(c, "err.life_event_not_found")
+	case errors.Is(err, services.ErrContactNotFound):
+		return response.NotFound(c, "err.contact_not_found")
+	case errors.Is(err, services.ErrInvalidLifeEventTime):
+		return response.BadRequest(c, "err.invalid_life_event_time", nil)
+	case errors.Is(err, services.ErrInvalidLifeEventInput):
 		return response.BadRequest(c, "err.invalid_request_body", nil)
+	default:
+		return response.InternalError(c, fallback)
 	}
-	event, err := h.lifeEventService.CreateTimelineEvent(contactID, vaultID, req)
-	if err != nil {
-		if errors.Is(err, services.ErrContactNotFound) {
-			return response.NotFound(c, "err.contact_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_create_timeline_event")
-	}
-	return response.Created(c, event)
-}
-
-// AddLifeEvent godoc
-//
-//	@Summary		Add a life event to a timeline event
-//	@Description	Create a new life event under a timeline event
-//	@Tags			life-events
-//	@Accept			json
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string							true	"Vault ID"
-//	@Param			contact_id	path		string							true	"Contact ID"
-//	@Param			id			path		integer							true	"Timeline Event ID"
-//	@Param			request		body		dto.CreateLifeEventRequest		true	"Life event details"
-//	@Success		201			{object}	response.APIResponse{data=dto.LifeEventResponse}
-//	@Failure		400			{object}	response.APIResponse
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/contacts/{contact_id}/timelineEvents/{id}/lifeEvents [post]
-func (h *LifeEventHandler) AddLifeEvent(c echo.Context) error {
-	contactID := c.Param("contact_id")
-	vaultID := c.Param("vault_id")
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_timeline_event_id", nil)
-	}
-	var req dto.CreateLifeEventRequest
-	if err := c.Bind(&req); err != nil {
-		return response.BadRequest(c, "err.invalid_request_body", nil)
-	}
-	event, err := h.lifeEventService.AddLifeEvent(contactID, uint(id), vaultID, req)
-	if err != nil {
-		if errors.Is(err, services.ErrTimelineEventNotFound) {
-			return response.NotFound(c, "err.timeline_event_not_found")
-		}
-		if errors.Is(err, services.ErrContactNotFound) {
-			return response.NotFound(c, "err.contact_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_add_life_event")
-	}
-	return response.Created(c, event)
-}
-
-// UpdateLifeEvent godoc
-//
-//	@Summary		Update a life event
-//	@Description	Update an existing life event
-//	@Tags			life-events
-//	@Accept			json
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string							true	"Vault ID"
-//	@Param			contact_id	path		string							true	"Contact ID"
-//	@Param			id			path		integer							true	"Timeline Event ID"
-//	@Param			lifeEventId	path		integer							true	"Life Event ID"
-//	@Param			request		body		dto.UpdateLifeEventRequest		true	"Life event details"
-//	@Success		200			{object}	response.APIResponse{data=dto.LifeEventResponse}
-//	@Failure		400			{object}	response.APIResponse
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/contacts/{contact_id}/timelineEvents/{id}/lifeEvents/{lifeEventId} [put]
-func (h *LifeEventHandler) UpdateLifeEvent(c echo.Context) error {
-	contactID := c.Param("contact_id")
-	vaultID := c.Param("vault_id")
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_timeline_event_id", nil)
-	}
-	lifeEventID, err := strconv.ParseUint(c.Param("lifeEventId"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_life_event_id", nil)
-	}
-	var req dto.UpdateLifeEventRequest
-	if err := c.Bind(&req); err != nil {
-		return response.BadRequest(c, "err.invalid_request_body", nil)
-	}
-	event, err := h.lifeEventService.UpdateLifeEvent(contactID, uint(id), uint(lifeEventID), vaultID, req)
-	if err != nil {
-		if errors.Is(err, services.ErrLifeEventNotFound) {
-			return response.NotFound(c, "err.life_event_not_found")
-		}
-		if errors.Is(err, services.ErrTimelineEventNotFound) {
-			return response.NotFound(c, "err.timeline_event_not_found")
-		}
-		if errors.Is(err, services.ErrContactNotFound) {
-			return response.NotFound(c, "err.contact_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_update_life_event")
-	}
-	return response.OK(c, event)
-}
-
-// DeleteTimelineEvent godoc
-//
-//	@Summary		Delete a timeline event
-//	@Description	Delete a timeline event and all its life events
-//	@Tags			life-events
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string	true	"Vault ID"
-//	@Param			contact_id	path		string	true	"Contact ID"
-//	@Param			id			path		integer	true	"Timeline Event ID"
-//	@Success		204			{object}	nil
-//	@Failure		400			{object}	response.APIResponse
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/contacts/{contact_id}/timelineEvents/{id} [delete]
-func (h *LifeEventHandler) DeleteTimelineEvent(c echo.Context) error {
-	vaultID := c.Param("vault_id")
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_timeline_event_id", nil)
-	}
-	if err := h.lifeEventService.DeleteTimelineEvent(uint(id), vaultID); err != nil {
-		if errors.Is(err, services.ErrTimelineEventNotFound) {
-			return response.NotFound(c, "err.timeline_event_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_delete_timeline_event")
-	}
-	return response.NoContent(c)
-}
-
-// ToggleTimelineEvent godoc
-//
-//	@Summary		Toggle timeline event collapsed state
-//	@Description	Toggle whether a timeline event is collapsed or expanded
-//	@Tags			life-events
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string	true	"Vault ID"
-//	@Param			contact_id	path		string	true	"Contact ID"
-//	@Param			id			path		integer	true	"Timeline Event ID"
-//	@Success		204			{object}	nil
-//	@Failure		400			{object}	response.APIResponse
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/contacts/{contact_id}/timelineEvents/{id}/toggle [put]
-func (h *LifeEventHandler) ToggleTimelineEvent(c echo.Context) error {
-	vaultID := c.Param("vault_id")
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_timeline_event_id", nil)
-	}
-	if err := h.lifeEventService.ToggleTimelineEvent(uint(id), vaultID); err != nil {
-		if errors.Is(err, services.ErrTimelineEventNotFound) {
-			return response.NotFound(c, "err.timeline_event_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_toggle_timeline_event")
-	}
-	return response.NoContent(c)
-}
-
-// ToggleLifeEvent godoc
-//
-//	@Summary		Toggle life event collapsed state
-//	@Description	Toggle whether a life event is collapsed or expanded
-//	@Tags			life-events
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string	true	"Vault ID"
-//	@Param			contact_id	path		string	true	"Contact ID"
-//	@Param			id			path		integer	true	"Timeline Event ID"
-//	@Param			lifeEventId	path		integer	true	"Life Event ID"
-//	@Success		204			{object}	nil
-//	@Failure		400			{object}	response.APIResponse
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/contacts/{contact_id}/timelineEvents/{id}/lifeEvents/{lifeEventId}/toggle [put]
-func (h *LifeEventHandler) ToggleLifeEvent(c echo.Context) error {
-	vaultID := c.Param("vault_id")
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_timeline_event_id", nil)
-	}
-	lifeEventID, err := strconv.ParseUint(c.Param("lifeEventId"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_life_event_id", nil)
-	}
-	if err := h.lifeEventService.ToggleLifeEvent(uint(id), uint(lifeEventID), vaultID); err != nil {
-		if errors.Is(err, services.ErrTimelineEventNotFound) {
-			return response.NotFound(c, "err.timeline_event_not_found")
-		}
-		if errors.Is(err, services.ErrLifeEventNotFound) {
-			return response.NotFound(c, "err.life_event_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_toggle_life_event")
-	}
-	return response.NoContent(c)
-}
-
-// DeleteLifeEvent godoc
-//
-//	@Summary		Delete a life event
-//	@Description	Delete a life event from a timeline event
-//	@Tags			life-events
-//	@Produce		json
-//	@Security		BearerAuth
-//	@Param			vault_id	path		string	true	"Vault ID"
-//	@Param			contact_id	path		string	true	"Contact ID"
-//	@Param			id			path		integer	true	"Timeline Event ID"
-//	@Param			lifeEventId	path		integer	true	"Life Event ID"
-//	@Success		204			{object}	nil
-//	@Failure		400			{object}	response.APIResponse
-//	@Failure		401			{object}	response.APIResponse
-//	@Failure		404			{object}	response.APIResponse
-//	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/contacts/{contact_id}/timelineEvents/{id}/lifeEvents/{lifeEventId} [delete]
-func (h *LifeEventHandler) DeleteLifeEvent(c echo.Context) error {
-	vaultID := c.Param("vault_id")
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_timeline_event_id", nil)
-	}
-	lifeEventID, err := strconv.ParseUint(c.Param("lifeEventId"), 10, 64)
-	if err != nil {
-		return response.BadRequest(c, "err.invalid_life_event_id", nil)
-	}
-	if err := h.lifeEventService.DeleteLifeEvent(uint(id), uint(lifeEventID), vaultID); err != nil {
-		if errors.Is(err, services.ErrLifeEventNotFound) {
-			return response.NotFound(c, "err.life_event_not_found")
-		}
-		return response.InternalError(c, "err.failed_to_delete_life_event")
-	}
-	return response.NoContent(c)
 }

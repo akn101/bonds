@@ -136,15 +136,12 @@
   "err.failed_to_add_streak": "Streak konnte nicht hinzugefügt werden",
   "err.failed_to_delete_goal": "Ziel konnte nicht gelöscht werden",
 
-  "err.failed_to_list_timeline_events": "Zeitleistenereignisse konnten nicht aufgelistet werden",
-  "err.failed_to_create_timeline_event": "Zeitleistenereignis konnte nicht erstellt werden",
-  "err.invalid_timeline_event_id": "Ungültige Zeitleistenereignis-ID",
-  "err.timeline_event_not_found": "Zeitleistenereignis nicht gefunden",
   "err.failed_to_add_life_event": "Lebensereignis konnte nicht hinzugefügt werden",
+  "err.failed_to_list_life_events": "Lebensereignisse konnten nicht aufgelistet werden",
+  "err.invalid_life_event_time": "Ungültiger Zeitpunkt des Lebensereignisses",
   "err.invalid_life_event_id": "Ungültige Lebensereignis-ID",
   "err.life_event_not_found": "Lebensereignis nicht gefunden",
   "err.failed_to_update_life_event": "Lebensereignis konnte nicht aktualisiert werden",
-  "err.failed_to_delete_timeline_event": "Zeitleistenereignis konnte nicht gelöscht werden",
   "err.failed_to_delete_life_event": "Lebensereignis konnte nicht gelöscht werden",
 
   "err.failed_to_create_mood_tracking_event": "Stimmungseintrag konnte nicht erstellt werden",

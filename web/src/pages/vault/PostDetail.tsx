@@ -17,6 +17,7 @@ import {
   Row,
   Col,
   Select,
+  Checkbox,
 } from "antd";
 import {
   ArrowLeftOutlined,
@@ -45,10 +46,12 @@ import type {
 import { useTranslation } from "react-i18next";
 import { useDateFormat, formatDate } from "@/utils/dateFormat";
 import ContactMentionEditor from "@/components/journal/ContactMentionEditor";
-import ContactAssociationSelector from "@/components/journal/ContactAssociationSelector";
 import ContactMentionText from "@/components/journal/ContactMentionText";
 import PostContactTags from "@/components/journal/PostContactTags";
-import type { JournalContactReference } from "@/components/journal/contactMentionTypes";
+import {
+  appendMissingContactMentions,
+  contactIdsFromMentions,
+} from "@/components/journal/contactMentionSerialization";
 import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
 
 const { Title, Text, Paragraph } = Typography;
@@ -82,9 +85,6 @@ export default function PostDetail() {
   const [sections, setSections] = useState<{ label: string; body: string }[]>(
     [],
   );
-  const [selectedContacts, setSelectedContacts] = useState<
-    JournalContactReference[]
-  >([]);
   const [updateLastContacted, setUpdateLastContacted] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -292,26 +292,20 @@ export default function PostDetail() {
     if (!post) return;
     editRevisionRef.current += 1;
     setTitle(post.title);
-    setSections(
-      (post.sections ?? []).map((s: PostSection) => ({
-        label: s.label,
-        body: s.content,
-      })),
+    const associatedContacts = (post.contacts ?? []).flatMap(
+      (contact: GithubComNaibaBondsInternalDtoPostContactResponse) =>
+        contact.id
+          ? [{ id: contact.id, name: formatContactName(nameOrder, contact) }]
+          : [],
     );
-    setSelectedContacts(
-      (post.contacts ?? []).flatMap(
-        (contact: GithubComNaibaBondsInternalDtoPostContactResponse) => {
-          if (!contact.id) return [];
-          return [
-            {
-              id: contact.id,
-              name: formatContactName(nameOrder, contact),
-              firstName: contact.first_name,
-              lastName: contact.last_name,
-            },
-          ];
-        },
-      ),
+    setSections(
+      (post.sections ?? []).map((s: PostSection, index: number) => ({
+        label: s.label,
+        body:
+          index === 0
+            ? appendMissingContactMentions(s.content ?? "", associatedContacts)
+            : (s.content ?? ""),
+      })),
     );
     setUpdateLastContacted(false);
     setEditing(true);
@@ -355,7 +349,11 @@ export default function PostDetail() {
           content: section.body,
           position,
         })),
-        contact_ids: selectedContacts.map((contact) => contact.id),
+        contact_ids: Array.from(
+          new Set(
+            sections.flatMap((section) => contactIdsFromMentions(section.body)),
+          ),
+        ),
         update_last_contacted: updateLastContacted,
       },
     });
@@ -475,17 +473,6 @@ export default function PostDetail() {
                       vaultId={vaultId}
                       value={section.body}
                       onChange={(value) => updateSection(index, "body", value)}
-                      onMentionSelect={(contact) => {
-                        if (
-                          selectedContacts.some(
-                            (selected) => selected.id === contact.id,
-                          )
-                        ) {
-                          return;
-                        }
-                        editRevisionRef.current += 1;
-                        setSelectedContacts([...selectedContacts, contact]);
-                      }}
                       ariaLabel={
                         section.label ||
                         t("vault.post_detail.section_content_placeholder")
@@ -498,20 +485,15 @@ export default function PostDetail() {
                   </Card>
                 ))}
 
-                <ContactAssociationSelector
-                  vaultId={vaultId}
-                  contacts={selectedContacts}
-                  updateLastContacted={updateLastContacted}
-                  onContactsChange={(contacts) => {
+                <Checkbox
+                  checked={updateLastContacted}
+                  onChange={(event) => {
                     editRevisionRef.current += 1;
-                    setSelectedContacts(contacts);
+                    setUpdateLastContacted(event.target.checked);
                   }}
-                  onUpdateLastContactedChange={(checked) => {
-                    if (checked === updateLastContacted) return;
-                    editRevisionRef.current += 1;
-                    setUpdateLastContacted(checked);
-                  }}
-                />
+                >
+                  {t("vault.journal_mentions.update_last_contacted")}
+                </Checkbox>
 
                 <Button
                   type="dashed"

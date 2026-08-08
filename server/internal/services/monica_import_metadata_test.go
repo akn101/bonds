@@ -34,7 +34,7 @@ func TestMonicaImportIssue213_PreservesMetadata(t *testing.T) {
 		var marriage models.LifeEvent
 		if err := svc.DB.
 			Joins("JOIN life_event_participants ON life_event_participants.life_event_id = life_events.id").
-			Where("life_event_participants.contact_id = ? AND life_events.summary = ?", contact.ID, "Marriage celebration").
+			Where("life_event_participants.contact_id = ? AND life_events.title = ?", contact.ID, "Marriage celebration").
 			Preload("LifeEventType").
 			First(&marriage).Error; err != nil {
 			t.Fatalf("load imported marriage life event: %v", err)
@@ -61,7 +61,7 @@ func TestMonicaImportIssue213_PreservesMetadata(t *testing.T) {
 		var moved models.LifeEvent
 		if err := svc.DB.
 			Joins("JOIN life_event_participants ON life_event_participants.life_event_id = life_events.id").
-			Where("life_event_participants.contact_id = ? AND life_events.summary = ?", contact.ID, "Moved to Lisbon").
+			Where("life_event_participants.contact_id = ? AND life_events.title = ?", contact.ID, "Moved to Lisbon").
 			Preload("LifeEventType").
 			First(&moved).Error; err != nil {
 			t.Fatalf("load imported moved life event: %v", err)
@@ -76,8 +76,8 @@ func TestMonicaImportIssue213_PreservesMetadata(t *testing.T) {
 		if !moved.LifeEventType.CanBeDeleted {
 			t.Error("custom moved life event type must be deletable")
 		}
-		if marriage.LifeEventTypeID == moved.LifeEventTypeID {
-			t.Errorf("distinct source types must map to distinct types, both got ID=%d", marriage.LifeEventTypeID)
+		if marriage.LifeEventTypeID == nil || moved.LifeEventTypeID == nil || *marriage.LifeEventTypeID == *moved.LifeEventTypeID {
+			t.Errorf("distinct source types must map to distinct types, got IDs %v and %v", marriage.LifeEventTypeID, moved.LifeEventTypeID)
 		}
 		wantMovedCreatedAt := time.Date(2015, time.February, 3, 7, 20, 0, 0, time.UTC)
 		wantMovedUpdatedAt := time.Date(2015, time.March, 4, 8, 25, 0, 0, time.UTC)

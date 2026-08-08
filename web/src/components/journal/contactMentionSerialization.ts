@@ -59,3 +59,26 @@ export function parseContactMentions(
   }
   return mentions;
 }
+
+export function contactIdsFromMentions(content: string): string[] {
+  return Array.from(
+    new Set(parseContactMentions(content).map((mention) => mention.contactId)),
+  );
+}
+
+export function appendMissingContactMentions(
+  content: string,
+  contacts: readonly JournalContactReference[],
+): string {
+  const present = new Set(
+    contactIdsFromMentions(content).map((id) => id.toLowerCase()),
+  );
+  const missing = contacts.filter(
+    (contact) => !present.has(contact.id.toLowerCase()),
+  );
+  if (missing.length === 0) return content;
+  const suffix = missing
+    .map((contact) => serializeContactMention(contact).marker)
+    .join(" ");
+  return content.length === 0 ? suffix : `${content} ${suffix}`;
+}
