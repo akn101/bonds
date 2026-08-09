@@ -43,8 +43,8 @@ func migrateLegacyShadowContacts(db *gorm.DB) error {
 		return fmt.Errorf("migrate shadow contacts: load mappings: %w", err)
 	}
 
-	shadowIDs := make([]string, 0, len(mappings))
-	if err := db.Transaction(func(tx *gorm.DB) error {
+	runMigration := func(tx *gorm.DB) error {
+		shadowIDs := make([]string, 0, len(mappings))
 		for _, mapping := range mappings {
 			shadowIDs = append(shadowIDs, mapping.ContactID)
 			if err := migrateShadowLifeEvents(tx, mapping); err != nil {
@@ -63,21 +63,37 @@ func migrateLegacyShadowContacts(db *gorm.DB) error {
 			return err
 		}
 		shadowIDs = uniqueShadowContactIDs(shadowIDs)
-		if len(shadowIDs) == 0 {
-			return nil
+		if len(shadowIDs) > 0 {
+			if err := deleteLegacyShadowContactData(tx, shadowIDs); err != nil {
+				return err
+			}
 		}
-		if err := deleteLegacyShadowContactData(tx, shadowIDs); err != nil {
+
+		// mood_tracking_events.contact_id has a foreign key to contacts in the
+		// legacy schema. Drop both bridge columns before deleting the shadow
+		// contacts, while keeping the entire operation in one transaction so a
+		// failed delete restores both the data and the bridge mappings.
+		if err := dropLegacyShadowColumns(tx); err != nil {
 			return err
 		}
+		if len(shadowIDs) > 0 {
+			if err := deleteLegacyShadowContacts(tx, shadowIDs); err != nil {
+				return err
+			}
+		}
 		return nil
-	}); err != nil {
-		return err
 	}
 
-	if err := dropLegacyShadowColumns(db); err != nil {
-		return err
+	if db.Dialector.Name() == "sqlite" {
+		return db.Connection(func(conn *gorm.DB) error {
+			if err := conn.Exec("PRAGMA legacy_alter_table = ON").Error; err != nil {
+				return fmt.Errorf("migrate shadow contacts: enable legacy alter table: %w", err)
+			}
+			defer conn.Exec("PRAGMA legacy_alter_table = OFF")
+			return conn.Transaction(runMigration)
+		})
 	}
-	return nil
+	return db.Transaction(runMigration)
 }
 
 func addShadowReplacementColumns(db *gorm.DB) error {
@@ -178,7 +194,7 @@ func deleteLegacyShadowContactData(tx *gorm.DB, contactIDs []string) error {
 
 	directTables := []string{
 		"contact_vault_user", "contact_feed_items", "task_contacts", "contact_subscription_states",
-		"contact_information", "contact_important_dates", "calls", "contact_address", "gifts", "pets",
+		"contact_information", "contact_important_dates", "contact_reminders", "calls", "contact_address", "gifts", "pets",
 		"goals", "quick_facts", "notes", "contact_post", "contact_life_metric", "contact_group",
 		"contact_label", "contact_companies", "life_event_participants",
 	}
@@ -200,10 +216,15 @@ func deleteLegacyShadowContactData(tx *gorm.DB, contactIDs []string) error {
 			return fmt.Errorf("migrate shadow contacts: delete %s rows: %w", table, err)
 		}
 	}
-	if tx.Migrator().HasTable("contacts") {
-		if err := tx.Exec("DELETE FROM contacts WHERE id IN ?", contactIDs).Error; err != nil {
-			return fmt.Errorf("migrate shadow contacts: delete contacts: %w", err)
-		}
+	return nil
+}
+
+func deleteLegacyShadowContacts(tx *gorm.DB, contactIDs []string) error {
+	if !tx.Migrator().HasTable("contacts") {
+		return nil
+	}
+	if err := tx.Exec("DELETE FROM contacts WHERE id IN ?", contactIDs).Error; err != nil {
+		return fmt.Errorf("migrate shadow contacts: delete contacts: %w", err)
 	}
 	return nil
 }
@@ -251,30 +272,20 @@ func dropLegacyShadowColumns(db *gorm.DB) error {
 		}
 		return nil
 	}
-	return db.Connection(func(conn *gorm.DB) error {
-		if err := conn.Exec("PRAGMA foreign_keys = OFF").Error; err != nil {
-			return err
+	if db.Migrator().HasTable("mood_tracking_events") && hasColumn(db, "mood_tracking_events", "contact_id") {
+		if err := rebuildSQLiteTableWithoutLegacyColumn(db, "mood_tracking_events", &models.MoodTrackingEvent{}); err != nil {
+			return fmt.Errorf("migrate shadow contacts: drop mood contact_id: %w", err)
 		}
-		defer conn.Exec("PRAGMA foreign_keys = ON")
-		if err := conn.Exec("PRAGMA legacy_alter_table = ON").Error; err != nil {
-			return err
+	}
+	if hasColumn(db, "user_vault", "contact_id") {
+		if err := db.Exec("DROP INDEX IF EXISTS idx_user_vault_contact_id").Error; err != nil {
+			return fmt.Errorf("migrate shadow contacts: drop user_vault contact_id index: %w", err)
 		}
-		defer conn.Exec("PRAGMA legacy_alter_table = OFF")
-		if conn.Migrator().HasTable("mood_tracking_events") && hasColumn(conn, "mood_tracking_events", "contact_id") {
-			if err := rebuildSQLiteTableWithoutLegacyColumn(conn, "mood_tracking_events", &models.MoodTrackingEvent{}); err != nil {
-				return fmt.Errorf("migrate shadow contacts: drop mood contact_id: %w", err)
-			}
+		if err := db.Exec("ALTER TABLE user_vault DROP COLUMN contact_id").Error; err != nil {
+			return fmt.Errorf("migrate shadow contacts: drop user_vault contact_id: %w", err)
 		}
-		if hasColumn(conn, "user_vault", "contact_id") {
-			if err := conn.Exec("DROP INDEX IF EXISTS idx_user_vault_contact_id").Error; err != nil {
-				return fmt.Errorf("migrate shadow contacts: drop user_vault contact_id index: %w", err)
-			}
-			if err := conn.Exec("ALTER TABLE user_vault DROP COLUMN contact_id").Error; err != nil {
-				return fmt.Errorf("migrate shadow contacts: drop user_vault contact_id: %w", err)
-			}
-		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func rebuildSQLiteTableWithoutLegacyColumn(db *gorm.DB, tableName string, model interface{}) error {

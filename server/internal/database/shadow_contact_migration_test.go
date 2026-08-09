@@ -21,11 +21,30 @@ func TestAutoMigrateRemovesLegacyShadowContactsWithoutLosingUserHistory(t *testi
 	if err := db.AutoMigrate(AllModels()...); err != nil {
 		t.Fatalf("create current schema: %v", err)
 	}
+	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
+		t.Fatalf("enable foreign keys: %v", err)
+	}
 	if err := db.Exec("ALTER TABLE user_vault ADD COLUMN contact_id text").Error; err != nil {
 		t.Fatalf("add legacy user_vault.contact_id: %v", err)
 	}
-	if err := db.Exec("ALTER TABLE mood_tracking_events ADD COLUMN contact_id text").Error; err != nil {
-		t.Fatalf("add legacy mood contact_id: %v", err)
+	if err := db.Migrator().DropTable(&models.MoodTrackingEvent{}); err != nil {
+		t.Fatalf("drop current mood table: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE mood_tracking_events (
+		id integer PRIMARY KEY AUTOINCREMENT,
+		contact_id text NOT NULL,
+		mood_tracking_parameter_id integer NOT NULL,
+		rated_at datetime NOT NULL,
+		note text,
+		number_of_hours_slept integer,
+		created_at datetime,
+		updated_at datetime,
+		CONSTRAINT fk_mood_tracking_parameters_mood_tracking_events
+			FOREIGN KEY (mood_tracking_parameter_id) REFERENCES mood_tracking_parameters(id),
+		CONSTRAINT fk_contacts_mood_tracking_events
+			FOREIGN KEY (contact_id) REFERENCES contacts(id)
+	)`).Error; err != nil {
+		t.Fatalf("create legacy mood table: %v", err)
 	}
 
 	account := models.Account{}
@@ -94,6 +113,25 @@ func TestAutoMigrateRemovesLegacyShadowContactsWithoutLosingUserHistory(t *testi
 		t.Fatalf("create legacy moods: %v", err)
 	}
 
+	reminder := models.ContactReminder{ContactID: shadow.ID, Label: "Legacy reminder", Type: "one_time"}
+	if err := db.Create(&reminder).Error; err != nil {
+		t.Fatalf("create legacy reminder: %v", err)
+	}
+	if err := db.Create(&models.ContactReminderSelectedUser{ContactReminderID: reminder.ID, UserID: user.ID}).Error; err != nil {
+		t.Fatalf("create legacy reminder audience: %v", err)
+	}
+	channel := models.UserNotificationChannel{UserID: &user.ID, Type: "email", Content: user.Email}
+	if err := db.Create(&channel).Error; err != nil {
+		t.Fatalf("create notification channel: %v", err)
+	}
+	if err := db.Create(&models.ContactReminderScheduled{
+		UserNotificationChannelID: channel.ID,
+		ContactReminderID:         reminder.ID,
+		ScheduledAt:               ratedAt,
+	}).Error; err != nil {
+		t.Fatalf("create legacy reminder schedule: %v", err)
+	}
+
 	if err := AutoMigrate(db); err != nil {
 		t.Fatalf("migrate legacy shadows: %v", err)
 	}
@@ -124,6 +162,23 @@ func TestAutoMigrateRemovesLegacyShadowContactsWithoutLosingUserHistory(t *testi
 	db.Model(&models.Contact{}).Where("id = ?", ordinary.ID).Count(&ordinaryCount)
 	if shadowCount != 0 || ordinaryCount != 1 {
 		t.Fatalf("contact counts shadow=%d ordinary=%d, want 0/1", shadowCount, ordinaryCount)
+	}
+	for table, where := range map[string]string{
+		"contact_reminders":               "contact_id = ?",
+		"contact_reminder_selected_users": "contact_reminder_id = ?",
+		"contact_reminder_scheduled":      "contact_reminder_id = ?",
+	} {
+		value := interface{}(reminder.ID)
+		if table == "contact_reminders" {
+			value = shadow.ID
+		}
+		var count int64
+		if err := db.Table(table).Where(where, value).Count(&count).Error; err != nil {
+			t.Fatalf("count remaining %s rows: %v", table, err)
+		}
+		if count != 0 {
+			t.Fatalf("remaining %s rows = %d, want 0", table, count)
+		}
 	}
 
 	var moods []models.MoodTrackingEvent
