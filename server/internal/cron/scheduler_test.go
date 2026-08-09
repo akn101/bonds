@@ -96,6 +96,76 @@ func TestJobPanicRecovery(t *testing.T) {
 	})
 }
 
+func TestUpsertJobReplacesSpec(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	s := NewScheduler(db)
+
+	if err := s.UpsertJob("@every 2s", "upsert-test", func() {}); err != nil {
+		t.Fatalf("UpsertJob failed: %v", err)
+	}
+	// Reschedule with a new spec: the old entry must be replaced, not stacked.
+	if err := s.UpsertJob("@every 1s", "upsert-test", func() {}); err != nil {
+		t.Fatalf("UpsertJob failed: %v", err)
+	}
+
+	entries := s.cron.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("Expected a single cron entry after reschedule, got %d", len(entries))
+	}
+	if s.jobs["upsert-test"] != entries[0].ID {
+		t.Fatalf("jobs map does not point at the live entry")
+	}
+}
+
+func TestUpsertJobInvalidSpecKeepsExistingJob(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	s := NewScheduler(db)
+
+	if err := s.UpsertJob("@every 1h", "upsert-test", func() {}); err != nil {
+		t.Fatalf("UpsertJob failed: %v", err)
+	}
+	originalID := s.jobs["upsert-test"]
+
+	if err := s.UpsertJob("invalid-spec", "upsert-test", func() {}); err == nil {
+		t.Fatal("Expected error for invalid cron spec")
+	}
+
+	entries := s.cron.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("Expected existing cron entry to remain after failed reschedule, got %d entries", len(entries))
+	}
+	if entries[0].ID != originalID || s.jobs["upsert-test"] != originalID {
+		t.Fatal("Existing cron entry was replaced after failed reschedule")
+	}
+}
+
+func TestUpsertJobRemovesOnEmptySpec(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	s := NewScheduler(db)
+
+	var executed atomic.Int32
+	fn := func() {
+		executed.Add(1)
+	}
+
+	if err := s.UpsertJob("@every 1s", "remove-test", fn); err != nil {
+		t.Fatalf("UpsertJob failed: %v", err)
+	}
+	// Empty spec must remove the job entirely.
+	if err := s.UpsertJob("", "remove-test", fn); err != nil {
+		t.Fatalf("UpsertJob remove failed: %v", err)
+	}
+
+	s.Start()
+	time.Sleep(1200 * time.Millisecond)
+	ctx := s.Stop()
+	<-ctx.Done()
+
+	if count := executed.Load(); count != 0 {
+		t.Fatalf("Expected removed job to never run, got %d", count)
+	}
+}
+
 func TestStartAndStop(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	s := NewScheduler(db)
