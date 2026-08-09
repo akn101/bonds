@@ -313,20 +313,13 @@ func TestAcceptInvitation_VaultAccessGranted(t *testing.T) {
 		if uv.Permission != models.PermissionEditor {
 			t.Errorf("Expected PermissionEditor (%d), got %d", models.PermissionEditor, uv.Permission)
 		}
-		if uv.ContactID == "" {
-			t.Errorf("Expected ContactID to be set for vault %s", uv.VaultID)
-		}
-
-		var contact models.Contact
-		if err := db.First(&contact, "id = ?", uv.ContactID).Error; err != nil {
-			t.Fatalf("Self-contact not found for vault %s: %v", uv.VaultID, err)
-		}
-		if contact.CanBeDeleted {
-			t.Error("Self-contact should have CanBeDeleted=false")
-		}
-		if contact.Listed {
-			t.Error("Self-contact should have Listed=false")
-		}
+	}
+	var contactCount int64
+	if err := db.Model(&models.Contact{}).Where("vault_id IN ?", []string{v1.ID, v2.ID}).Count(&contactCount).Error; err != nil {
+		t.Fatalf("Count contacts failed: %v", err)
+	}
+	if contactCount != 0 {
+		t.Fatalf("accepting invitation created %d contact(s), want 0", contactCount)
 	}
 	for vid, found := range vaultIDSet {
 		if !found {

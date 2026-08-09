@@ -339,75 +339,75 @@ func TestUpdateContactFirstMetFieldsChangesAndClears(t *testing.T) {
 }
 
 func TestCreateContactFirstMetPrecisionVariants(t *testing.T) {
-    svc, vaultID, userID, _ := setupContactTest(t)
+	svc, vaultID, userID, _ := setupContactTest(t)
 
-    yearOnly, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{
-        FirstName:             "YearOnly",
-        FirstMetDatePrecision: strPtr("year"),
-        FirstMetYear:          intPtr(2026),
-    })
-    if err != nil {
-        t.Fatalf("CreateContact year-only failed: %v", err)
-    }
-    if yearOnly.FirstMetAt != nil {
-        t.Fatalf("expected first_met_at nil for year-only, got %v", yearOnly.FirstMetAt)
-    }
-    if yearOnly.FirstMetDatePrecision != "year" {
-        t.Fatalf("expected year precision, got %q", yearOnly.FirstMetDatePrecision)
-    }
-    if yearOnly.FirstMetYear == nil || *yearOnly.FirstMetYear != 2026 {
-        t.Fatalf("expected first_met_year 2026, got %+v", yearOnly.FirstMetYear)
-    }
+	yearOnly, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{
+		FirstName:             "YearOnly",
+		FirstMetDatePrecision: strPtr("year"),
+		FirstMetYear:          intPtr(2026),
+	})
+	if err != nil {
+		t.Fatalf("CreateContact year-only failed: %v", err)
+	}
+	if yearOnly.FirstMetAt != nil {
+		t.Fatalf("expected first_met_at nil for year-only, got %v", yearOnly.FirstMetAt)
+	}
+	if yearOnly.FirstMetDatePrecision != "year" {
+		t.Fatalf("expected year precision, got %q", yearOnly.FirstMetDatePrecision)
+	}
+	if yearOnly.FirstMetYear == nil || *yearOnly.FirstMetYear != 2026 {
+		t.Fatalf("expected first_met_year 2026, got %+v", yearOnly.FirstMetYear)
+	}
 
-    monthOnly, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{
-        FirstName:             "MonthYear",
-        FirstMetDatePrecision: strPtr("month"),
-        FirstMetYear:          intPtr(2026),
-        FirstMetMonth:         intPtr(5),
-    })
-    if err != nil {
-        t.Fatalf("CreateContact month-year failed: %v", err)
-    }
-    if monthOnly.FirstMetAt != nil {
-        t.Fatalf("expected first_met_at nil for month precision, got %v", monthOnly.FirstMetAt)
-    }
-    if monthOnly.FirstMetDatePrecision != "month" {
-        t.Fatalf("expected month precision, got %q", monthOnly.FirstMetDatePrecision)
-    }
-    if monthOnly.FirstMetYear == nil || *monthOnly.FirstMetYear != 2026 {
-        t.Fatalf("expected first_met_year 2026, got %+v", monthOnly.FirstMetYear)
-    }
-    if monthOnly.FirstMetMonth == nil || *monthOnly.FirstMetMonth != 5 {
-        t.Fatalf("expected first_met_month 5, got %+v", monthOnly.FirstMetMonth)
-    }
+	monthOnly, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{
+		FirstName:             "MonthYear",
+		FirstMetDatePrecision: strPtr("month"),
+		FirstMetYear:          intPtr(2026),
+		FirstMetMonth:         intPtr(5),
+	})
+	if err != nil {
+		t.Fatalf("CreateContact month-year failed: %v", err)
+	}
+	if monthOnly.FirstMetAt != nil {
+		t.Fatalf("expected first_met_at nil for month precision, got %v", monthOnly.FirstMetAt)
+	}
+	if monthOnly.FirstMetDatePrecision != "month" {
+		t.Fatalf("expected month precision, got %q", monthOnly.FirstMetDatePrecision)
+	}
+	if monthOnly.FirstMetYear == nil || *monthOnly.FirstMetYear != 2026 {
+		t.Fatalf("expected first_met_year 2026, got %+v", monthOnly.FirstMetYear)
+	}
+	if monthOnly.FirstMetMonth == nil || *monthOnly.FirstMetMonth != 5 {
+		t.Fatalf("expected first_met_month 5, got %+v", monthOnly.FirstMetMonth)
+	}
 }
 
 func TestUpdateContactFirstMetPrecisionClearsStaleFields(t *testing.T) {
-    svc, vaultID, userID, _ := setupContactTest(t)
-    created, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{FirstName: "Original"})
-    if err != nil {
-        t.Fatalf("CreateContact failed: %v", err)
-    }
+	svc, vaultID, userID, _ := setupContactTest(t)
+	created, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{FirstName: "Original"})
+	if err != nil {
+		t.Fatalf("CreateContact failed: %v", err)
+	}
 
-    fullDate := time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC)
-    if _, err := svc.UpdateContact(created.ID, vaultID, userID, dto.UpdateContactRequest{
-        FirstName:   "Original",
-        FirstMetAt:  &fullDate,
-    }); err != nil {
-        t.Fatalf("UpdateContact full date failed: %v", err)
-    }
+	fullDate := time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC)
+	if _, err := svc.UpdateContact(created.ID, vaultID, userID, dto.UpdateContactRequest{
+		FirstName:  "Original",
+		FirstMetAt: &fullDate,
+	}); err != nil {
+		t.Fatalf("UpdateContact full date failed: %v", err)
+	}
 
-    updated, err := svc.UpdateContact(created.ID, vaultID, userID, dto.UpdateContactRequest{
-        FirstName:             "Original",
-        FirstMetDatePrecision: strPtr("year"),
-        FirstMetYear:          intPtr(2026),
-    })
-    if err != nil {
-        t.Fatalf("UpdateContact year precision failed: %v", err)
-    }
-    if updated.FirstMetAt != nil {
-        t.Fatalf("expected first_met_at cleared, got %v", updated.FirstMetAt)
-    }
+	updated, err := svc.UpdateContact(created.ID, vaultID, userID, dto.UpdateContactRequest{
+		FirstName:             "Original",
+		FirstMetDatePrecision: strPtr("year"),
+		FirstMetYear:          intPtr(2026),
+	})
+	if err != nil {
+		t.Fatalf("UpdateContact year precision failed: %v", err)
+	}
+	if updated.FirstMetAt != nil {
+		t.Fatalf("expected first_met_at cleared, got %v", updated.FirstMetAt)
+	}
 	if updated.FirstMetMonth != nil || updated.FirstMetDay != nil {
 		t.Fatalf("expected first_met month/day cleared, got month=%v day=%v", updated.FirstMetMonth, updated.FirstMetDay)
 	}
@@ -780,6 +780,104 @@ func TestDeleteContact(t *testing.T) {
 	}
 }
 
+func TestDeleteContactRejectsProtectedContact(t *testing.T) {
+	svc, vaultID, userID, _ := setupContactTest(t)
+	contact, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{FirstName: "Protected"})
+	if err != nil {
+		t.Fatalf("create contact: %v", err)
+	}
+	if err := svc.db.Model(&models.Contact{}).Where("id = ?", contact.ID).Update("can_be_deleted", false).Error; err != nil {
+		t.Fatalf("protect contact: %v", err)
+	}
+
+	err = svc.DeleteContact(contact.ID, vaultID)
+	if !errors.Is(err, ErrContactCannotBeDeleted) {
+		t.Fatalf("DeleteContact protected error = %v, want ErrContactCannotBeDeleted", err)
+	}
+	if err := svc.db.First(&models.Contact{}, "id = ? AND vault_id = ?", contact.ID, vaultID).Error; err != nil {
+		t.Fatalf("protected contact should remain: %v", err)
+	}
+}
+
+func TestDeleteContactsDeletesUniqueContactsAtomically(t *testing.T) {
+	svc, vaultID, userID, _ := setupContactTest(t)
+	first, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{FirstName: "Bulk First"})
+	if err != nil {
+		t.Fatalf("create first contact: %v", err)
+	}
+	second, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{FirstName: "Bulk Second"})
+	if err != nil {
+		t.Fatalf("create second contact: %v", err)
+	}
+
+	result, err := svc.DeleteContacts([]string{first.ID, second.ID, first.ID}, vaultID)
+	if err != nil {
+		t.Fatalf("DeleteContacts: %v", err)
+	}
+	if result.DeletedCount != 2 {
+		t.Fatalf("DeletedCount = %d, want 2", result.DeletedCount)
+	}
+	var count int64
+	if err := svc.db.Model(&models.Contact{}).Where("id IN ?", []string{first.ID, second.ID}).Count(&count).Error; err != nil {
+		t.Fatalf("count contacts: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("remaining selected contacts = %d, want 0", count)
+	}
+}
+
+func TestDeleteContactsRollsBackWhenSelectionContainsProtectedContact(t *testing.T) {
+	svc, vaultID, userID, _ := setupContactTest(t)
+	regular, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{FirstName: "Keep Me"})
+	if err != nil {
+		t.Fatalf("create regular contact: %v", err)
+	}
+	protected, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{FirstName: "Protected"})
+	if err != nil {
+		t.Fatalf("create protected contact: %v", err)
+	}
+	if err := svc.db.Model(&models.Contact{}).Where("id = ?", protected.ID).Update("can_be_deleted", false).Error; err != nil {
+		t.Fatalf("protect contact: %v", err)
+	}
+
+	_, err = svc.DeleteContacts([]string{regular.ID, protected.ID}, vaultID)
+	if !errors.Is(err, ErrContactCannotBeDeleted) {
+		t.Fatalf("DeleteContacts error = %v, want ErrContactCannotBeDeleted", err)
+	}
+	for _, contactID := range []string{regular.ID, protected.ID} {
+		var count int64
+		if err := svc.db.Model(&models.Contact{}).Where("id = ?", contactID).Count(&count).Error; err != nil {
+			t.Fatalf("count contact %s: %v", contactID, err)
+		}
+		if count != 1 {
+			t.Fatalf("contact %s count = %d, want 1 after rollback", contactID, count)
+		}
+	}
+}
+
+func TestProtectedContactProfileUpdateStaysHiddenAndCannotBeArchived(t *testing.T) {
+	svc, vaultID, userID, _ := setupContactTest(t)
+	contact, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{FirstName: "Protected"})
+	if err != nil {
+		t.Fatalf("create protected contact: %v", err)
+	}
+	if err := svc.db.Model(&models.Contact{}).Where("id = ?", contact.ID).Updates(map[string]interface{}{"can_be_deleted": false, "listed": false}).Error; err != nil {
+		t.Fatalf("protect contact: %v", err)
+	}
+	updated, err := svc.UpdateContact(contact.ID, vaultID, userID, dto.UpdateContactRequest{
+		FirstName: "Updated Self",
+	})
+	if err != nil {
+		t.Fatalf("UpdateContact protected profile: %v", err)
+	}
+	if updated.FirstName != "Updated Self" || updated.Listed {
+		t.Fatalf("updated protected profile = %+v, want editable name but listed=false", updated)
+	}
+	if _, err := svc.ToggleArchive(contact.ID, vaultID, userID); !errors.Is(err, ErrContactCannotBeDeleted) {
+		t.Fatalf("ToggleArchive protected error = %v, want ErrContactCannotBeDeleted", err)
+	}
+}
+
 func TestDeleteContact_FirstMetThroughSoftDeleteSetsNull(t *testing.T) {
 	svc, vaultID, userID, _ := setupContactTest(t)
 	introducer, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{FirstName: "Soft", LastName: "Introducer"})
@@ -980,18 +1078,18 @@ func TestListCatchUpPromptsFiltersAndSortsByPriority(t *testing.T) {
 		t.Fatalf("ToggleArchive failed: %v", err)
 	}
 
-	shadow := models.Contact{
+	hidden := models.Contact{
 		VaultID:                  vaultID,
-		FirstName:                strPtrOrNil("Shadow"),
+		FirstName:                strPtrOrNil("Hidden"),
 		LastTalkedTo:             ptrTime(now.AddDate(0, 0, -100)),
 		StayInTouchFrequencyDays: ptrInt(10),
 		StayInTouchTriggerDate:   ptrTime(now.AddDate(0, 0, -90)),
 	}
-	if err := svc.db.Create(&shadow).Error; err != nil {
-		t.Fatalf("Create shadow contact failed: %v", err)
+	if err := svc.db.Create(&hidden).Error; err != nil {
+		t.Fatalf("Create hidden contact failed: %v", err)
 	}
-	if err := svc.db.Model(&shadow).Updates(map[string]interface{}{"can_be_deleted": false, "listed": false}).Error; err != nil {
-		t.Fatalf("Update shadow contact failed: %v", err)
+	if err := svc.db.Model(&hidden).Updates(map[string]interface{}{"can_be_deleted": false, "listed": false}).Error; err != nil {
+		t.Fatalf("Update hidden contact failed: %v", err)
 	}
 
 	prompts, err := svc.ListCatchUpPrompts(vaultID, userID)

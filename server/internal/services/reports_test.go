@@ -345,7 +345,7 @@ func TestReportOverview(t *testing.T) {
 	}
 	if len(params) > 0 {
 		event := &models.MoodTrackingEvent{
-			ContactID:               contact1.ID,
+			VaultID:                 vault.ID,
 			MoodTrackingParameterID: params[0].ID,
 			RatedAt:                 importantDate.CreatedAt,
 		}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 import type { ContactNameFields } from "@/utils/nameFormat";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,6 +23,7 @@ import {
   Upload,
   Spin,
   Alert,
+  Modal,
   theme,
   Radio,
   Grid,
@@ -155,6 +156,7 @@ export default function VaultSettings() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const nameOrder = useNameOrder();
   const { token } = theme.useToken();
   const screens = useBreakpoint();
@@ -172,6 +174,8 @@ export default function VaultSettings() {
     NAME_ORDER_PRESETS[0],
   );
   const [customNameOrderTemplate, setCustomNameOrderTemplate] = useState("");
+  const [deleteVaultOpen, setDeleteVaultOpen] = useState(false);
+  const [deleteVaultConfirmation, setDeleteVaultConfirmation] = useState("");
 
   const { data: vaultSettings } = useQuery({
     queryKey: ["vault", vaultId, "settings"],
@@ -218,6 +222,18 @@ export default function VaultSettings() {
       queryClient.invalidateQueries({ queryKey: ["vault", vaultId] });
     },
     onError: (e: APIError) => message.error(e.message),
+  });
+
+  const deleteVaultMutation = useMutation({
+    mutationFn: () => api.vaults.vaultsDelete(String(vaultId)),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["vaults"] });
+      setDeleteVaultOpen(false);
+      setDeleteVaultConfirmation("");
+      message.success(t("vault.detail.deleted"));
+      navigate("/vaults");
+    },
+    onError: (e: APIError) => message.error(e.message || t("common.error")),
   });
 
   const updateNameOrderMutation = useMutation({
@@ -564,6 +580,57 @@ export default function VaultSettings() {
             </div>
           )}
         </Card>
+        <Card
+          style={{ borderColor: token.colorError }}
+          styles={{ header: { borderBottomColor: token.colorErrorBorder } }}
+          title={
+            <span style={{ color: token.colorError }}>
+              {t("vault_settings.danger_zone")}
+            </span>
+          }
+        >
+          <Text
+            type="secondary"
+            style={{ display: "block", marginBottom: 16 }}
+          >
+            {t("vault_settings.delete_description")}
+          </Text>
+          <Button
+            danger
+            type="primary"
+            icon={<DeleteOutlined />}
+            onClick={() => setDeleteVaultOpen(true)}
+          >
+            {t("vault.detail.delete")}
+          </Button>
+        </Card>
+        <Modal
+          title={t("vault.detail.delete")}
+          open={deleteVaultOpen}
+          onCancel={() => {
+            setDeleteVaultOpen(false);
+            setDeleteVaultConfirmation("");
+          }}
+          onOk={() => deleteVaultMutation.mutate()}
+          okText={t("common.delete")}
+          okButtonProps={{
+            danger: true,
+            disabled: deleteVaultConfirmation !== vaultSettings.name,
+          }}
+          confirmLoading={deleteVaultMutation.isPending}
+        >
+          <Text style={{ display: "block", marginBottom: 16 }}>
+            {t("vault_settings.delete_confirm_name", {
+              name: vaultSettings.name,
+            })}
+          </Text>
+          <Input
+            value={deleteVaultConfirmation}
+            onChange={(event) => setDeleteVaultConfirmation(event.target.value)}
+            placeholder={vaultSettings.name}
+            autoComplete="off"
+          />
+        </Modal>
       </Space>
     );
   };

@@ -31,6 +31,10 @@ func NewLifeEventService(db *gorm.DB) *LifeEventService      { return &LifeEvent
 func (s *LifeEventService) SetFeedRecorder(fr *FeedRecorder) { s.feedRecorder = fr }
 
 func (s *LifeEventService) List(vaultID, contactID string, page, perPage int) ([]dto.LifeEventResponse, response.Meta, error) {
+	return s.ListForUser(vaultID, "", contactID, page, perPage)
+}
+
+func (s *LifeEventService) ListForUser(vaultID, userID, contactID string, page, perPage int) ([]dto.LifeEventResponse, response.Meta, error) {
 	if contactID != "" {
 		if err := validateContactBelongsToVault(s.db, contactID, vaultID); err != nil {
 			return nil, response.Meta{}, err
@@ -59,7 +63,7 @@ func (s *LifeEventService) List(vaultID, contactID string, page, perPage int) ([
 	}
 	items := make([]dto.LifeEventResponse, len(events))
 	for i := range events {
-		item, err := s.toLifeEventResponse(&events[i])
+		item, err := s.toLifeEventResponse(&events[i], userID)
 		if err != nil {
 			return nil, response.Meta{}, err
 		}
@@ -69,9 +73,25 @@ func (s *LifeEventService) List(vaultID, contactID string, page, perPage int) ([
 }
 
 func (s *LifeEventService) Create(vaultID string, req dto.LifeEventUpsertRequest) (*dto.LifeEventResponse, error) {
-	event, contactIDs, err := s.eventFromRequest(vaultID, req, nil)
+	return s.CreateForUser(vaultID, "", req)
+}
+
+func (s *LifeEventService) CreateForUser(vaultID, userID string, req dto.LifeEventUpsertRequest) (*dto.LifeEventResponse, error) {
+	isUserSubject := strings.TrimSpace(req.PrimaryContactID) == ""
+	event, contactIDs, err := s.eventFromRequest(vaultID, req, nil, isUserSubject && userID != "")
 	if err != nil {
 		return nil, err
+	}
+	if isUserSubject {
+		if userID == "" {
+			return nil, ErrInvalidLifeEventInput
+		}
+		subjectName, err := s.currentUserSubjectName(vaultID, userID)
+		if err != nil {
+			return nil, err
+		}
+		event.SubjectUserID = &userID
+		event.SubjectUserName = &subjectName
 	}
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&event).Error; err != nil {
@@ -88,10 +108,14 @@ func (s *LifeEventService) Create(vaultID string, req dto.LifeEventUpsertRequest
 		entityType := "LifeEvent"
 		s.feedRecorder.Record(req.PrimaryContactID, "", ActionLifeEventCreated, "Created a life event", &event.ID, &entityType)
 	}
-	return s.get(vaultID, event.ID)
+	return s.get(vaultID, event.ID, userID)
 }
 
 func (s *LifeEventService) Update(vaultID string, id uint, req dto.LifeEventUpsertRequest) (*dto.LifeEventResponse, error) {
+	return s.UpdateForUser(vaultID, "", id, req)
+}
+
+func (s *LifeEventService) UpdateForUser(vaultID, userID string, id uint, req dto.LifeEventUpsertRequest) (*dto.LifeEventResponse, error) {
 	var current models.LifeEvent
 	if err := s.db.Preload("Participants").Where("id = ? AND vault_id = ?", id, vaultID).First(&current).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -103,11 +127,13 @@ func (s *LifeEventService) Update(vaultID string, id uint, req dto.LifeEventUpse
 	for i := range current.Participants {
 		currentParticipantIDs[i] = current.Participants[i].ID
 	}
-	replacement, contactIDs, err := s.eventFromRequest(vaultID, req, currentParticipantIDs)
+	replacement, contactIDs, err := s.eventFromRequest(vaultID, req, currentParticipantIDs, current.SubjectUserID != nil)
 	if err != nil {
 		return nil, err
 	}
 	replacement.ID, replacement.CreatedAt = current.ID, current.CreatedAt
+	replacement.SubjectUserID = current.SubjectUserID
+	replacement.SubjectUserName = current.SubjectUserName
 	if replacement.ParentID != nil && *replacement.ParentID == id {
 		return nil, ErrInvalidLifeEventTime
 	}
@@ -122,7 +148,7 @@ func (s *LifeEventService) Update(vaultID string, id uint, req dto.LifeEventUpse
 	}); err != nil {
 		return nil, err
 	}
-	return s.get(vaultID, id)
+	return s.get(vaultID, id, userID)
 }
 
 func (s *LifeEventService) Delete(vaultID string, id uint) error {
@@ -144,7 +170,7 @@ func (s *LifeEventService) Delete(vaultID string, id uint) error {
 	})
 }
 
-func (s *LifeEventService) get(vaultID string, id uint) (*dto.LifeEventResponse, error) {
+func (s *LifeEventService) get(vaultID string, id uint, userID string) (*dto.LifeEventResponse, error) {
 	var event models.LifeEvent
 	if err := s.db.Preload("Participants").Preload("LifeEventType.LifeEventCategory").Where("id = ? AND vault_id = ?", id, vaultID).First(&event).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -152,14 +178,14 @@ func (s *LifeEventService) get(vaultID string, id uint) (*dto.LifeEventResponse,
 		}
 		return nil, err
 	}
-	resp, err := s.toLifeEventResponse(&event)
+	resp, err := s.toLifeEventResponse(&event, userID)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
-func (s *LifeEventService) eventFromRequest(vaultID string, req dto.LifeEventUpsertRequest, existingParticipantIDs []string) (models.LifeEvent, []string, error) {
+func (s *LifeEventService) eventFromRequest(vaultID string, req dto.LifeEventUpsertRequest, existingParticipantIDs []string, allowEmptyParticipants bool) (models.LifeEvent, []string, error) {
 	if strings.TrimSpace(req.Title) == "" || req.LifeEventTypeID == 0 {
 		return models.LifeEvent{}, nil, ErrInvalidLifeEventInput
 	}
@@ -194,11 +220,13 @@ func (s *LifeEventService) eventFromRequest(vaultID string, req dto.LifeEventUps
 		// Creation fallback for clients generated before participant_ids existed.
 		contactIDs = mergeContactIDs([]string{req.PrimaryContactID}, contactMentionIDs(req.Description))
 	}
-	if len(contactIDs) == 0 {
+	if len(contactIDs) == 0 && !allowEmptyParticipants {
 		return models.LifeEvent{}, nil, ErrContactNotFound
 	}
-	if err := validateContactsBelongToVault(s.db, contactIDs, vaultID); err != nil {
-		return models.LifeEvent{}, nil, err
+	if len(contactIDs) > 0 {
+		if err := validateContactsBelongToVault(s.db, contactIDs, vaultID); err != nil {
+			return models.LifeEvent{}, nil, err
+		}
 	}
 	typeID := req.LifeEventTypeID
 	event := models.LifeEvent{
@@ -273,8 +301,10 @@ func validateLifeEventTypeBelongsToVault(db *gorm.DB, id uint, vaultID string) e
 	return nil
 }
 
-func (s *LifeEventService) toLifeEventResponse(le *models.LifeEvent) (dto.LifeEventResponse, error) {
-	resp := dto.LifeEventResponse{ID: le.ID, VaultID: le.VaultID, ParentID: le.ParentID, LifeEventTypeID: le.LifeEventTypeID,
+func (s *LifeEventService) toLifeEventResponse(le *models.LifeEvent, currentUserID string) (dto.LifeEventResponse, error) {
+	resp := dto.LifeEventResponse{ID: le.ID, VaultID: le.VaultID, SubjectUserID: ptrToStr(le.SubjectUserID),
+		SubjectUserName: ptrToStr(le.SubjectUserName), SubjectIsCurrentUser: le.SubjectUserID != nil && *le.SubjectUserID == currentUserID,
+		ParentID: le.ParentID, LifeEventTypeID: le.LifeEventTypeID,
 		Title: le.Title, Description: ptrToStr(le.Description), StartDate: le.StartDate, StartPrecision: le.StartPrecision,
 		EndDate: le.EndDate, EndPrecision: le.EndPrecision, EndStatus: le.EndStatus, CalendarType: le.CalendarType,
 		OriginalDay: le.OriginalDay, OriginalMonth: le.OriginalMonth, OriginalYear: le.OriginalYear, EmotionID: le.EmotionID,
@@ -296,13 +326,28 @@ func (s *LifeEventService) toLifeEventResponse(le *models.LifeEvent) (dto.LifeEv
 		resp.MentionedContacts = contactRefs(mentioned)
 	}
 	for i := range le.Milestones {
-		milestone, err := s.toLifeEventResponse(&le.Milestones[i])
+		milestone, err := s.toLifeEventResponse(&le.Milestones[i], currentUserID)
 		if err != nil {
 			return dto.LifeEventResponse{}, err
 		}
 		resp.Milestones = append(resp.Milestones, milestone)
 	}
 	return resp, nil
+}
+
+func (s *LifeEventService) currentUserSubjectName(vaultID, userID string) (string, error) {
+	var user models.User
+	if err := s.db.Model(&models.User{}).
+		Joins("JOIN user_vault ON user_vault.user_id = users.id").
+		Where("users.id = ? AND user_vault.vault_id = ?", userID, vaultID).
+		First(&user).Error; err != nil {
+		return "", err
+	}
+	name := strings.TrimSpace(strings.Join([]string{ptrToStr(user.FirstName), ptrToStr(user.LastName)}, " "))
+	if name == "" {
+		name = user.Email
+	}
+	return name, nil
 }
 
 func updateInteractionLastTalkedTo(tx *gorm.DB, typeID *uint, happenedAt *time.Time, contactIDs []string) error {
@@ -366,7 +411,15 @@ func dedupeContactIDs(ids []string) []string {
 func contactRefs(contacts []models.Contact) []dto.TaskContactRef {
 	refs := make([]dto.TaskContactRef, 0, len(contacts))
 	for i := range contacts {
-		refs = append(refs, dto.TaskContactRef{ID: contacts[i].ID, Name: utils.FormatContactName("%first_name% %last_name%", &contacts[i], contacts[i].ID)})
+		refs = append(refs, dto.TaskContactRef{
+			ID:           contacts[i].ID,
+			Name:         utils.FormatContactName("%first_name% %last_name%", &contacts[i], contacts[i].ID),
+			FirstName:    ptrToStr(contacts[i].FirstName),
+			LastName:     ptrToStr(contacts[i].LastName),
+			Nickname:     ptrToStr(contacts[i].Nickname),
+			JobPosition:  ptrToStr(contacts[i].JobPosition),
+			LastTalkedTo: contacts[i].LastTalkedTo,
+		})
 	}
 	sort.Slice(refs, func(i, j int) bool {
 		if refs[i].Name == refs[j].Name {

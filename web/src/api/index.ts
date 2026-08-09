@@ -413,6 +413,7 @@ export type { GithubComNaibaBondsInternalDtoRegisterRequest as RegisterRequest }
 
 // Contacts
 export type { GithubComNaibaBondsInternalDtoContactResponse as Contact } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoContactSearchItem as ContactSearchItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCreateContactRequest as CreateContactRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoUpdateContactRequest as UpdateContactRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoUpdateContactReligionRequest as UpdateContactReligionRequest } from "./generated/data-contracts";

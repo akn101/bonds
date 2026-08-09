@@ -18,7 +18,8 @@ type MoodTrackingParameter struct {
 
 type MoodTrackingEvent struct {
 	ID                      uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	ContactID               string    `json:"contact_id" gorm:"type:text;not null;index"`
+	VaultID                 string    `json:"vault_id" gorm:"type:text;index"`
+	UserID                  *string   `json:"user_id" gorm:"type:text;index"`
 	MoodTrackingParameterID uint      `json:"mood_tracking_parameter_id" gorm:"not null;index"`
 	RatedAt                 time.Time `json:"rated_at" gorm:"not null"`
 	Note                    *string   `json:"note" gorm:"type:text"`
@@ -26,6 +27,5 @@ type MoodTrackingEvent struct {
 	CreatedAt               time.Time `json:"created_at"`
 	UpdatedAt               time.Time `json:"updated_at"`
 
-	Contact               Contact               `json:"contact,omitempty" gorm:"foreignKey:ContactID"`
 	MoodTrackingParameter MoodTrackingParameter `json:"mood_tracking_parameter,omitempty" gorm:"foreignKey:MoodTrackingParameterID"`
 }

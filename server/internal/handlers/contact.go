@@ -55,7 +55,7 @@ func (h *ContactHandler) List(c echo.Context) error {
 // ListSelectable godoc
 //
 //	@Summary		List selectable contacts
-//	@Description	Return the full selectable contact set for a vault, excluding shadow contacts and optionally filtering by search term.
+//	@Description	Return the full selectable contact set for a vault, including archived contacts and optionally filtering by search term.
 //	@Tags			contacts
 //	@Produce		json
 //	@Security		BearerAuth
@@ -308,9 +308,60 @@ func (h *ContactHandler) Delete(c echo.Context) error {
 		if errors.Is(err, services.ErrContactNotFound) {
 			return response.NotFound(c, "err.contact_not_found")
 		}
+		if errors.Is(err, services.ErrContactCannotBeDeleted) {
+			return response.Conflict(c, "err.contact_cannot_be_deleted")
+		}
 		return response.InternalError(c, "err.failed_to_delete_contact")
 	}
 	return response.NoContent(c)
+}
+
+// DeleteMany godoc
+//
+//	@Summary		Delete multiple contacts
+//	@ID				ContactsBulkDelete
+//	@Description	Permanently delete multiple contacts in a single transaction
+//	@Tags			contacts
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			vault_id	path		string						true	"Vault ID"
+//	@Param			request		body		dto.BulkDeleteContactsRequest	true	"Contacts to delete"
+//	@Success		200			{object}	response.APIResponse{data=dto.BulkDeleteContactsResponse}
+//	@Failure		400			{object}	response.APIResponse
+//	@Failure		401			{object}	response.APIResponse
+//	@Failure		403			{object}	response.APIResponse
+//	@Failure		404			{object}	response.APIResponse
+//	@Failure		409			{object}	response.APIResponse
+//	@Failure		422			{object}	response.APIResponse
+//	@Failure		500			{object}	response.APIResponse
+//	@Router			/vaults/{vault_id}/contacts [delete]
+func (h *ContactHandler) DeleteMany(c echo.Context) error {
+	vaultID := c.Param("vault_id")
+	var req dto.BulkDeleteContactsRequest
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "err.invalid_request_body", nil)
+	}
+	if err := validateRequest(req); err != nil {
+		return response.ValidationError(c, map[string]string{"validation": err.Error()})
+	}
+
+	result, err := h.contactService.DeleteContacts(req.ContactIDs, vaultID)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrContactDeleteEmpty),
+			errors.Is(err, services.ErrContactIDInvalid),
+			errors.Is(err, services.ErrContactIDsLimitExceeded):
+			return response.ValidationError(c, map[string]string{"contact_ids": "contact_ids is invalid"})
+		case errors.Is(err, services.ErrContactNotFound):
+			return response.NotFound(c, "err.contact_not_found")
+		case errors.Is(err, services.ErrContactCannotBeDeleted):
+			return response.Conflict(c, "err.contact_cannot_be_deleted")
+		default:
+			return response.InternalError(c, "err.failed_to_delete_contact")
+		}
+	}
+	return response.OK(c, result)
 }
 
 // ToggleArchive godoc
@@ -335,6 +386,9 @@ func (h *ContactHandler) ToggleArchive(c echo.Context) error {
 	if err != nil {
 		if errors.Is(err, services.ErrContactNotFound) {
 			return response.NotFound(c, "err.contact_not_found")
+		}
+		if errors.Is(err, services.ErrContactCannotBeDeleted) {
+			return response.Conflict(c, "err.contact_cannot_be_deleted")
 		}
 		return response.InternalError(c, "err.failed_to_toggle_archive")
 	}

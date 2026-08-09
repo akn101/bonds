@@ -25,6 +25,7 @@ import {
   TeamOutlined,
   SettingOutlined,
   ExportOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
@@ -83,6 +84,11 @@ type ContactGroupSummary = {
 type BulkMoveVariables = {
   readonly sourceVaultId: string;
   readonly targetVaultId: string;
+  readonly selectedContactIds: readonly string[];
+};
+
+type BulkDeleteVariables = {
+  readonly vaultId: string;
   readonly selectedContactIds: readonly string[];
 };
 
@@ -359,6 +365,48 @@ export default function ContactList() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (variables: BulkDeleteVariables) =>
+      api.contacts.contactsBulkDelete(variables.vaultId, {
+        contact_ids: [...variables.selectedContactIds],
+      }),
+    onSuccess: async (res, variables) => {
+      const deletedCount =
+        res.data?.deleted_count ?? variables.selectedContactIds.length;
+      const affectedScopes = {
+        vaultIds: [variables.vaultId],
+        contacts: variables.selectedContactIds.map((contactId) => ({
+          vaultId: variables.vaultId,
+          contactId,
+        })),
+      } satisfies QueryInvalidationScopes;
+      await Promise.all([
+        invalidateContactQueries(queryClient, affectedScopes.vaultIds),
+        invalidateVaultTaskImpactQueries(queryClient, affectedScopes.vaultIds),
+        invalidateFeedQueries(queryClient, affectedScopes),
+        invalidateCalendarQueries(queryClient, affectedScopes),
+        invalidateReminderQueries(queryClient, affectedScopes),
+        refreshMostConsultedProjections(queryClient, [
+          {
+            vaultId: variables.vaultId,
+            evictContactIds: variables.selectedContactIds,
+          },
+        ]),
+      ]);
+      setSelectedContactIds((currentSelection) =>
+        currentSelection.filter(
+          (contactId) => !variables.selectedContactIds.includes(contactId),
+        ),
+      );
+      message.success(
+        t("contact.list.bulk_delete_success", { count: deletedCount }),
+      );
+    },
+    onError: (err: APIError) => {
+      message.error(err.message || t("common.error"));
+    },
+  });
+
   const handleSortChange = (value: string) => {
     setSortBy(value);
     resetToFirstPage();
@@ -570,14 +618,48 @@ export default function ContactList() {
           </div>
           <Space size={8} wrap>
             {selectedContactIds.length > 0 && (
-              <Button
-                icon={<ExportOutlined />}
-                onClick={() => setBulkMoveOpen(true)}
-              >
-                {t("contact.list.bulk_move_selected", {
-                  count: selectedContactIds.length,
-                })}
-              </Button>
+              <>
+                <Button
+                  icon={<ExportOutlined />}
+                  onClick={() => setBulkMoveOpen(true)}
+                >
+                  {t("contact.list.bulk_move_selected", {
+                    count: selectedContactIds.length,
+                  })}
+                </Button>
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  loading={bulkDeleteMutation.isPending}
+                  onClick={() => {
+                    const selectedSnapshot = Object.freeze([
+                      ...selectedContactIds,
+                    ]);
+                    Modal.confirm({
+                      title: t("contact.list.bulk_delete_title", {
+                        count: selectedSnapshot.length,
+                      }),
+                      content: t("contact.list.bulk_delete_warning", {
+                        count: selectedSnapshot.length,
+                      }),
+                      okText: t("common.delete"),
+                      okType: "danger",
+                      cancelText: t("common.cancel"),
+                      onOk: () =>
+                        bulkDeleteMutation.mutate(
+                          Object.freeze({
+                            vaultId,
+                            selectedContactIds: selectedSnapshot,
+                          }),
+                        ),
+                    });
+                  }}
+                >
+                  {t("contact.list.bulk_delete_selected", {
+                    count: selectedContactIds.length,
+                  })}
+                </Button>
+              </>
             )}
             <Upload
               accept=".vcf"

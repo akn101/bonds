@@ -111,7 +111,6 @@ func (s *ReportService) ImportantDatesReport(vaultID, userID string) ([]dto.Impo
 
 func (s *ReportService) Overview(vaultID string) (*dto.ReportOverviewResponse, error) {
 	var totalContacts int64
-	// Exclude shadow contacts (Listed=false) created for UserVault self-contact
 	if err := s.db.Model(&models.Contact{}).Where("vault_id = ? AND listed = ?", vaultID, true).Count(&totalContacts).Error; err != nil {
 		return nil, err
 	}
@@ -134,14 +133,8 @@ func (s *ReportService) Overview(vaultID string) (*dto.ReportOverviewResponse, e
 	}
 
 	var totalMood int64
-	var paramIDs []uint
-	if err := s.db.Model(&models.MoodTrackingParameter{}).Where("vault_id = ?", vaultID).Pluck("id", &paramIDs).Error; err != nil {
+	if err := s.db.Model(&models.MoodTrackingEvent{}).Where("vault_id = ?", vaultID).Count(&totalMood).Error; err != nil {
 		return nil, err
-	}
-	if len(paramIDs) > 0 {
-		if err := s.db.Model(&models.MoodTrackingEvent{}).Where("mood_tracking_parameter_id IN ?", paramIDs).Count(&totalMood).Error; err != nil {
-			return nil, err
-		}
 	}
 
 	return &dto.ReportOverviewResponse{
@@ -161,7 +154,7 @@ func (s *ReportService) MoodReport(vaultID string) ([]dto.MoodReportItem, error)
 	result := make([]dto.MoodReportItem, 0, len(params))
 	for _, p := range params {
 		var count int64
-		s.db.Model(&models.MoodTrackingEvent{}).Where("mood_tracking_parameter_id = ?", p.ID).Count(&count)
+		s.db.Model(&models.MoodTrackingEvent{}).Where("vault_id = ? AND mood_tracking_parameter_id = ?", vaultID, p.ID).Count(&count)
 		result = append(result, dto.MoodReportItem{
 			ParameterLabel: ptrToStr(p.Label),
 			HexColor:       p.HexColor,

@@ -62,7 +62,6 @@ func addUserToVault(t *testing.T, ts *testServer, userID, vaultID string, permis
 	uv := models.UserVault{
 		VaultID:    vaultID,
 		UserID:     userID,
-		ContactID:  "",
 		Permission: permission,
 	}
 	if err := ts.db.Create(&uv).Error; err != nil {
@@ -1864,12 +1863,17 @@ func TestViewerCannotCreateLifeEvent(t *testing.T) {
 	}
 }
 
-func TestViewerCannotCreateMoodEvent(t *testing.T) {
-	ts, _, viewerToken, vaultID, contactID := setupViewerTest(t)
-	path := fmt.Sprintf("/api/vaults/%s/contacts/%s/moodTrackingEvents", vaultID, contactID)
-	rec := ts.doRequest(http.MethodPost, path, `{"rated_at":"2024-01-01T00:00:00Z","parameter_id":1,"rating":3}`, viewerToken)
-	if rec.Code != http.StatusForbidden {
-		t.Errorf("expected 403 for Viewer creating mood event, got %d: %s", rec.Code, rec.Body.String())
+func TestViewerCanCreateOwnMoodEvent(t *testing.T) {
+	ts, _, viewerToken, vaultID, _ := setupViewerTest(t)
+	var parameterID uint
+	if err := ts.db.Model(&models.MoodTrackingParameter{}).Where("vault_id = ?", vaultID).Order("id").Pluck("id", &parameterID).Error; err != nil {
+		t.Fatalf("load mood parameter: %v", err)
+	}
+	path := fmt.Sprintf("/api/vaults/%s/moodTrackingEvents", vaultID)
+	body := fmt.Sprintf(`{"rated_at":"2024-01-01T00:00:00Z","mood_tracking_parameter_id":%d}`, parameterID)
+	rec := ts.doRequest(http.MethodPost, path, body, viewerToken)
+	if rec.Code != http.StatusCreated {
+		t.Errorf("expected 201 for Viewer recording own mood, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -2230,6 +2234,15 @@ func TestViewerCannotBulkMoveContacts(t *testing.T) {
 	}
 }
 
+func TestViewerCannotBulkDeleteContacts(t *testing.T) {
+	ts, _, viewerToken, vaultID, contactID := setupViewerTest(t)
+	path := fmt.Sprintf("/api/vaults/%s/contacts", vaultID)
+	rec := ts.doRequest(http.MethodDelete, path, fmt.Sprintf(`{"contact_ids":[%q]}`, contactID), viewerToken)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for Viewer bulk deleting contacts, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestBulkContactMoveTargetVaultInsufficientPermissionReturns403(t *testing.T) {
 	ts := setupTestServer(t)
 	token, auth := ts.registerTestUser(t, "bulk-move-target-viewer-manager@example.com")
@@ -2334,36 +2347,26 @@ func TestContactMoveCrossAccountTargetReturns403(t *testing.T) {
 	assertHandlerContactVault(t, ts, contact.ID, sourceVault.ID)
 }
 
-func TestContactMoveShadowSelfContactReturnsNotFound(t *testing.T) {
+func TestContactMoveProtectedContactReturnsNotFound(t *testing.T) {
 	ts := setupTestServer(t)
-	token, auth := ts.registerTestUser(t, "move-shadow-self@example.com")
-	sourceVault := ts.createTestVault(t, token, "Shadow Source Vault")
-	targetVault := ts.createTestVault(t, token, "Shadow Target Vault")
-	sourceUserVault := getHandlerUserVault(t, ts, auth.User.ID, sourceVault.ID)
-	targetUserVault := getHandlerUserVault(t, ts, auth.User.ID, targetVault.ID)
-	shadowContactID := sourceUserVault.ContactID
-	if shadowContactID == "" {
-		t.Fatal("expected source UserVault.ContactID to be populated")
+	token, _ := ts.registerTestUser(t, "move-protected@example.com")
+	sourceVault := ts.createTestVault(t, token, "Protected Source Vault")
+	targetVault := ts.createTestVault(t, token, "Protected Target Vault")
+	contact := ts.createTestContact(t, token, sourceVault.ID, "Protected")
+	if err := ts.db.Model(&models.Contact{}).Where("id = ?", contact.ID).Update("can_be_deleted", false).Error; err != nil {
+		t.Fatalf("protect contact: %v", err)
 	}
 
-	path := fmt.Sprintf("/api/vaults/%s/contacts/%s/move", sourceVault.ID, shadowContactID)
+	path := fmt.Sprintf("/api/vaults/%s/contacts/%s/move", sourceVault.ID, contact.ID)
 	rec := ts.doRequest(http.MethodPost, path, fmt.Sprintf(`{"target_vault_id":%q}`, targetVault.ID), token)
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected 404 for shadow self-contact move, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 404 for protected contact move, got %d: %s", rec.Code, rec.Body.String())
 	}
 	resp := parseResponse(t, rec)
 	if resp.Error == nil || resp.Error.Code != "NOT_FOUND" {
 		t.Fatalf("expected NOT_FOUND error, got %+v", resp.Error)
 	}
-	assertHandlerContactVault(t, ts, shadowContactID, sourceVault.ID)
-	reloadedSourceUserVault := getHandlerUserVault(t, ts, auth.User.ID, sourceVault.ID)
-	reloadedTargetUserVault := getHandlerUserVault(t, ts, auth.User.ID, targetVault.ID)
-	if reloadedSourceUserVault.ContactID != sourceUserVault.ContactID {
-		t.Fatalf("expected source UserVault.ContactID to remain %s, got %s", sourceUserVault.ContactID, reloadedSourceUserVault.ContactID)
-	}
-	if reloadedTargetUserVault.ContactID != targetUserVault.ContactID {
-		t.Fatalf("expected target UserVault.ContactID to remain %s, got %s", targetUserVault.ContactID, reloadedTargetUserVault.ContactID)
-	}
+	assertHandlerContactVault(t, ts, contact.ID, sourceVault.ID)
 }
 
 func TestViewerCannotUpdateContactTemplate(t *testing.T) {
@@ -2650,15 +2653,18 @@ func TestCrossVaultLifeEventBlocked(t *testing.T) {
 	}
 }
 
-func TestCrossVaultMoodEventBlocked(t *testing.T) {
+func TestCrossVaultMoodParameterBlocked(t *testing.T) {
 	ts := setupTestServer(t)
 	token, _ := ts.registerTestUser(t, "xvault-mood@example.com")
 	vault1 := ts.createTestVault(t, token, "Mood Vault A")
-	contact1 := ts.createTestContact(t, token, vault1.ID, "MoodContact")
 	vault2 := ts.createTestVault(t, token, "Mood Vault B")
+	var parameterID uint
+	if err := ts.db.Model(&models.MoodTrackingParameter{}).Where("vault_id = ?", vault1.ID).Order("id").Pluck("id", &parameterID).Error; err != nil {
+		t.Fatalf("load source mood parameter: %v", err)
+	}
 
-	path := fmt.Sprintf("/api/vaults/%s/contacts/%s/moodTrackingEvents", vault2.ID, contact1.ID)
-	body := `{"mood_tracking_parameter_id":1,"rated_at":"2025-01-01T00:00:00Z","note":"test"}`
+	path := fmt.Sprintf("/api/vaults/%s/moodTrackingEvents", vault2.ID)
+	body := fmt.Sprintf(`{"mood_tracking_parameter_id":%d,"rated_at":"2025-01-01T00:00:00Z","note":"test"}`, parameterID)
 	rec := ts.doRequest(http.MethodPost, path, body, token)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("expected 404 for cross-vault mood event create, got %d: %s", rec.Code, rec.Body.String())

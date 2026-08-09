@@ -83,7 +83,7 @@ The AI client never supplies SQL. SQL is produced only by fixed service-side GOR
 | Reminder | `bonds://reminder/{id}` |
 | Important date | `bonds://important-date/{id}` |
 
-Each resource read checks Viewer access to the owning vault. Unlisted shadow contacts are not returned by `fetch_resource`, and resources attached only to unlisted shadow contacts are filtered out.
+Each resource read checks Viewer access to the owning vault. Unlisted contacts are not returned by `fetch_resource`, and resources attached only to unlisted contacts are filtered out.
 
 ## Client Compatibility
 

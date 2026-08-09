@@ -68,7 +68,6 @@ func (ctx reminderAudienceTestContext) createVaultMember(t *testing.T, email str
 	if err := ctx.db.Create(&models.UserVault{
 		VaultID:    ctx.vaultID,
 		UserID:     user.ID,
-		ContactID:  "member-shadow-contact",
 		Permission: models.PermissionEditor,
 	}).Error; err != nil {
 		t.Fatalf("link vault member: %v", err)

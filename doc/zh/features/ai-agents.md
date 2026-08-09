@@ -83,7 +83,7 @@ AI 客户端不能提交 SQL。SQL 只由服务端固定 GORM 查询生成，并
 | 提醒 | `bonds://reminder/{id}` |
 | 重要日期 | `bonds://important-date/{id}` |
 
-每次资源读取都会校验所属 Vault 的 Viewer 权限。未列出的用户影子联系人不会被 `fetch_resource` 返回；仅关联到影子联系人的资源也会被过滤。
+每次资源读取都会校验所属 Vault 的 Viewer 权限。未列出的联系人不会被 `fetch_resource` 返回；仅关联到未列出联系人的资源也会被过滤。
 
 ## 客户端兼容性
 

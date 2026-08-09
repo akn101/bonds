@@ -14,12 +14,19 @@ func NewMoodTrackingService(db *gorm.DB) *MoodTrackingService {
 	return &MoodTrackingService{db: db}
 }
 
-func (s *MoodTrackingService) Create(contactID, vaultID string, req dto.CreateMoodTrackingEventRequest) (*dto.MoodTrackingEventResponse, error) {
-	if err := validateContactBelongsToVault(s.db, contactID, vaultID); err != nil {
+func (s *MoodTrackingService) Create(vaultID, userID string, req dto.CreateMoodTrackingEventRequest) (*dto.MoodTrackingEventResponse, error) {
+	var parameterCount int64
+	if err := s.db.Model(&models.MoodTrackingParameter{}).
+		Where("id = ? AND vault_id = ?", req.MoodTrackingParameterID, vaultID).
+		Count(&parameterCount).Error; err != nil {
 		return nil, err
 	}
+	if parameterCount != 1 {
+		return nil, ErrMoodParamNotFound
+	}
 	event := models.MoodTrackingEvent{
-		ContactID:               contactID,
+		VaultID:                 vaultID,
+		UserID:                  &userID,
 		MoodTrackingParameterID: req.MoodTrackingParameterID,
 		RatedAt:                 req.RatedAt,
 		Note:                    strPtrOrNil(req.Note),
@@ -32,12 +39,9 @@ func (s *MoodTrackingService) Create(contactID, vaultID string, req dto.CreateMo
 	return &resp, nil
 }
 
-func (s *MoodTrackingService) List(contactID, vaultID string) ([]dto.MoodTrackingEventResponse, error) {
-	if err := validateContactBelongsToVault(s.db, contactID, vaultID); err != nil {
-		return nil, err
-	}
+func (s *MoodTrackingService) List(vaultID, userID string) ([]dto.MoodTrackingEventResponse, error) {
 	var events []models.MoodTrackingEvent
-	if err := s.db.Where("contact_id = ?", contactID).Order("rated_at DESC").Find(&events).Error; err != nil {
+	if err := s.db.Where("vault_id = ? AND user_id = ?", vaultID, userID).Order("rated_at DESC").Find(&events).Error; err != nil {
 		return nil, err
 	}
 	result := make([]dto.MoodTrackingEventResponse, len(events))
@@ -50,7 +54,8 @@ func (s *MoodTrackingService) List(contactID, vaultID string) ([]dto.MoodTrackin
 func toMoodTrackingEventResponse(e *models.MoodTrackingEvent) dto.MoodTrackingEventResponse {
 	return dto.MoodTrackingEventResponse{
 		ID:                      e.ID,
-		ContactID:               e.ContactID,
+		VaultID:                 e.VaultID,
+		UserID:                  ptrToStr(e.UserID),
 		MoodTrackingParameterID: e.MoodTrackingParameterID,
 		RatedAt:                 e.RatedAt,
 		Note:                    ptrToStr(e.Note),

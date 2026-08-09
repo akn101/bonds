@@ -83,6 +83,33 @@ func TestContactMentionIDsDedupe(t *testing.T) {
 	}
 }
 
+func TestLifeEventContactRefsIncludeHoverCardDetails(t *testing.T) {
+	firstName := "Alice"
+	lastName := "Example"
+	nickname := "Ace"
+	jobPosition := "Designer"
+	lastTalkedTo := time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC)
+	refs := contactRefs([]models.Contact{{
+		ID:           "550e8400-e29b-41d4-a716-446655440000",
+		FirstName:    &firstName,
+		LastName:     &lastName,
+		Nickname:     &nickname,
+		JobPosition:  &jobPosition,
+		LastTalkedTo: &lastTalkedTo,
+	}})
+
+	if len(refs) != 1 {
+		t.Fatalf("refs=%+v", refs)
+	}
+	got := refs[0]
+	if got.FirstName != firstName || got.LastName != lastName || got.Nickname != nickname || got.JobPosition != jobPosition {
+		t.Fatalf("hover card name details=%+v", got)
+	}
+	if got.LastTalkedTo == nil || !got.LastTalkedTo.Equal(lastTalkedTo) {
+		t.Fatalf("last_talked_to=%v", got.LastTalkedTo)
+	}
+}
+
 func TestLifeEventExplicitParticipantsKeepDescriptionMentionsIndependent(t *testing.T) {
 	svc, vaultID, primary, mentioned, typeID := setupUnifiedLifeEventTest(t)
 	start := time.Now().UTC().Truncate(time.Second)
@@ -125,5 +152,57 @@ func TestLifeEventInteractionUpdatesAllParticipantsMonotonically(t *testing.T) {
 		if contact.LastTalkedTo == nil || !contact.LastTalkedTo.Equal(newer) {
 			t.Fatalf("contact %s last_talked_to=%v", id, contact.LastTalkedTo)
 		}
+	}
+}
+
+func TestDashboardLifeEventUsesSystemUserSubjectWithoutCreatingContact(t *testing.T) {
+	svc, vaultID, _, _, typeID := setupUnifiedLifeEventTest(t)
+	var vault models.Vault
+	if err := svc.db.First(&vault, "id = ?", vaultID).Error; err != nil {
+		t.Fatal(err)
+	}
+	firstName, lastName := "Alice", "Manager"
+	creator := models.User{AccountID: vault.AccountID, FirstName: &firstName, LastName: &lastName, Email: "alice-life-events@example.com"}
+	if err := svc.db.Create(&creator).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.db.Create(&models.UserVault{VaultID: vaultID, UserID: creator.ID, Permission: models.PermissionManager}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	emptyParticipants := []string{}
+	event, err := svc.CreateForUser(vaultID, creator.ID, dto.LifeEventUpsertRequest{
+		ParticipantIDs:  &emptyParticipants,
+		LifeEventTypeID: typeID,
+		Title:           "Started a new role",
+	})
+	if err != nil {
+		t.Fatalf("CreateForUser failed: %v", err)
+	}
+	if event.SubjectUserID != creator.ID || event.SubjectUserName != "Alice Manager" || !event.SubjectIsCurrentUser {
+		t.Fatalf("created subject = %+v", event)
+	}
+	if len(event.Participants) != 0 {
+		t.Fatalf("dashboard event participants = %+v, want none", event.Participants)
+	}
+
+	otherFirstName := "Bob"
+	other := models.User{AccountID: vault.AccountID, FirstName: &otherFirstName, Email: "bob-life-events@example.com"}
+	if err := svc.db.Create(&other).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.db.Create(&models.UserVault{VaultID: vaultID, UserID: other.ID, Permission: models.PermissionManager}).Error; err != nil {
+		t.Fatal(err)
+	}
+	updated, err := svc.UpdateForUser(vaultID, other.ID, event.ID, dto.LifeEventUpsertRequest{
+		ParticipantIDs:  &emptyParticipants,
+		LifeEventTypeID: typeID,
+		Title:           "Started the new role",
+	})
+	if err != nil {
+		t.Fatalf("UpdateForUser failed: %v", err)
+	}
+	if updated.SubjectUserID != creator.ID || updated.SubjectUserName != "Alice Manager" || updated.SubjectIsCurrentUser {
+		t.Fatalf("editing manager changed event subject: %+v", updated)
 	}
 }

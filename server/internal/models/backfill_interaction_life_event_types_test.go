@@ -3,10 +3,26 @@ package models
 import (
 	"testing"
 
+	"github.com/naiba/bonds/internal/i18n"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+func TestInteractionLifeEventTranslationKeysExistForEverySupportedLocale(t *testing.T) {
+	keys := []string{"seed.life_event_categories.interactions"}
+	for _, def := range interactionLifeEventTypeDefs {
+		keys = append(keys, def.key)
+	}
+
+	for _, locale := range i18n.Supported {
+		for _, key := range keys {
+			if translated := i18n.T(locale, key); translated == key {
+				t.Errorf("missing %q translation for locale %q", key, locale)
+			}
+		}
+	}
+}
 
 func TestBackfillInteractionLifeEventTypesSeedsEveryVaultIdempotently(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent), DisableForeignKeyConstraintWhenMigrating: true})

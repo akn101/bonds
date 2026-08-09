@@ -21,7 +21,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api";
 import type {
   APIError,
-  Contact,
+  ContactSearchItem,
   LifeEvent,
   LifeEventCategoryResponse,
   PaginationMeta,
@@ -92,14 +92,21 @@ export default function LifeEventsModule({
     },
   });
 
-  const { data: contacts = [] } = useQuery<Contact[]>({
+  const { data: contacts = [] } = useQuery<ContactSearchItem[]>({
     queryKey: ["vaults", vaultId, "contacts", "life-event-picker"],
-    queryFn: async () => (await api.contacts.contactsList(String(vaultId), { per_page: 9999 })).data ?? [],
+    queryFn: async () =>
+      (await api.contacts.contactsSelectableList(String(vaultId), {})).data ??
+      [],
   });
-  const contactOptions = contacts.map((contact) => ({
-    value: String(contact.id),
-    label: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || String(contact.id),
-  }));
+  const contactOptions = contacts
+    .filter(
+      (contact) =>
+        contact.id != null && String(contact.id) !== String(contactId ?? ""),
+    )
+    .map((contact) => ({
+      value: String(contact.id),
+      label: contact.name || String(contact.id),
+    }));
 
   const { data: categories = [] } = useQuery({
     queryKey: ["vault", vaultId, "lifeEventCategories"],
@@ -154,8 +161,8 @@ export default function LifeEventsModule({
               day: start.day ?? 1,
             });
       const payload = {
-        primary_contact_id: values.participant_ids[0],
-        participant_ids: values.participant_ids.slice(1),
+        primary_contact_id: contactId == null ? "" : String(contactId),
+        participant_ids: values.participant_ids,
         parent_id: values.parent_id,
         life_event_type_id: values.life_event_type_id,
         title: values.title,
@@ -227,7 +234,7 @@ export default function LifeEventsModule({
         datePrecision: "full",
       },
       end_status: "none",
-      participant_ids: contactId == null ? [] : [String(contactId)],
+      participant_ids: [],
     });
     setOpen(true);
   };
@@ -269,7 +276,11 @@ export default function LifeEventsModule({
       end_status: (event.end_status as EndStatus) || "none",
       end_precision: (event.end_precision as Precision) || "day",
       end_date: event.end_date ? dayjs(event.end_date) : undefined,
-      participant_ids: (event.participants ?? []).flatMap((contact) => contact.id ? [contact.id] : []),
+      participant_ids: (event.participants ?? []).flatMap((contact) =>
+        contact.id && String(contact.id) !== String(contactId ?? "")
+          ? [contact.id]
+          : [],
+      ),
       duration_in_minutes: event.duration_in_minutes,
       place: event.place,
     });
@@ -301,8 +312,11 @@ export default function LifeEventsModule({
   };
   const descriptionContacts = (event: LifeEvent) => {
     const byId = new Map(
-      [...(event.participants ?? []), ...(event.mentioned_contacts ?? [])].flatMap(
-        (contact) => (contact.id ? [[contact.id, contact] as const] : []),
+      [
+        ...(event.participants ?? []),
+        ...(event.mentioned_contacts ?? []),
+      ].flatMap((contact) =>
+        contact.id ? [[contact.id, contact] as const] : [],
       ),
     );
     return [...byId.values()];
@@ -319,7 +333,13 @@ export default function LifeEventsModule({
       loading={isLoading && items.length === 0}
     >
       {items.length === 0 ? (
-        <Empty description={t("modules.life_events.empty_description")}>
+        <Empty
+          description={t(
+            contactId == null
+              ? "modules.life_events.empty_description_vault"
+              : "modules.life_events.empty_description",
+          )}
+        >
           <Button type="primary" onClick={startCreate}>
             {t("modules.life_events.add_first_event")}
           </Button>
@@ -337,7 +357,18 @@ export default function LifeEventsModule({
                     <Text type="secondary" style={{ display: "block" }}>
                       {formatEventTime(event)}
                     </Text>
-                    {event.life_event_type?.label && <Text type="secondary">{event.life_event_type.label}</Text>}
+                    {event.life_event_type?.label && (
+                      <Text type="secondary">
+                        {event.life_event_type.label}
+                      </Text>
+                    )}
+                    {event.subject_user_id && (
+                      <Text type="secondary" style={{ display: "block" }}>
+                        {event.subject_is_current_user
+                          ? t("modules.life_events.self_participant")
+                          : event.subject_user_name}
+                      </Text>
+                    )}
                   </div>
                   <Space size={0}>
                     <Button
@@ -388,7 +419,10 @@ export default function LifeEventsModule({
             : t("modules.life_events.add_event")
         }
         open={open}
-        onCancel={() => { setOpen(false); onModalClose?.(); }}
+        onCancel={() => {
+          setOpen(false);
+          onModalClose?.();
+        }}
         onOk={() => form.submit()}
         confirmLoading={saveMutation.isPending}
         destroyOnHidden
@@ -397,9 +431,15 @@ export default function LifeEventsModule({
           form={form}
           layout="vertical"
           initialValues={{
-            start_calendar: { calendarType: "gregorian", year: dayjs().year(), month: dayjs().month() + 1, day: dayjs().date(), datePrecision: "full" },
+            start_calendar: {
+              calendarType: "gregorian",
+              year: dayjs().year(),
+              month: dayjs().month() + 1,
+              day: dayjs().date(),
+              datePrecision: "full",
+            },
             end_status: "none",
-            participant_ids: contactId == null ? [] : [String(contactId)],
+            participant_ids: [],
           }}
           onFinish={(values) => saveMutation.mutate(values)}
         >
@@ -410,8 +450,17 @@ export default function LifeEventsModule({
           >
             <Select showSearch options={typeOptions} optionFilterProp="label" />
           </Form.Item>
-          <Form.Item name="participant_ids" label={t("modules.life_events.participants")} rules={[{ required: true }]}>
-            <Select mode="multiple" showSearch options={contactOptions} placeholder={t("modules.life_events.participants_placeholder")} optionFilterProp="label" />
+          <Form.Item
+            name="participant_ids"
+            label={t("modules.life_events.participants")}
+          >
+            <Select
+              mode="multiple"
+              showSearch
+              options={contactOptions}
+              placeholder={t("modules.life_events.participants_placeholder")}
+              optionFilterProp="label"
+            />
           </Form.Item>
           <Form.Item
             name="title"
@@ -475,8 +524,15 @@ export default function LifeEventsModule({
               showHint
             />
           </Form.Item>
-          <Form.Item name="place" label={t("modules.life_events.place")}><Input /></Form.Item>
-          <Form.Item name="duration_in_minutes" label={t("modules.life_events.duration_minutes")}><Input type="number" min={0} /></Form.Item>
+          <Form.Item name="place" label={t("modules.life_events.place")}>
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="duration_in_minutes"
+            label={t("modules.life_events.duration_minutes")}
+          >
+            <Input type="number" min={0} />
+          </Form.Item>
           <Form.Item
             name="parent_id"
             label={t("modules.life_events.related_experience")}

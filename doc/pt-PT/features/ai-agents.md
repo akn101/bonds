@@ -83,7 +83,7 @@ O cliente de IA nunca fornece SQL. SQL é produzido apenas por consultas GORM fi
 | Lembrete | `bonds://reminder/{id}` |
 | Data importante | `bonds://important-date/{id}` |
 
-Cada leitura de recurso verifica acesso de Leitor ao cofre proprietário. Contactos sombra não listados não são retornados por `fetch_resource`, e recursos anexados apenas a contactos sombra não listados são filtrados.
+Cada leitura de recurso verifica acesso de Leitor ao cofre proprietário. Contactos não listados não são retornados por `fetch_resource`, e recursos anexados apenas a contactos não listados são filtrados.
 
 ## Compatibilidade de Clientes
 

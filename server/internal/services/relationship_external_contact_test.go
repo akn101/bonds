@@ -96,19 +96,22 @@ func TestUpdateContact_PromotesExternalRelationshipContact(t *testing.T) {
 	}
 }
 
-func TestUpdateContact_RejectsPromotingVaultShadowContact(t *testing.T) {
+func TestUpdateContact_RejectsPromotingProtectedContact(t *testing.T) {
 	ctx := setupRelationshipTestFull(t)
-
-	var userVault models.UserVault
-	if err := ctx.db.Where("vault_id = ? AND user_id = ?", ctx.vaultID, ctx.userID).First(&userVault).Error; err != nil {
-		t.Fatalf("Load user vault failed: %v", err)
+	name := "Protected"
+	contact := models.Contact{VaultID: ctx.vaultID, FirstName: &name}
+	if err := ctx.db.Create(&contact).Error; err != nil {
+		t.Fatalf("create protected contact: %v", err)
+	}
+	if err := ctx.db.Model(&contact).Updates(map[string]interface{}{"listed": false, "can_be_deleted": false}).Error; err != nil {
+		t.Fatalf("protect contact: %v", err)
 	}
 
 	listed := true
 	needsVerification := false
 	contactSvc := NewContactService(ctx.db)
-	_, err := contactSvc.UpdateContact(userVault.ContactID, ctx.vaultID, ctx.userID, dto.UpdateContactRequest{
-		FirstName:         "Shadow",
+	_, err := contactSvc.UpdateContact(contact.ID, ctx.vaultID, ctx.userID, dto.UpdateContactRequest{
+		FirstName:         name,
 		Listed:            &listed,
 		NeedsVerification: &needsVerification,
 	})

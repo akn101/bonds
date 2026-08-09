@@ -170,38 +170,17 @@ func TestMoveContactCrossAccountTargetForbidden(t *testing.T) {
 	assertMoveContactNotInVault(t, svc, contactID, targetVaultID)
 }
 
-func TestMoveContactShadowSelfContactNotFound(t *testing.T) {
-	svc, _, vault1ID, vault2ID, userID := setupContactMoveTest(t)
-	sourceUserVault := getMoveTestUserVault(t, svc, userID, vault1ID)
-	targetUserVault := getMoveTestUserVault(t, svc, userID, vault2ID)
-	shadowContactID := sourceUserVault.ContactID
-	if shadowContactID == "" {
-		t.Fatal("expected source user vault to have a shadow contact")
-	}
-	if shadowContactID == targetUserVault.ContactID {
-		t.Fatal("expected each vault to have a distinct shadow contact")
+func TestMoveProtectedContactNotFound(t *testing.T) {
+	svc, contactID, vault1ID, vault2ID, userID := setupContactMoveTest(t)
+	if err := svc.db.Model(&models.Contact{}).Where("id = ?", contactID).Update("can_be_deleted", false).Error; err != nil {
+		t.Fatalf("protect contact: %v", err)
 	}
 
-	_, err := svc.Move(shadowContactID, vault1ID, vault2ID, userID)
+	_, err := svc.Move(contactID, vault1ID, vault2ID, userID)
 	if !errors.Is(err, ErrContactNotFound) {
 		t.Fatalf("expected ErrContactNotFound, got %v", err)
 	}
-	assertMoveContactRemainsInVault(t, svc, shadowContactID, vault1ID)
-	shadowContact := getMoveTestContact(t, svc, shadowContactID)
-	if shadowContact.CanBeDeleted || shadowContact.Listed {
-		t.Fatalf("expected shadow contact to remain hidden and undeletable, got can_be_deleted=%v listed=%v", shadowContact.CanBeDeleted, shadowContact.Listed)
-	}
-	reloadedSourceUserVault := getMoveTestUserVault(t, svc, userID, vault1ID)
-	reloadedTargetUserVault := getMoveTestUserVault(t, svc, userID, vault2ID)
-	if reloadedSourceUserVault.ContactID != shadowContactID {
-		t.Fatalf("expected source UserVault.ContactID to remain %s, got %s", shadowContactID, reloadedSourceUserVault.ContactID)
-	}
-	if reloadedTargetUserVault.ContactID != targetUserVault.ContactID {
-		t.Fatalf("expected target UserVault.ContactID to remain %s, got %s", targetUserVault.ContactID, reloadedTargetUserVault.ContactID)
-	}
-	if reloadedTargetUserVault.ContactID == shadowContactID {
-		t.Fatal("expected target UserVault.ContactID not to point at source shadow contact")
-	}
+	assertMoveContactRemainsInVault(t, svc, contactID, vault1ID)
 }
 
 func TestMoveContactNotFound(t *testing.T) {
@@ -585,13 +564,7 @@ func TestMoveManyRemapsVaultScopedContactDetails(t *testing.T) {
 	targetQuickTemplate := models.VaultQuickFactsTemplate{VaultID: vault2ID, Label: &quickLabel, LabelTranslationKey: &quickTranslationKey, FieldType: "text"}
 	missingQuickLabel := "Source-only quick fact"
 	missingQuickTemplate := models.VaultQuickFactsTemplate{VaultID: vault1ID, Label: &missingQuickLabel, FieldType: "text"}
-	moodTranslationKey := "mood.good"
-	moodLabel := "Good"
-	sourceMood := models.MoodTrackingParameter{VaultID: vault1ID, Label: &moodLabel, LabelTranslationKey: &moodTranslationKey, HexColor: "#00ff00"}
-	targetMood := models.MoodTrackingParameter{VaultID: vault2ID, Label: &moodLabel, LabelTranslationKey: &moodTranslationKey, HexColor: "#00ff00"}
-	missingMoodLabel := "Source-only mood"
-	missingMood := models.MoodTrackingParameter{VaultID: vault1ID, Label: &missingMoodLabel, HexColor: "#ff0000"}
-	for _, row := range []interface{}{&sourceType, &targetType, &missingType, &sourceQuickTemplate, &targetQuickTemplate, &missingQuickTemplate, &sourceMood, &targetMood, &missingMood} {
+	for _, row := range []interface{}{&sourceType, &targetType, &missingType, &sourceQuickTemplate, &targetQuickTemplate, &missingQuickTemplate} {
 		if err := svc.db.Create(row).Error; err != nil {
 			t.Fatalf("create vault-scoped row failed: %v", err)
 		}
@@ -607,9 +580,7 @@ func TestMoveManyRemapsVaultScopedContactDetails(t *testing.T) {
 		t.Fatalf("create quick fact file failed: %v", err)
 	}
 	missingQuickFact := models.QuickFact{ContactID: contactID, VaultQuickFactsTemplateID: missingQuickTemplate.ID, Content: "Delete me", FileID: &quickFile.ID}
-	matchedMood := models.MoodTrackingEvent{ContactID: contactID, MoodTrackingParameterID: sourceMood.ID, RatedAt: time.Now()}
-	missingMoodEvent := models.MoodTrackingEvent{ContactID: contactID, MoodTrackingParameterID: missingMood.ID, RatedAt: time.Now()}
-	for _, row := range []interface{}{&matchedDate, &missingDate, &untypedDate, &quickFact, &missingQuickFact, &matchedMood, &missingMoodEvent} {
+	for _, row := range []interface{}{&matchedDate, &missingDate, &untypedDate, &quickFact, &missingQuickFact} {
 		if err := svc.db.Create(row).Error; err != nil {
 			t.Fatalf("create contact detail row failed: %v", err)
 		}
@@ -650,14 +621,6 @@ func TestMoveManyRemapsVaultScopedContactDetails(t *testing.T) {
 	}
 	assertMoveCount(t, svc, &models.QuickFact{}, "id = ?", 0, missingQuickFact.ID)
 	assertMoveCount(t, svc, &models.File{}, "id = ?", 0, quickFile.ID)
-	var reloadedMood models.MoodTrackingEvent
-	if err := svc.db.First(&reloadedMood, matchedMood.ID).Error; err != nil {
-		t.Fatalf("reload mood event failed: %v", err)
-	}
-	if reloadedMood.MoodTrackingParameterID != targetMood.ID {
-		t.Fatalf("expected mood parameter %d, got %d", targetMood.ID, reloadedMood.MoodTrackingParameterID)
-	}
-	assertMoveCount(t, svc, &models.MoodTrackingEvent{}, "id = ?", 0, missingMoodEvent.ID)
 }
 
 func TestMoveManyReschedulesRemindersAndCleansSourceDavState(t *testing.T) {

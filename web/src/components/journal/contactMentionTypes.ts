@@ -15,4 +15,6 @@ export type PostContactReference = {
   readonly maiden_name?: string;
   readonly prefix?: string;
   readonly suffix?: string;
+  readonly job_position?: string;
+  readonly last_talked_to?: string;
 };

@@ -30,21 +30,15 @@ func setupMoodTrackingTest(t *testing.T) (*MoodTrackingService, string, string) 
 		t.Fatalf("CreateVault failed: %v", err)
 	}
 
-	contactSvc := NewContactService(db)
-	contact, err := contactSvc.CreateContact(vault.ID, resp.User.ID, dto.CreateContactRequest{FirstName: "John"})
-	if err != nil {
-		t.Fatalf("CreateContact failed: %v", err)
-	}
-
-	return NewMoodTrackingService(db), contact.ID, vault.ID
+	return NewMoodTrackingService(db), vault.ID, resp.User.ID
 }
 
 func TestCreateMoodTrackingEvent(t *testing.T) {
-	svc, contactID, vaultID := setupMoodTrackingTest(t)
+	svc, vaultID, userID := setupMoodTrackingTest(t)
 
 	hoursSlept := 8
 	ratedAt := time.Now()
-	event, err := svc.Create(contactID, vaultID, dto.CreateMoodTrackingEventRequest{
+	event, err := svc.Create(vaultID, userID, dto.CreateMoodTrackingEventRequest{
 		MoodTrackingParameterID: 1,
 		RatedAt:                 ratedAt,
 		Note:                    "Feeling great",
@@ -53,8 +47,8 @@ func TestCreateMoodTrackingEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
-	if event.ContactID != contactID {
-		t.Errorf("Expected contact_id '%s', got '%s'", contactID, event.ContactID)
+	if event.VaultID != vaultID || event.UserID != userID {
+		t.Errorf("Expected vault/user %q/%q, got %q/%q", vaultID, userID, event.VaultID, event.UserID)
 	}
 	if event.MoodTrackingParameterID != 1 {
 		t.Errorf("Expected mood_tracking_parameter_id 1, got %d", event.MoodTrackingParameterID)
@@ -71,10 +65,10 @@ func TestCreateMoodTrackingEvent(t *testing.T) {
 }
 
 func TestListMoodTrackingEvents(t *testing.T) {
-	svc, contactID, vaultID := setupMoodTrackingTest(t)
+	svc, vaultID, userID := setupMoodTrackingTest(t)
 
 	ratedAt := time.Now()
-	_, err := svc.Create(contactID, vaultID, dto.CreateMoodTrackingEventRequest{
+	_, err := svc.Create(vaultID, userID, dto.CreateMoodTrackingEventRequest{
 		MoodTrackingParameterID: 1,
 		RatedAt:                 ratedAt,
 		Note:                    "Event 1",
@@ -82,7 +76,7 @@ func TestListMoodTrackingEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
-	_, err = svc.Create(contactID, vaultID, dto.CreateMoodTrackingEventRequest{
+	_, err = svc.Create(vaultID, userID, dto.CreateMoodTrackingEventRequest{
 		MoodTrackingParameterID: 1,
 		RatedAt:                 ratedAt,
 		Note:                    "Event 2",
@@ -91,7 +85,7 @@ func TestListMoodTrackingEvents(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	events, err := svc.List(contactID, vaultID)
+	events, err := svc.List(vaultID, userID)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}

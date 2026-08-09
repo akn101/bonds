@@ -95,9 +95,6 @@ func (s *ContactMoveService) MoveMany(contactIDs []string, currentVaultID, targe
 				return err
 			}
 			quickFactFilesToDelete = filesToDelete
-			if err := remapMovedMoodTrackingEvents(tx, uniqueContactIDs, currentVaultID, targetVaultID); err != nil {
-				return err
-			}
 			if err := rescheduleMovedContactReminders(tx, uniqueContactIDs); err != nil {
 				return err
 			}
@@ -404,60 +401,6 @@ func findMatchingQuickFactTemplate(tx *gorm.DB, targetVaultID string, translatio
 		query = query.Where("label = ?", *label)
 	} else {
 		return nil, nil
-	}
-	var id uint
-	if err := query.Select("id").Limit(1).Scan(&id).Error; err != nil {
-		return nil, err
-	}
-	if id == 0 {
-		return nil, nil
-	}
-	return &id, nil
-}
-
-func remapMovedMoodTrackingEvents(tx *gorm.DB, contactIDs []string, currentVaultID, targetVaultID string) error {
-	type moodEventRow struct {
-		EventID             uint
-		Label               *string
-		LabelTranslationKey *string
-		HexColor            string
-	}
-	var rows []moodEventRow
-	if err := tx.Table("mood_tracking_events").
-		Select("mood_tracking_events.id AS event_id, mood_tracking_parameters.label, mood_tracking_parameters.label_translation_key, mood_tracking_parameters.hex_color").
-		Joins("JOIN mood_tracking_parameters ON mood_tracking_parameters.id = mood_tracking_events.mood_tracking_parameter_id").
-		Where("mood_tracking_events.contact_id IN ? AND mood_tracking_parameters.vault_id = ?", contactIDs, currentVaultID).
-		Scan(&rows).Error; err != nil {
-		return err
-	}
-	deleteEventIDs := make([]uint, 0)
-	for _, row := range rows {
-		targetParameterID, err := findMatchingMoodTrackingParameter(tx, targetVaultID, row.LabelTranslationKey, row.Label, row.HexColor)
-		if err != nil {
-			return err
-		}
-		if targetParameterID == nil {
-			deleteEventIDs = append(deleteEventIDs, row.EventID)
-			continue
-		}
-		if err := tx.Model(&models.MoodTrackingEvent{}).Where("id = ?", row.EventID).Update("mood_tracking_parameter_id", *targetParameterID).Error; err != nil {
-			return err
-		}
-	}
-	if len(deleteEventIDs) == 0 {
-		return nil
-	}
-	return tx.Where("id IN ?", deleteEventIDs).Delete(&models.MoodTrackingEvent{}).Error
-}
-
-func findMatchingMoodTrackingParameter(tx *gorm.DB, targetVaultID string, translationKey *string, label *string, hexColor string) (*uint, error) {
-	query := tx.Model(&models.MoodTrackingParameter{}).Where("vault_id = ?", targetVaultID)
-	if translationKey != nil && *translationKey != "" {
-		query = query.Where("label_translation_key = ?", *translationKey)
-	} else if label != nil && *label != "" {
-		query = query.Where("label = ?", *label)
-	} else {
-		query = query.Where("hex_color = ?", hexColor)
 	}
 	var id uint
 	if err := query.Select("id").Limit(1).Scan(&id).Error; err != nil {

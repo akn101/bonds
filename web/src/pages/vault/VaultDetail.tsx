@@ -247,10 +247,20 @@ export default function VaultDetail() {
           </Dropdown>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button icon={<PlusOutlined />} onClick={() => { handleTabChange("life_events"); setActivityCreateSignal((value) => value + 1); }}>
+          <Button
+            icon={<PlusOutlined />}
+            onClick={() => {
+              handleTabChange("life_events");
+              setActivityCreateSignal((value) => value + 1);
+            }}
+          >
             {t("modules.life_events.add_activity")}
           </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(`/vaults/${vaultId}/contacts/create`)}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => navigate(`/vaults/${vaultId}/contacts/create`)}
+          >
             {t("vault.detail.add_contact")}
           </Button>
         </div>
@@ -395,7 +405,6 @@ export default function VaultDetail() {
                 vaultId={vaultId}
                 createSignal={activityCreateSignal}
                 onCreateClosed={() => setActivityCreateSignal(0)}
-                userContactId={vault.user_contact_id}
               />
             )}
             {currentTab === "life_metrics" && (
@@ -409,10 +418,7 @@ export default function VaultDetail() {
           className="vault-dashboard-right"
           style={{ display: "flex", flexDirection: "column", gap: 16 }}
         >
-          <MoodRecordingWidget
-            vaultId={vaultId}
-            userContactId={vault.user_contact_id}
-          />
+          <MoodRecordingWidget vaultId={vaultId} />
           <CatchUpWidget vaultId={vaultId} />
           <UpcomingRemindersWidget vaultId={vaultId} />
           <DueTasksWidget vaultId={vaultId} />
@@ -661,15 +667,19 @@ function LifeEventsTab({
   vaultId,
   createSignal,
   onCreateClosed,
-  userContactId,
 }: {
   vaultId: string;
   createSignal: number;
   onCreateClosed: () => void;
-  userContactId?: string;
 }) {
-  if (!userContactId) return null;
-  return <LifeEventsModule key={createSignal} vaultId={vaultId} contactId={userContactId} initiallyOpen={createSignal > 0} onModalClose={onCreateClosed} />;
+  return (
+    <LifeEventsModule
+      key={createSignal}
+      vaultId={vaultId}
+      initiallyOpen={createSignal > 0}
+      onModalClose={onCreateClosed}
+    />
+  );
 }
 // ─── Life Metrics Tab ────────────────────────────────────────────
 function LifeMetricsTab({ vaultId }: { vaultId: string }) {
@@ -1110,13 +1120,7 @@ function MetricBarChart({
 }
 
 // ─── Mood Recording Widget ───────────────────────────────────────
-function MoodRecordingWidget({
-  vaultId,
-  userContactId,
-}: {
-  vaultId: string;
-  userContactId?: string;
-}) {
+function MoodRecordingWidget({ vaultId }: { vaultId: string }) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -1146,11 +1150,7 @@ function MoodRecordingWidget({
       note?: string;
       number_of_hours_slept?: number;
     }) =>
-      api.moodTracking.contactsMoodTrackingEventsCreate(
-        String(vaultId),
-        userContactId!,
-        data,
-      ),
+      api.moodTracking.moodTrackingEventsCreate(String(vaultId), data),
     onSuccess: () => {
       message.success(t("vault.dashboard.mood_recorded"));
       setSelectedMoodId(null);
@@ -1164,7 +1164,7 @@ function MoodRecordingWidget({
   });
 
   const handleRecord = () => {
-    if (!selectedMoodId || !userContactId) return;
+    if (!selectedMoodId) return;
     const data: {
       mood_tracking_parameter_id: number;
       rated_at: string;
@@ -1202,11 +1202,7 @@ function MoodRecordingWidget({
         </Text>
       </div>
 
-      {!userContactId ? (
-        <Text type="secondary" style={{ fontSize: 13 }}>
-          {t("vault.dashboard.mood_not_available")}
-        </Text>
-      ) : moodParams.length === 0 ? (
+      {moodParams.length === 0 ? (
         <div
           style={{
             textAlign: "center",

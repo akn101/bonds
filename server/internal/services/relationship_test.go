@@ -588,7 +588,6 @@ func TestCrossVaultRelationship_WithoutEditorPermission(t *testing.T) {
 	if err := db.Create(&models.UserVault{
 		VaultID:    vault1.ID,
 		UserID:     user2ID,
-		ContactID:  "",
 		Permission: models.PermissionEditor,
 	}).Error; err != nil {
 		t.Fatalf("Add user2 to vault1 failed: %v", err)
@@ -597,7 +596,6 @@ func TestCrossVaultRelationship_WithoutEditorPermission(t *testing.T) {
 	if err := db.Create(&models.UserVault{
 		VaultID:    vault2.ID,
 		UserID:     user2ID,
-		ContactID:  "",
 		Permission: models.PermissionViewer,
 	}).Error; err != nil {
 		t.Fatalf("Add user2 to vault2 failed: %v", err)
@@ -931,7 +929,6 @@ func TestListContactsAcrossVaults(t *testing.T) {
 	if err := db.Create(&models.UserVault{
 		VaultID:    vault1.ID,
 		UserID:     user2ID,
-		ContactID:  "",
 		Permission: models.PermissionEditor,
 	}).Error; err != nil {
 		t.Fatalf("Add user2 to vault1 failed: %v", err)
@@ -939,7 +936,6 @@ func TestListContactsAcrossVaults(t *testing.T) {
 	if err := db.Create(&models.UserVault{
 		VaultID:    vault2.ID,
 		UserID:     user2ID,
-		ContactID:  "",
 		Permission: models.PermissionViewer,
 	}).Error; err != nil {
 		t.Fatalf("Add user2 to vault2 failed: %v", err)

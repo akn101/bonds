@@ -15,8 +15,10 @@ import (
 )
 
 var (
-	ErrContactNotFound     = errors.New("contact not found")
-	ErrContactNameRequired = errors.New("contact first name or nickname required")
+	ErrContactNotFound        = errors.New("contact not found")
+	ErrContactNameRequired    = errors.New("contact first name or nickname required")
+	ErrContactDeleteEmpty     = errors.New("contact delete list is empty")
+	ErrContactCannotBeDeleted = errors.New("contact cannot be deleted")
 )
 
 type ContactService struct {
@@ -57,8 +59,7 @@ func (s *ContactService) ListContacts(vaultID, userID string, page, perPage int,
 		return nil, response.Meta{}, err
 	}
 
-	// Exclude UserVault shadow contacts (can_be_deleted=false AND listed=false)
-	query := s.db.Where("vault_id = ? AND NOT (can_be_deleted = ? AND listed = ?)", vaultID, false, false)
+	query := s.db.Where("vault_id = ?", vaultID)
 	switch filter {
 	case "archived":
 		query = query.Where("listed = ?", false)
@@ -337,6 +338,9 @@ func (s *ContactService) ToggleArchive(contactID, vaultID, userID string) (*dto.
 		}
 		return nil, err
 	}
+	if !contact.CanBeDeleted {
+		return nil, ErrContactCannotBeDeleted
+	}
 
 	contact.Listed = !contact.Listed
 	if err := s.db.Save(&contact).Error; err != nil {
@@ -412,7 +416,6 @@ func (s *ContactService) ListCatchUpPrompts(vaultID, userID string) ([]dto.Catch
 	var contacts []models.Contact
 	if err := s.db.Where("vault_id = ?", vaultID).
 		Where("listed = ?", true).
-		Where("NOT (can_be_deleted = ? AND listed = ?)", false, false).
 		Where("last_talked_to IS NOT NULL").
 		Where("stay_in_touch_frequency_days IS NOT NULL AND stay_in_touch_frequency_days > ?", 0).
 		Find(&contacts).Error; err != nil {
@@ -595,7 +598,7 @@ func (s *ContactService) QuickSearch(vaultID, term, userID string) ([]dto.Contac
 }
 
 func (s *ContactService) ListSelectableContacts(vaultID, userID, search string) ([]dto.ContactSearchItem, error) {
-	query := s.db.Where("vault_id = ? AND NOT (can_be_deleted = ? AND listed = ?)", vaultID, false, false)
+	query := s.db.Where("vault_id = ?", vaultID)
 	if search != "" {
 		likeTerm := "%" + strings.ToLower(search) + "%"
 		query = query.Where(

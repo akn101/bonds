@@ -42,6 +42,7 @@
   "err.failed_to_list_contacts": "Failed to list contacts",
   "err.failed_to_create_contact": "Failed to create contact",
   "err.contact_not_found": "Contact not found",
+  "err.contact_cannot_be_deleted": "This contact cannot be deleted",
   "err.failed_to_get_contact": "Failed to get contact",
   "err.failed_to_update_contact": "Failed to update contact",
   "err.failed_to_delete_contact": "Failed to delete contact",

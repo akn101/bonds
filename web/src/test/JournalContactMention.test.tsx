@@ -31,6 +31,8 @@ type MentionContact = {
   readonly maiden_name?: string;
   readonly prefix?: string;
   readonly suffix?: string;
+  readonly job_position?: string;
+  readonly last_talked_to?: string;
 };
 
 function renderMentionText(
@@ -152,14 +154,32 @@ describe("ContactMentionText", () => {
 
   it("stops parent navigation and exposes the contact card on keyboard focus", async () => {
     const parentClick = vi.fn();
-    renderMentionText(parentClick);
+    renderMentionText(parentClick, [
+      {
+        id: CONTACT_ID,
+        first_name: "Current",
+        last_name: "Name",
+        nickname: "Ace",
+        job_position: "Designer",
+        last_talked_to: "2026-08-01T10:00:00Z",
+      },
+    ]);
     const contactLink = screen.getByRole("link", { name: "Current Name" });
 
     fireEvent.click(contactLink);
     expect(parentClick).not.toHaveBeenCalled();
 
     fireEvent.focus(contactLink);
-    expect(await screen.findByText("View contact")).toBeInTheDocument();
+    const contactCardLink = await screen.findByRole("link", {
+      name: "View contact: Current Name",
+    });
+    expect(screen.getByText("Nickname: Ace")).toBeInTheDocument();
+    expect(screen.getByText("Position: Designer")).toBeInTheDocument();
+    expect(screen.getByText("Last talked Aug 1, 2026")).toBeInTheDocument();
+    expect(contactCardLink).toHaveAttribute(
+      "href",
+      `/vaults/v1/contacts/${CONTACT_ID}`,
+    );
     await waitFor(() => expect(mockAvatarGet).toHaveBeenCalled());
   });
 

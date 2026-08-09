@@ -38,6 +38,7 @@ export default function ContactMentionEditor({
 }: ContactMentionEditorProps) {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
+  const [mentionActive, setMentionActive] = useState(false);
   const { data: contacts = [], isFetching } = useQuery({
     queryKey: [
       "vaults",
@@ -64,7 +65,10 @@ export default function ContactMentionEditor({
           }),
         );
     },
-    enabled: searchTerm.length > 0,
+    // Ant Design calls onSearch with an empty string as soon as the user types
+    // a bare "@". Enable the query at that point so the picker is useful before
+    // the user already knows (and types) the contact's name.
+    enabled: mentionActive,
   });
   const options = contacts.map((contact) => ({
     value: serializeContactMention(contact).optionValue,
@@ -77,7 +81,10 @@ export default function ContactMentionEditor({
         aria-label={ariaLabel}
         value={value}
         onChange={onChange}
-        onSearch={setSearchTerm}
+        onSearch={(term) => {
+          setMentionActive(true);
+          setSearchTerm(term);
+        }}
         onSelect={(option) => {
           const contact = contacts.find(
             (candidate) =>

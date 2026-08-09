@@ -138,14 +138,9 @@ func (s *InvitationService) Accept(req dto.AcceptInvitationRequest, locale strin
 			return err
 		}
 		for _, v := range vaults {
-			contactID, err := createUserSelfContact(tx, user.ID, v.ID)
-			if err != nil {
-				return err
-			}
 			uv := models.UserVault{
 				UserID:     user.ID,
 				VaultID:    v.ID,
-				ContactID:  contactID,
 				Permission: invitation.Permission,
 			}
 			if err := tx.Create(&uv).Error; err != nil {

@@ -363,6 +363,7 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	contacts.GET("/labels/:labelId", contactHandler.ListByLabel)
 	contacts.POST("/move", contactMoveHandler.MoveMany, requireEditor)
 	contacts.POST("", contactHandler.Create, requireEditor)
+	contacts.DELETE("", contactHandler.DeleteMany, requireEditor)
 	contacts.GET("/:id", contactHandler.Get)
 	contacts.PUT("/:id", contactHandler.Update, requireEditor)
 	contacts.DELETE("/:id", contactHandler.Delete, requireEditor)
@@ -479,10 +480,6 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	goalRoutes.PUT("/:id", goalHandler.Update, requireEditor)
 	goalRoutes.PUT("/:id/streaks", goalHandler.AddStreak, requireEditor)
 	goalRoutes.DELETE("/:id", goalHandler.Delete, requireEditor)
-
-	moodRoutes := contactSub.Group("/moodTrackingEvents")
-	moodRoutes.POST("", moodTrackingHandler.Create, requireEditor)
-	moodRoutes.GET("", moodTrackingHandler.List)
 
 	contactSub.POST("/photos", vaultFileHandler.UploadContactFile, requireEditor)
 	contactSub.GET("/photos", contactPhotoHandler.List)
@@ -605,6 +602,8 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	vaultScoped.GET("/reports/addresses/country/:country", reportHandler.AddressesByCountry)
 	vaultScoped.GET("/reports/importantDates", reportHandler.ImportantDates)
 	vaultScoped.GET("/reports/moodTrackingEvents", reportHandler.MoodTrackingEvents)
+	vaultScoped.POST("/moodTrackingEvents", moodTrackingHandler.Create)
+	vaultScoped.GET("/moodTrackingEvents", moodTrackingHandler.List)
 
 	vaultScoped.GET("/reminders", vaultReminderHandler.List)
 

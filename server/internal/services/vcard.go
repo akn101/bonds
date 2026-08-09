@@ -50,7 +50,7 @@ func (s *VCardService) ExportContact(contactID string, vaultID string) ([]byte, 
 
 func (s *VCardService) ExportVault(vaultID string) ([]byte, error) {
 	var contacts []models.Contact
-	// Exclude shadow contacts (Listed=false) — they are UserVault self-contacts, not real contacts
+	// Archived contacts are intentionally omitted from a full Vault export.
 	if err := preloadContactVCardRelations(s.db).Where("vault_id = ? AND listed = ?", vaultID, true).Find(&contacts).Error; err != nil {
 		return nil, err
 	}
@@ -70,7 +70,9 @@ func (s *VCardService) ExportVault(vaultID string) ([]byte, error) {
 
 func (s *VCardService) loadContactForVCard(contactID, vaultID string) (*models.Contact, error) {
 	var contact models.Contact
-	if err := preloadContactVCardRelations(s.db).Where("id = ? AND vault_id = ?", contactID, vaultID).First(&contact).Error; err != nil {
+	if err := preloadContactVCardRelations(s.db).
+		Where("id = ? AND vault_id = ?", contactID, vaultID).
+		First(&contact).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrContactNotFound
 		}

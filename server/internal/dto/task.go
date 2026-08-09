@@ -5,8 +5,13 @@ import "time"
 // TaskContactRef is the lightweight contact view embedded in task responses
 // so the UI can render every assignee without a follow-up request per contact.
 type TaskContactRef struct {
-	ID   string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Name string `json:"name" example:"Jane Doe"`
+	ID           string     `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Name         string     `json:"name" example:"Jane Doe"`
+	FirstName    string     `json:"first_name,omitempty" example:"Jane"`
+	LastName     string     `json:"last_name,omitempty" example:"Doe"`
+	Nickname     string     `json:"nickname,omitempty" example:"Janie"`
+	JobPosition  string     `json:"job_position,omitempty" example:"Designer"`
+	LastTalkedTo *time.Time `json:"last_talked_to,omitempty" example:"2026-01-15T10:30:00Z"`
 }
 
 type CreateTaskRequest struct {

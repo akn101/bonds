@@ -1,8 +1,9 @@
 package services
 
 import (
-	"errors"
+	"sort"
 
+	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -15,78 +16,142 @@ type contactDeletionWork struct {
 }
 
 func (s *ContactService) DeleteContact(contactID, vaultID string) error {
-	var releaseDAVOperation func()
-	if s.davPushService != nil {
-		releaseDAVOperation = s.davPushService.operationLocks.lock(contactID)
+	_, err := s.deleteContacts([]string{contactID}, vaultID)
+	return err
+}
+
+func (s *ContactService) DeleteContacts(contactIDs []string, vaultID string) (*dto.BulkDeleteContactsResponse, error) {
+	uniqueContactIDs, err := validateAndDedupeContactIDs(contactIDs)
+	if err != nil {
+		return nil, err
 	}
-	releaseDAVOperationAfterCommit := false
+	if len(uniqueContactIDs) == 0 {
+		return nil, ErrContactDeleteEmpty
+	}
+	deletedCount, err := s.deleteContacts(uniqueContactIDs, vaultID)
+	if err != nil {
+		return nil, err
+	}
+	return &dto.BulkDeleteContactsResponse{DeletedCount: deletedCount}, nil
+}
+
+func (s *ContactService) deleteContacts(contactIDs []string, vaultID string) (int, error) {
+	uniqueContactIDs := dedupeContactIDs(contactIDs)
+	if len(uniqueContactIDs) == 0 {
+		return 0, ErrContactDeleteEmpty
+	}
+
+	var releaseDAVOperations func()
+	if s.davPushService != nil {
+		releaseDAVOperations = lockMovedContactDAVOperations(&s.davPushService.operationLocks, uniqueContactIDs)
+	}
+	releaseDAVOperationsAfterCommit := false
 	defer func() {
-		if releaseDAVOperation != nil && !releaseDAVOperationAfterCommit {
-			releaseDAVOperation()
+		if releaseDAVOperations != nil && !releaseDAVOperationsAfterCommit {
+			releaseDAVOperations()
 		}
 	}()
 
-	work := contactDeletionWork{contactID: contactID}
+	works := make([]contactDeletionWork, 0, len(uniqueContactIDs))
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
-		var contact models.Contact
-		if err := tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).Where("id = ? AND vault_id = ?", contactID, vaultID).First(&contact).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrContactNotFound
-			}
+		contacts, err := loadDeletableContacts(tx, uniqueContactIDs, vaultID)
+		if err != nil {
 			return err
 		}
-		if err := tx.Model(&models.Note{}).Where("contact_id = ?", contact.ID).Pluck("id", &work.noteIDs).Error; err != nil {
-			return err
-		}
-		var states []models.ContactSubscriptionState
-		if err := tx.Where("contact_id = ?", contact.ID).Find(&states).Error; err != nil {
-			return err
-		}
-		work.remoteDeleteTargets = make([]contactRemoteDeletionTarget, len(states))
-		for index := range states {
-			work.remoteDeleteTargets[index] = newContactRemoteDeletionTarget(states[index])
-		}
-		if err := tx.Where("contact_id = ?", contact.ID).Delete(&models.ContactVaultUser{}).Error; err != nil {
-			return err
-		}
-		reminderIDs := tx.Model(&models.ContactReminder{}).Select("id").Where("contact_id = ?", contact.ID)
-		if err := tx.Where("contact_reminder_id IN (?) AND triggered_at IS NULL", reminderIDs).Delete(&models.ContactReminderScheduled{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("contact_id = ?", contact.ID).Delete(&models.ContactSubscriptionState{}).Error; err != nil {
-			return err
-		}
-		deleteResult := tx.Delete(&contact)
-		if deleteResult.Error != nil {
-			return deleteResult.Error
-		}
-		if deleteResult.RowsAffected != 1 {
-			return ErrContactNotFound
-		}
-		if s.feedRecorder != nil {
-			if err := NewFeedRecorder(tx).Record(contact.ID, "", ActionContactDeleted, "Deleted contact", nil, nil); err != nil {
+		for index := range contacts {
+			work, err := s.deleteContactInTransaction(tx, &contacts[index])
+			if err != nil {
 				return err
 			}
+			works = append(works, work)
 		}
 		return nil
 	}); err != nil {
-		return err
+		return 0, err
 	}
 
 	// Search and DAV cannot move into the transaction: neither side effect can roll back with the database.
-	if s.searchService != nil {
-		_ = s.searchService.DeleteContact(work.contactID)
-		for _, noteID := range work.noteIDs {
-			_ = s.searchService.DeleteNote(noteID)
+	for _, work := range works {
+		if s.searchService != nil {
+			_ = s.searchService.DeleteContact(work.contactID)
+			for _, noteID := range work.noteIDs {
+				_ = s.searchService.DeleteNote(noteID)
+			}
 		}
 	}
-	if s.davPushService != nil && len(work.remoteDeleteTargets) > 0 {
-		releaseDAVOperationAfterCommit = true
-		// The worker owns the DAV lock after commit so remote deletion cannot race a later push.
-		go func() {
-			defer releaseDAVOperation()
-			s.davPushService.pushCapturedContactDelete(work.remoteDeleteTargets)
-		}()
+	if s.davPushService != nil {
+		remoteDeleteTargets := make([]contactRemoteDeletionTarget, 0)
+		for _, work := range works {
+			remoteDeleteTargets = append(remoteDeleteTargets, work.remoteDeleteTargets...)
+		}
+		if len(remoteDeleteTargets) > 0 {
+			releaseDAVOperationsAfterCommit = true
+			// The worker owns every contact lock after commit so remote deletion cannot race a later push.
+			go func() {
+				defer releaseDAVOperations()
+				s.davPushService.pushCapturedContactDelete(remoteDeleteTargets)
+			}()
+		}
 	}
-	return nil
+	return len(works), nil
+}
+
+func loadDeletableContacts(tx *gorm.DB, contactIDs []string, vaultID string) ([]models.Contact, error) {
+	lockedContactIDs := append([]string(nil), contactIDs...)
+	sort.Strings(lockedContactIDs)
+
+	var contacts []models.Contact
+	if err := tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).
+		Where("id IN ? AND vault_id = ?", lockedContactIDs, vaultID).
+		Order("id ASC").
+		Find(&contacts).Error; err != nil {
+		return nil, err
+	}
+	if len(contacts) != len(lockedContactIDs) {
+		return nil, ErrContactNotFound
+	}
+	for index := range contacts {
+		if !contacts[index].CanBeDeleted {
+			return nil, ErrContactCannotBeDeleted
+		}
+	}
+	return contacts, nil
+}
+
+func (s *ContactService) deleteContactInTransaction(tx *gorm.DB, contact *models.Contact) (contactDeletionWork, error) {
+	work := contactDeletionWork{contactID: contact.ID}
+	if err := tx.Model(&models.Note{}).Where("contact_id = ?", contact.ID).Pluck("id", &work.noteIDs).Error; err != nil {
+		return work, err
+	}
+	var states []models.ContactSubscriptionState
+	if err := tx.Where("contact_id = ?", contact.ID).Find(&states).Error; err != nil {
+		return work, err
+	}
+	work.remoteDeleteTargets = make([]contactRemoteDeletionTarget, len(states))
+	for index := range states {
+		work.remoteDeleteTargets[index] = newContactRemoteDeletionTarget(states[index])
+	}
+	if err := tx.Where("contact_id = ?", contact.ID).Delete(&models.ContactVaultUser{}).Error; err != nil {
+		return work, err
+	}
+	reminderIDs := tx.Model(&models.ContactReminder{}).Select("id").Where("contact_id = ?", contact.ID)
+	if err := tx.Where("contact_reminder_id IN (?) AND triggered_at IS NULL", reminderIDs).Delete(&models.ContactReminderScheduled{}).Error; err != nil {
+		return work, err
+	}
+	if err := tx.Where("contact_id = ?", contact.ID).Delete(&models.ContactSubscriptionState{}).Error; err != nil {
+		return work, err
+	}
+	deleteResult := tx.Delete(contact)
+	if deleteResult.Error != nil {
+		return work, deleteResult.Error
+	}
+	if deleteResult.RowsAffected != 1 {
+		return work, ErrContactNotFound
+	}
+	if s.feedRecorder != nil {
+		if err := NewFeedRecorder(tx).Record(contact.ID, "", ActionContactDeleted, "Deleted contact", nil, nil); err != nil {
+			return work, err
+		}
+	}
+	return work, nil
 }

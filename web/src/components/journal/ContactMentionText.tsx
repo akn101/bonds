@@ -7,6 +7,8 @@ import LinkifiedText from "@/components/LinkifiedText";
 import { parseContactMentions } from "@/components/journal/contactMentionSerialization";
 import type { PostContactReference } from "@/components/journal/contactMentionTypes";
 import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatDateOnly } from "@/utils/dateOnlyInput";
+import { useDateFormat } from "@/utils/dateFormat";
 
 const { Text } = Typography;
 
@@ -28,28 +30,54 @@ function ContactMentionLink({
   name,
 }: ContactMentionLinkProps) {
   const { t } = useTranslation();
+  const dateFormats = useDateFormat();
   const path = `/vaults/${vaultId}/contacts/${contact.id}`;
+  const lastTalkedTo = formatDateOnly(contact.last_talked_to, dateFormats);
   return (
     <Popover
       trigger={["hover", "focus"]}
       content={
-        <Space size={10}>
-          <ContactAvatar
-            vaultId={vaultId}
-            contactId={contact.id}
-            firstName={contact.first_name}
-            lastName={contact.last_name}
-            size={36}
-          />
-          <div>
-            <Text strong style={{ display: "block" }}>
-              {name}
-            </Text>
-            <Text type="secondary">
-              {t("vault.journal_mentions.view_contact")}
-            </Text>
-          </div>
-        </Space>
+        <Link
+          to={path}
+          onClick={(event) => event.stopPropagation()}
+          aria-label={`${t("vault.journal_mentions.view_contact")}: ${name}`}
+          style={{ display: "block", minWidth: 220, color: "inherit" }}
+        >
+          <Space size={12} align="start">
+            <ContactAvatar
+              vaultId={vaultId}
+              contactId={contact.id}
+              firstName={contact.first_name}
+              lastName={contact.last_name}
+              size={44}
+            />
+            <div>
+              <Text strong style={{ display: "block" }}>
+                {name}
+              </Text>
+              {contact.nickname && (
+                <Text type="secondary" style={{ display: "block" }}>
+                  {t("contact.detail.nickname")}: {contact.nickname}
+                </Text>
+              )}
+              {contact.job_position && (
+                <Text type="secondary" style={{ display: "block" }}>
+                  {t("contact.detail.job_position")}: {contact.job_position}
+                </Text>
+              )}
+              {lastTalkedTo && (
+                <Text type="secondary" style={{ display: "block" }}>
+                  {t("contact.catch_up.last_contact_summary", {
+                    date: lastTalkedTo,
+                  })}
+                </Text>
+              )}
+              <Text style={{ display: "block", marginTop: 4, fontSize: 12 }}>
+                {t("vault.journal_mentions.view_contact")} →
+              </Text>
+            </div>
+          </Space>
+        </Link>
       }
     >
       <Link to={path} onClick={(event) => event.stopPropagation()}>

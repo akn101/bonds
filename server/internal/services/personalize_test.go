@@ -455,6 +455,19 @@ func TestSyncAllTranslations_VaultEntities(t *testing.T) {
 		}
 		t.Fatalf("expected Chinese '🥳 棒极了' mood after sync, got: %v", labels)
 	}
+
+	var phoneCall models.LifeEventType
+	if err := db.Joins("LifeEventCategory").
+		Where("LifeEventCategory.vault_id = ? AND life_event_types.system_kind = ?", vault.ID, "phone_call").
+		First(&phoneCall).Error; err != nil {
+		t.Fatalf("query phone-call life event type after sync: %v", err)
+	}
+	if phoneCall.Label == nil || *phoneCall.Label != "电话通话" {
+		t.Fatalf("phone-call label after Chinese sync = %v, want 电话通话", phoneCall.Label)
+	}
+	if phoneCall.LifeEventCategory.Label == nil || *phoneCall.LifeEventCategory.Label != "互动" {
+		t.Fatalf("interaction category after Chinese sync = %v, want 互动", phoneCall.LifeEventCategory.Label)
+	}
 }
 
 func TestSyncAllTranslations_CustomLabelsUnchanged(t *testing.T) {

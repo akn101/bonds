@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/naiba/bonds/internal/dto"
+	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
 )
@@ -31,7 +32,7 @@ func NewLifeEventHandler(service *services.LifeEventService) *LifeEventHandler {
 func (h *LifeEventHandler) List(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
-	items, meta, err := h.lifeEventService.List(c.Param("vault_id"), c.QueryParam("contact_id"), page, perPage)
+	items, meta, err := h.lifeEventService.ListForUser(c.Param("vault_id"), middleware.GetUserID(c), c.QueryParam("contact_id"), page, perPage)
 	if err != nil {
 		if errors.Is(err, services.ErrContactNotFound) {
 			return response.NotFound(c, "err.contact_not_found")
@@ -57,7 +58,7 @@ func (h *LifeEventHandler) Create(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
-	item, err := h.lifeEventService.Create(c.Param("vault_id"), req)
+	item, err := h.lifeEventService.CreateForUser(c.Param("vault_id"), middleware.GetUserID(c), req)
 	if err != nil {
 		return lifeEventError(c, err, "err.failed_to_create_life_event")
 	}
@@ -85,7 +86,7 @@ func (h *LifeEventHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
-	item, err := h.lifeEventService.Update(c.Param("vault_id"), uint(id), req)
+	item, err := h.lifeEventService.UpdateForUser(c.Param("vault_id"), middleware.GetUserID(c), uint(id), req)
 	if err != nil {
 		return lifeEventError(c, err, "err.failed_to_update_life_event")
 	}

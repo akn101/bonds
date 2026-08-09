@@ -39,6 +39,8 @@ type LifeEvent struct {
 	VaultID         string     `json:"vault_id" gorm:"type:text;not null;index;uniqueIndex:idx_life_event_source"`
 	ParentID        *uint      `json:"parent_id" gorm:"index"`
 	LifeEventTypeID *uint      `json:"life_event_type_id" gorm:"index"`
+	SubjectUserID   *string    `json:"subject_user_id" gorm:"type:text;index"`
+	SubjectUserName *string    `json:"subject_user_name" gorm:"type:text"`
 	EmotionID       *uint      `json:"emotion_id" gorm:"index"`
 	StartDate       *time.Time `json:"start_date" gorm:"type:date;index"`
 	StartPrecision  string     `json:"start_precision" gorm:"size:16;not null;default:'day'"`

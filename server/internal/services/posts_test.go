@@ -327,3 +327,28 @@ func TestPostContactIDsFromSectionsPrefersInlineMentions(t *testing.T) {
 		t.Fatalf("legacy explicit association must remain supported, got %v", got)
 	}
 }
+
+func TestPostResponseIncludesContactHoverCardDetails(t *testing.T) {
+	firstName := "Alice"
+	nickname := "Ace"
+	jobPosition := "Designer"
+	lastTalkedTo := time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC)
+	response := toPostResponse(&models.Post{Contacts: []models.Contact{{
+		ID:           "550e8400-e29b-41d4-a716-446655440000",
+		FirstName:    &firstName,
+		Nickname:     &nickname,
+		JobPosition:  &jobPosition,
+		LastTalkedTo: &lastTalkedTo,
+	}}})
+
+	if len(response.Contacts) != 1 {
+		t.Fatalf("contacts=%+v", response.Contacts)
+	}
+	got := response.Contacts[0]
+	if got.Nickname != nickname || got.JobPosition != jobPosition {
+		t.Fatalf("hover card details=%+v", got)
+	}
+	if got.LastTalkedTo == nil || !got.LastTalkedTo.Equal(lastTalkedTo) {
+		t.Fatalf("last_talked_to=%v", got.LastTalkedTo)
+	}
+}

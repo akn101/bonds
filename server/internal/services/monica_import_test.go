@@ -1232,41 +1232,31 @@ func TestMonicaImportGifts(t *testing.T) {
 	}
 }
 
-func TestMonicaImportLoans(t *testing.T) {
+func TestMonicaImportSkipsDebtsThatWouldCoupleUserToContact(t *testing.T) {
 	svc, vaultID, userID, _ := setupMonicaImportTest(t)
 	data := readMonicaFixture(t)
 
-	_, err := svc.Import(vaultID, userID, data)
+	resp, err := svc.Import(vaultID, userID, data)
 	if err != nil {
 		t.Fatalf("Import failed: %v", err)
 	}
 
-	var john models.Contact
-	if err := svc.DB.Where("vault_id = ? AND first_name = ?", vaultID, "John").First(&john).Error; err != nil {
-		t.Fatalf("John not found: %v", err)
-	}
 	var loans []models.Loan
 	if err := svc.DB.Where("vault_id = ?", vaultID).Find(&loans).Error; err != nil {
 		t.Fatalf("failed to query loans: %v", err)
 	}
-	if len(loans) != 1 {
-		t.Fatalf("expected 1 loan, got %d", len(loans))
+	if len(loans) != 0 {
+		t.Fatalf("expected Monica user/contact debt to be skipped, got %d loans", len(loans))
 	}
-	if loans[0].Type != "borrowed_from" {
-		t.Errorf("expected loan type=borrowed_from (in_debt=true), got %s", loans[0].Type)
+	foundSkipReason := false
+	for _, importError := range resp.Errors {
+		if strings.Contains(importError, "system user is not a contact") {
+			foundSkipReason = true
+			break
+		}
 	}
-	if loans[0].AmountLent == nil || *loans[0].AmountLent != 5000 {
-		t.Errorf("expected loan amount=5000 (50.00*100), got %v", loans[0].AmountLent)
-	}
-	var cls []models.ContactLoan
-	if err := svc.DB.Where("loan_id = ?", loans[0].ID).Find(&cls).Error; err != nil {
-		t.Fatalf("failed to query contact_loan: %v", err)
-	}
-	if len(cls) != 1 {
-		t.Fatalf("expected 1 contact_loan pivot, got %d", len(cls))
-	}
-	if cls[0].LoanerID == cls[0].LoaneeID {
-		t.Error("loaner and loanee should be different contacts")
+	if !foundSkipReason {
+		t.Fatalf("expected a user/contact debt skip reason, got %v", resp.Errors)
 	}
 }
 
@@ -1329,10 +1319,9 @@ func TestMonicaImportContacts_Duplicate(t *testing.T) {
 	if err := svc.DB.Where("vault_id = ?", vaultID).Find(&contacts).Error; err != nil {
 		t.Fatalf("failed to query contacts: %v", err)
 	}
-	// Vault seed creates 1 shadow contact (UserVault.ContactID) + 3 imported = 4 total
-	expectedCount := 4
+	expectedCount := 3
 	if len(contacts) != expectedCount {
-		t.Errorf("expected %d contacts in vault (1 shadow + 3 imported), got %d", expectedCount, len(contacts))
+		t.Errorf("expected %d imported contacts in vault, got %d", expectedCount, len(contacts))
 	}
 }
 

@@ -23,14 +23,16 @@ func toPostResponse(p *models.Post) dto.PostResponse {
 	contacts := make([]dto.PostContactResponse, len(p.Contacts))
 	for i, contact := range p.Contacts {
 		contacts[i] = dto.PostContactResponse{
-			ID:         contact.ID,
-			FirstName:  ptrToStr(contact.FirstName),
-			MiddleName: ptrToStr(contact.MiddleName),
-			LastName:   ptrToStr(contact.LastName),
-			Nickname:   ptrToStr(contact.Nickname),
-			MaidenName: ptrToStr(contact.MaidenName),
-			Prefix:     ptrToStr(contact.Prefix),
-			Suffix:     ptrToStr(contact.Suffix),
+			ID:           contact.ID,
+			FirstName:    ptrToStr(contact.FirstName),
+			MiddleName:   ptrToStr(contact.MiddleName),
+			LastName:     ptrToStr(contact.LastName),
+			Nickname:     ptrToStr(contact.Nickname),
+			MaidenName:   ptrToStr(contact.MaidenName),
+			Prefix:       ptrToStr(contact.Prefix),
+			Suffix:       ptrToStr(contact.Suffix),
+			JobPosition:  ptrToStr(contact.JobPosition),
+			LastTalkedTo: contact.LastTalkedTo,
 		}
 	}
 	response.Contacts = contacts

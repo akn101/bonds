@@ -119,13 +119,6 @@ func (s *MonicaImportService) Import(vaultID, userID string, data []byte) (*dto.
 		}
 	}
 
-	// 获取影子联系人的 ID (用于 Loan 中的 loaner/loanee)
-	userContactID := ""
-	var uv models.UserVault
-	if err := s.DB.Where("user_id = ? AND vault_id = ?", userID, vaultID).First(&uv).Error; err == nil {
-		userContactID = uv.ContactID
-	}
-
 	// Phase 2: 导入子资源 (需要重新遍历 contactRaws)
 	for _, raw := range contactRaws {
 		var mc MonicaContact
@@ -138,7 +131,7 @@ func (s *MonicaImportService) Import(vaultID, userID string, data []byte) (*dto.
 		}
 		s.importContactReferences(s.DB, &mc, contactID, contactUUIDMap, resp)
 		s.importContactSubResources(
-			s.DB, &mc, contactID, vaultID, accountID, userID, userContactID,
+			s.DB, &mc, contactID, vaultID, accountID, userID,
 			fieldTypeByUUID, lifeEventTypeByUUID, lifeEventCategoryByUUID, resp,
 		)
 	}
@@ -465,7 +458,7 @@ func (s *MonicaImportService) importSpecialDate(
 func (s *MonicaImportService) importContactSubResources(
 	tx *gorm.DB,
 	mc *MonicaContact,
-	contactID, vaultID, accountID, userID, userContactID string,
+	contactID, vaultID, accountID, userID string,
 	fieldTypeByUUID map[string]MonicaContactFieldTypeRef,
 	lifeEventTypeByUUID map[string]MonicaLifeEventTypeRef,
 	lifeEventCategoryByUUID map[string]MonicaLifeEventCategoryRef,
@@ -479,7 +472,7 @@ func (s *MonicaImportService) importContactSubResources(
 	s.importContactFields(tx, mc, contactID, accountID, fieldTypeByUUID, resp)
 	s.importPets(tx, mc, contactID, accountID, resp)
 	s.importGifts(tx, mc, contactID, accountID, resp)
-	s.importDebtsAsLoans(tx, mc, contactID, vaultID, userContactID, resp)
+	s.recordSkippedDebts(mc, resp)
 	s.importLifeEvents(tx, mc, contactID, vaultID, lifeEventTypeByUUID, lifeEventCategoryByUUID, resp)
 	s.importConversationsAsNotes(tx, mc, contactID, vaultID, userID, resp)
 }
@@ -870,47 +863,14 @@ func monicaGiftStatusTranslationKey(status string) string {
 	}
 }
 
-func (s *MonicaImportService) importDebtsAsLoans(
-	tx *gorm.DB, mc *MonicaContact, contactID, vaultID, userContactID string,
-	resp *dto.MonicaImportResponse,
-) {
+func (s *MonicaImportService) recordSkippedDebts(mc *MonicaContact, resp *dto.MonicaImportResponse) {
 	for _, raw := range getCollectionByType(mc.Data, "debts") {
 		var md MonicaDebt
 		if err := json.Unmarshal(raw, &md); err != nil {
 			continue
 		}
-		if userContactID == "" {
-			resp.Errors = append(resp.Errors, "debt: no user shadow contact")
-			continue
-		}
-		loanType := "lent_to"
-		loaner, loanee := userContactID, contactID
-		if md.Properties.InDebt {
-			loanType = "borrowed_from"
-			loaner, loanee = contactID, userContactID
-		}
-		amt := int(md.Properties.Amount * 100)
-		loan := models.Loan{
-			VaultID:    vaultID,
-			Name:       "Monica Import",
-			Type:       loanType,
-			AmountLent: &amt,
-		}
-		if md.Properties.Currency != "" {
-			var cur models.Currency
-			if err := tx.Where("code = ?", strings.ToUpper(md.Properties.Currency)).First(&cur).Error; err == nil {
-				loan.CurrencyID = &cur.ID
-			}
-		}
-		if err := tx.Create(&loan).Error; err != nil {
-			continue
-		}
-		// GORM zero-value bool u9677u9631uff1aSettled default:falseuff0cu5df2u7ecfu7b26u5408u521du59cbu503cuff0cu5b8cu6210u65f6u518d Update
-		if md.Properties.Status == "complete" {
-			tx.Model(&loan).Update("settled", true)
-		}
-		cl := models.ContactLoan{LoanID: loan.ID, LoanerID: loaner, LoaneeID: loanee}
-		tx.Create(&cl)
+		resp.Errors = append(resp.Errors, "debt: skipped because a system user is not a contact")
+		resp.SkippedCount++
 	}
 }
 

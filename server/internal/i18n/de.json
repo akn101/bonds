@@ -42,6 +42,7 @@
   "err.failed_to_list_contacts": "Kontakte konnten nicht aufgelistet werden",
   "err.failed_to_create_contact": "Kontakt konnte nicht erstellt werden",
   "err.contact_not_found": "Kontakt nicht gefunden",
+  "err.contact_cannot_be_deleted": "Dieser Kontakt kann nicht gelöscht werden",
   "err.failed_to_get_contact": "Kontakt konnte nicht abgerufen werden",
   "err.failed_to_update_contact": "Kontakt konnte nicht aktualisiert werden",
   "err.failed_to_delete_contact": "Kontakt konnte nicht gelöscht werden",

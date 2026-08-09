@@ -133,6 +133,14 @@ type BulkMoveContactsResponse struct {
 	Contacts   []ContactResponse `json:"contacts"`
 }
 
+type BulkDeleteContactsRequest struct {
+	ContactIDs []string `json:"contact_ids" validate:"required,min=1,max=500" example:"[\"550e8400-e29b-41d4-a716-446655440000\"]"`
+}
+
+type BulkDeleteContactsResponse struct {
+	DeletedCount int `json:"deleted_count" example:"2"`
+}
+
 type UpdateContactTemplateRequest struct {
 	TemplateID *uint `json:"template_id" example:"1"`
 }

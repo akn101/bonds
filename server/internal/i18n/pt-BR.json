@@ -36,6 +36,7 @@
   "err.failed_to_list_contacts": "Falha ao listar contatos",
   "err.failed_to_create_contact": "Falha ao criar contato",
   "err.contact_not_found": "Contato não encontrado",
+  "err.contact_cannot_be_deleted": "Este contato não pode ser excluído",
   "err.failed_to_get_contact": "Falha ao obter contato",
   "err.failed_to_update_contact": "Falha ao atualizar contato",
   "err.failed_to_delete_contact": "Falha ao excluir contato",

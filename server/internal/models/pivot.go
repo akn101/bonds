@@ -6,7 +6,6 @@ type UserVault struct {
 	ID         uint      `json:"id" gorm:"primaryKey;autoIncrement"`
 	VaultID    string    `json:"vault_id" gorm:"type:text;not null;index"`
 	UserID     string    `json:"user_id" gorm:"type:text;not null;index"`
-	ContactID  string    `json:"contact_id" gorm:"type:text;not null;index"`
 	Permission int       `json:"permission" gorm:"not null"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`

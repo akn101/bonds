@@ -62,21 +62,17 @@ func (s *AdminService) ListUsers(page, perPage int) ([]dto.AdminUserResponse, re
 	return result, meta, nil
 }
 
-// adminContactCountSQL counts contacts per account, excluding UserVault shadow
-// contacts (can_be_deleted=false AND listed=false). Parameters: account_id,
-// can_be_deleted, listed.
 func adminContactCountSQL() string {
 	return `
 		SELECT COUNT(DISTINCT c.id)
 		FROM contacts c
 		INNER JOIN vaults v ON c.vault_id = v.id
-		WHERE v.account_id = ?
-		AND NOT (c.can_be_deleted = ? AND c.listed = ?)`
+		WHERE v.account_id = ?`
 }
 
 func (s *AdminService) toAdminUserResponse(u models.User) dto.AdminUserResponse {
 	var contactCount int64
-	s.db.Raw(adminContactCountSQL(), u.AccountID, false, false).Scan(&contactCount)
+	s.db.Raw(adminContactCountSQL(), u.AccountID).Scan(&contactCount)
 
 	var vaultCount int64
 	s.db.Model(&models.Vault{}).Where("account_id = ?", u.AccountID).Count(&vaultCount)
@@ -294,6 +290,7 @@ func (s *AdminService) deleteUserDirectData(tx *gorm.DB, userID string) error {
 	}
 
 	userTables := []interface{}{
+		&models.MoodTrackingEvent{},
 		&models.UserNotificationChannel{},
 		&models.UserToken{},
 		&models.WebAuthnCredential{},
@@ -363,6 +360,7 @@ func (s *AdminService) deleteVaultData(tx *gorm.DB, vaultID string) error {
 	}
 
 	vaultTables := []interface{}{
+		&models.MoodTrackingEvent{},
 		&models.UserVault{},
 		&models.ContactVaultUser{},
 		&models.File{},
@@ -420,7 +418,6 @@ func (s *AdminService) deleteContactData(tx *gorm.DB, contactID string) error {
 		&models.Pet{},
 		&models.Relationship{},
 		&models.Goal{},
-		&models.MoodTrackingEvent{},
 		&models.ContactGroup{},
 		&models.ContactLabel{},
 		&models.QuickFact{},

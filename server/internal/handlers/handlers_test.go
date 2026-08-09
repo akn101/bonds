@@ -1121,7 +1121,7 @@ func TestContactUpdate_BlankFirstNameAndNicknameValidationError(t *testing.T) {
 
 func TestContactUpdate_InvalidFirstMetPrecisionReturnsValidationError(t *testing.T) {
 	ts := setupTestServer(t)
-	token, auth := ts.registerTestUser(t, "cupdate-invalid-first-met@example.com")
+	token, _ := ts.registerTestUser(t, "cupdate-invalid-first-met@example.com")
 	vault := ts.createTestVault(t, token, "Update Invalid First Met Vault")
 	contact := ts.createTestContact(t, token, vault.ID, "OldName")
 
@@ -1136,13 +1136,13 @@ func TestContactUpdate_InvalidFirstMetPrecisionReturnsValidationError(t *testing
 		t.Fatalf("expected VALIDATION_ERROR, got %+v", resp.Error)
 	}
 
-	var userVault models.UserVault
-	if err := ts.db.Where("vault_id = ? AND user_id = ?", vault.ID, auth.User.ID).First(&userVault).Error; err != nil {
-		t.Fatalf("load user vault: %v", err)
+	protected := ts.createTestContact(t, token, vault.ID, "Protected")
+	if err := ts.db.Model(&models.Contact{}).Where("id = ?", protected.ID).Updates(map[string]interface{}{"listed": false, "can_be_deleted": false}).Error; err != nil {
+		t.Fatalf("protect contact: %v", err)
 	}
 
-	rec = ts.doRequest(http.MethodPut, "/api/vaults/"+vault.ID+"/contacts/"+userVault.ContactID,
-		`{"first_name":"Shadow","listed":true,"needs_verification":false}`, token)
+	rec = ts.doRequest(http.MethodPut, "/api/vaults/"+vault.ID+"/contacts/"+protected.ID,
+		`{"first_name":"Protected","listed":true,"needs_verification":false}`, token)
 
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("expected 422 for forbidden promotion, got %d: %s", rec.Code, rec.Body.String())
@@ -6377,6 +6377,63 @@ func TestContactBulkMove_EmptyListValidation(t *testing.T) {
 	}
 }
 
+func TestContactBulkDelete_DeletesSelectedContacts(t *testing.T) {
+	ts := setupTestServer(t)
+	token, _ := ts.registerTestUser(t, "bulk-delete-handler@example.com")
+	vault := ts.createTestVault(t, token, "Bulk Delete Vault")
+	first := ts.createTestContact(t, token, vault.ID, "BulkDeleteFirst")
+	second := ts.createTestContact(t, token, vault.ID, "BulkDeleteSecond")
+
+	body := fmt.Sprintf(`{"contact_ids":[%q,%q,%q]}`, first.ID, second.ID, first.ID)
+	rec := ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/contacts", vault.ID), body, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("bulk delete: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	resp := parseResponse(t, rec)
+	var deleted dto.BulkDeleteContactsResponse
+	if err := json.Unmarshal(resp.Data, &deleted); err != nil {
+		t.Fatalf("parse bulk delete response: %v", err)
+	}
+	if deleted.DeletedCount != 2 {
+		t.Fatalf("deleted_count = %d, want 2", deleted.DeletedCount)
+	}
+	for _, contactID := range []string{first.ID, second.ID} {
+		var count int64
+		if err := ts.db.Model(&models.Contact{}).Where("id = ?", contactID).Count(&count).Error; err != nil {
+			t.Fatalf("count contact %s: %v", contactID, err)
+		}
+		if count != 0 {
+			t.Fatalf("contact %s count = %d, want 0", contactID, count)
+		}
+	}
+}
+
+func TestContactBulkDelete_RejectsProtectedContactWithoutPartialDelete(t *testing.T) {
+	ts := setupTestServer(t)
+	token, _ := ts.registerTestUser(t, "bulk-delete-protected-handler@example.com")
+	vault := ts.createTestVault(t, token, "Bulk Delete Protected Vault")
+	regular := ts.createTestContact(t, token, vault.ID, "BulkDeleteKeep")
+	protected := ts.createTestContact(t, token, vault.ID, "Protected")
+	if err := ts.db.Model(&models.Contact{}).Where("id = ?", protected.ID).Update("can_be_deleted", false).Error; err != nil {
+		t.Fatalf("protect contact: %v", err)
+	}
+
+	body := fmt.Sprintf(`{"contact_ids":[%q,%q]}`, regular.ID, protected.ID)
+	rec := ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/contacts", vault.ID), body, token)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("bulk delete protected: expected 409, got %d: %s", rec.Code, rec.Body.String())
+	}
+	for _, contactID := range []string{regular.ID, protected.ID} {
+		var count int64
+		if err := ts.db.Model(&models.Contact{}).Where("id = ?", contactID).Count(&count).Error; err != nil {
+			t.Fatalf("count contact %s: %v", contactID, err)
+		}
+		if count != 1 {
+			t.Fatalf("contact %s count = %d, want 1", contactID, count)
+		}
+	}
+}
+
 func TestMostConsulted_ReturnsAllNameFields(t *testing.T) {
 	ts := setupTestServer(t)
 	token, auth := ts.registerTestUser(t, "mc-names@example.com")
@@ -6726,7 +6783,7 @@ func TestCompanyEmployee_AddAndRemove(t *testing.T) {
 	}
 }
 
-func TestContactsSelectable_IncludesArchivedAndExcludesShadow(t *testing.T) {
+func TestContactsSelectable_IncludesArchived(t *testing.T) {
 	ts := setupTestServer(t)
 	token, _ := ts.registerTestUser(t, "contacts-selectable@example.com")
 	vault := ts.createTestVault(t, token, "Selectable Contacts Vault")
@@ -6751,7 +6808,7 @@ func TestContactsSelectable_IncludesArchivedAndExcludesShadow(t *testing.T) {
 		t.Fatalf("failed to parse selectable contacts: %v", err)
 	}
 	if len(selectable) != 2 {
-		t.Fatalf("expected 2 selectable contacts (active + archived, no shadow), got %d", len(selectable))
+		t.Fatalf("expected 2 selectable contacts (active + archived), got %d", len(selectable))
 	}
 	selectableIDs := map[string]bool{}
 	for _, item := range selectable {

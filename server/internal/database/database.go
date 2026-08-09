@@ -62,6 +62,9 @@ func AutoMigrate(db *gorm.DB) error {
 	if err := migrateLegacyPivots(db); err != nil {
 		return err
 	}
+	if err := migrateLegacyShadowContacts(db); err != nil {
+		return err
+	}
 	if existingSQLiteSchema {
 		if err := autoMigrateExistingSQLiteSchema(db); err != nil {
 			return err

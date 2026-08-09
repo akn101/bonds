@@ -14,7 +14,7 @@ func loadMovableContacts(tx *gorm.DB, contactIDs []string, currentVaultID string
 
 	var contacts []models.Contact
 	if err := tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).
-		Where("id IN ? AND vault_id = ? AND NOT (can_be_deleted = ? AND listed = ?)", lockedContactIDs, currentVaultID, false, false).
+		Where("id IN ? AND vault_id = ? AND can_be_deleted = ?", lockedContactIDs, currentVaultID, true).
 		Order("id ASC").
 		Find(&contacts).Error; err != nil {
 		return nil, err

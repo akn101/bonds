@@ -30,10 +30,8 @@ func (s *VaultService) ListVaults(userID string) ([]dto.VaultResponse, error) {
 	}
 
 	vaultIDs := make([]string, len(userVaults))
-	contactIDByVault := make(map[string]string, len(userVaults))
 	for i, uv := range userVaults {
 		vaultIDs[i] = uv.VaultID
-		contactIDByVault[uv.VaultID] = uv.ContactID
 	}
 
 	if len(vaultIDs) == 0 {
@@ -51,7 +49,7 @@ func (s *VaultService) ListVaults(userID string) ([]dto.VaultResponse, error) {
 
 	result := make([]dto.VaultResponse, len(vaults))
 	for i, v := range vaults {
-		result[i] = toVaultResponse(&v, contactIDByVault[v.ID], userNameOrder)
+		result[i] = toVaultResponse(&v, userNameOrder)
 	}
 	return result, nil
 }
@@ -65,7 +63,6 @@ func (s *VaultService) CreateVault(accountID, userID string, req dto.CreateVault
 		Type:        "personal",
 	}
 
-	var userContactID string
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&vault).Error; err != nil {
 			return err
@@ -79,18 +76,6 @@ func (s *VaultService) CreateVault(accountID, userID string, req dto.CreateVault
 			return err
 		}
 
-		// Monica v5 pattern: auto-create a "self" Contact for the vault creator,
-		// linked via UserVault.ContactID. This shadow contact (Listed=false, CanBeDeleted=false)
-		// is used for mood tracking, life events, etc.
-		contactID, err := createUserSelfContact(tx, userID, vault.ID)
-		if err != nil {
-			return err
-		}
-		userContactID = contactID
-		if err := tx.Model(&userVault).Update("contact_id", contactID).Error; err != nil {
-			return err
-		}
-
 		return models.SeedVaultDefaults(tx, vault.ID, locale)
 	})
 	if err != nil {
@@ -101,7 +86,7 @@ func (s *VaultService) CreateVault(accountID, userID string, req dto.CreateVault
 	if err != nil {
 		return nil, err
 	}
-	resp := toVaultResponse(&vault, userContactID, userNameOrder)
+	resp := toVaultResponse(&vault, userNameOrder)
 	return &resp, nil
 }
 
@@ -113,12 +98,11 @@ func (s *VaultService) GetVault(vaultID, userID string) (*dto.VaultResponse, err
 		}
 		return nil, err
 	}
-	userContactID := s.getUserContactID(userID, vaultID)
 	userNameOrder, err := getUserNameOrder(s.db, userID)
 	if err != nil {
 		return nil, err
 	}
-	resp := toVaultResponse(&vault, userContactID, userNameOrder)
+	resp := toVaultResponse(&vault, userNameOrder)
 	return &resp, nil
 }
 
@@ -139,12 +123,11 @@ func (s *VaultService) UpdateVault(vaultID, userID string, req dto.UpdateVaultRe
 		return nil, err
 	}
 
-	userContactID := s.getUserContactID(userID, vaultID)
 	userNameOrder, err := getUserNameOrder(s.db, userID)
 	if err != nil {
 		return nil, err
 	}
-	resp := toVaultResponse(&vault, userContactID, userNameOrder)
+	resp := toVaultResponse(&vault, userNameOrder)
 	return &resp, nil
 }
 
@@ -182,6 +165,9 @@ func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
 		Pluck("id", &contactIDs).Error; err != nil {
 		return fmt.Errorf("collect contacts: %w", err)
 	}
+	if err := tx.Where("vault_id = ?", vaultID).Delete(&models.MoodTrackingEvent{}).Error; err != nil {
+		return fmt.Errorf("delete MoodTrackingEvent: %w", err)
+	}
 
 	// Step 2: Delete contact-level children (deepest grandchildren first).
 	if len(contactIDs) > 0 {
@@ -217,7 +203,6 @@ func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
 			&models.Goal{},
 			&models.Gift{},
 			&models.Relationship{},
-			&models.MoodTrackingEvent{},
 			&models.QuickFact{},
 			&models.Note{}, // Note has both contact_id and vault_id; delete by contact_id here
 		}
@@ -509,41 +494,6 @@ func (s *VaultService) CheckUserVaultAccess(userID, vaultID string, requiredPerm
 	return nil
 }
 
-// createUserSelfContact creates a shadow Contact in the vault for a user (Monica v5 pattern).
-// GORM zero-value bool trick: CanBeDeleted defaults to true, Listed defaults to true,
-// so we must Create first then Update both to false.
-func createUserSelfContact(tx *gorm.DB, userID, vaultID string) (string, error) {
-	var user models.User
-	if err := tx.First(&user, "id = ?", userID).Error; err != nil {
-		return "", err
-	}
-
-	contact := models.Contact{
-		VaultID:   vaultID,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-	}
-	if err := tx.Create(&contact).Error; err != nil {
-		return "", err
-	}
-	// GORM skips false for bool fields with default:true — must update after create
-	if err := tx.Model(&contact).Updates(map[string]interface{}{
-		"can_be_deleted": false,
-		"listed":         false,
-	}).Error; err != nil {
-		return "", err
-	}
-	return contact.ID, nil
-}
-
-func (s *VaultService) getUserContactID(userID, vaultID string) string {
-	var uv models.UserVault
-	if err := s.db.Where("user_id = ? AND vault_id = ?", userID, vaultID).First(&uv).Error; err != nil {
-		return ""
-	}
-	return uv.ContactID
-}
-
 func getUserNameOrder(db *gorm.DB, userID string) (string, error) {
 	var user models.User
 	if err := db.First(&user, "id = ?", userID).Error; err != nil {
@@ -577,7 +527,7 @@ func effectiveVaultNameOrder(v *models.Vault, userNameOrder string) string {
 	return userNameOrder
 }
 
-func toVaultResponse(v *models.Vault, userContactID, userNameOrder string) dto.VaultResponse {
+func toVaultResponse(v *models.Vault, userNameOrder string) dto.VaultResponse {
 	desc := ""
 	if v.Description != nil {
 		desc = *v.Description
@@ -590,7 +540,6 @@ func toVaultResponse(v *models.Vault, userContactID, userNameOrder string) dto.V
 		NameOrder:          v.NameOrder,
 		EffectiveNameOrder: effectiveVaultNameOrder(v, userNameOrder),
 		DefaultActivityTab: v.DefaultActivityTab,
-		UserContactID:      userContactID,
 		// Layout reads the Viewer-accessible vault detail, not Manager-only settings.
 		ShowGroupTab:     v.ShowGroupTab,
 		ShowTasksTab:     v.ShowTasksTab,

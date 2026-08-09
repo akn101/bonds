@@ -151,12 +151,12 @@ func TestBondsSearcherSkipsNotesForUnlistedContacts(t *testing.T) {
 	if err := db.Create(&listedContact).Error; err != nil {
 		t.Fatalf("failed to create listed contact: %v", err)
 	}
-	shadowName := "Shadow"
-	shadowContact := models.Contact{VaultID: "vault-a", FirstName: &shadowName}
-	if err := db.Create(&shadowContact).Error; err != nil {
-		t.Fatalf("failed to create shadow contact: %v", err)
+	unlistedName := "Unlisted"
+	unlistedContact := models.Contact{VaultID: "vault-a", FirstName: &unlistedName}
+	if err := db.Create(&unlistedContact).Error; err != nil {
+		t.Fatalf("failed to create unlisted contact: %v", err)
 	}
-	if err := db.Model(&shadowContact).Update("listed", false).Error; err != nil {
+	if err := db.Model(&unlistedContact).Update("listed", false).Error; err != nil {
 		t.Fatalf("failed to mark contact unlisted: %v", err)
 	}
 
@@ -165,10 +165,10 @@ func TestBondsSearcherSkipsNotesForUnlistedContacts(t *testing.T) {
 	if err := db.Create(&listedNote).Error; err != nil {
 		t.Fatalf("failed to create listed note: %v", err)
 	}
-	shadowTitle := "Secret Shadow"
-	shadowNote := models.Note{VaultID: "vault-a", ContactID: shadowContact.ID, Title: &shadowTitle, Body: "hidden secret"}
-	if err := db.Create(&shadowNote).Error; err != nil {
-		t.Fatalf("failed to create shadow note: %v", err)
+	unlistedTitle := "Secret Unlisted"
+	unlistedNote := models.Note{VaultID: "vault-a", ContactID: unlistedContact.ID, Title: &unlistedTitle, Body: "hidden secret"}
+	if err := db.Create(&unlistedNote).Error; err != nil {
+		t.Fatalf("failed to create unlisted note: %v", err)
 	}
 
 	searcher := NewBondsSearcher(db, nil, allowVaultChecker{allowedVault: "vault-a"})
@@ -181,7 +181,7 @@ func TestBondsSearcherSkipsNotesForUnlistedContacts(t *testing.T) {
 		if item.Type == "note" && item.ID == fmt.Sprint(listedNote.ID) {
 			foundListed = true
 		}
-		if item.Type == "note" && item.ID == fmt.Sprint(shadowNote.ID) {
+		if item.Type == "note" && item.ID == fmt.Sprint(unlistedNote.ID) {
 			t.Fatal("must not return note attached to unlisted contact")
 		}
 	}
@@ -198,12 +198,12 @@ func TestBondsSearcherSkipsTasksOnlyAssignedToUnlistedContacts(t *testing.T) {
 	if err := db.Create(&listedContact).Error; err != nil {
 		t.Fatalf("failed to create listed contact: %v", err)
 	}
-	shadowName := "Shadow"
-	shadowContact := models.Contact{VaultID: "vault-a", FirstName: &shadowName}
-	if err := db.Create(&shadowContact).Error; err != nil {
-		t.Fatalf("failed to create shadow contact: %v", err)
+	unlistedName := "Unlisted"
+	unlistedContact := models.Contact{VaultID: "vault-a", FirstName: &unlistedName}
+	if err := db.Create(&unlistedContact).Error; err != nil {
+		t.Fatalf("failed to create unlisted contact: %v", err)
 	}
-	if err := db.Model(&shadowContact).Update("listed", false).Error; err != nil {
+	if err := db.Model(&unlistedContact).Update("listed", false).Error; err != nil {
 		t.Fatalf("failed to mark contact unlisted: %v", err)
 	}
 
@@ -214,12 +214,12 @@ func TestBondsSearcherSkipsTasksOnlyAssignedToUnlistedContacts(t *testing.T) {
 	if err := db.Create(&models.TaskContact{ContactTaskID: listedTask.ID, ContactID: listedContact.ID}).Error; err != nil {
 		t.Fatalf("failed to assign listed task: %v", err)
 	}
-	shadowTask := models.ContactTask{VaultID: "vault-a", Label: "Secret Shadow Task", AuthorName: "tester"}
-	if err := db.Create(&shadowTask).Error; err != nil {
-		t.Fatalf("failed to create shadow task: %v", err)
+	unlistedTask := models.ContactTask{VaultID: "vault-a", Label: "Secret Unlisted Task", AuthorName: "tester"}
+	if err := db.Create(&unlistedTask).Error; err != nil {
+		t.Fatalf("failed to create unlisted task: %v", err)
 	}
-	if err := db.Create(&models.TaskContact{ContactTaskID: shadowTask.ID, ContactID: shadowContact.ID}).Error; err != nil {
-		t.Fatalf("failed to assign shadow task: %v", err)
+	if err := db.Create(&models.TaskContact{ContactTaskID: unlistedTask.ID, ContactID: unlistedContact.ID}).Error; err != nil {
+		t.Fatalf("failed to assign unlisted task: %v", err)
 	}
 	standaloneTask := models.ContactTask{VaultID: "vault-a", Label: "Secret Standalone Task", AuthorName: "tester"}
 	if err := db.Create(&standaloneTask).Error; err != nil {
@@ -240,7 +240,7 @@ func TestBondsSearcherSkipsTasksOnlyAssignedToUnlistedContacts(t *testing.T) {
 		if item.Type == "task" && item.ID == fmt.Sprint(standaloneTask.ID) {
 			foundStandalone = true
 		}
-		if item.Type == "task" && item.ID == fmt.Sprint(shadowTask.ID) {
+		if item.Type == "task" && item.ID == fmt.Sprint(unlistedTask.ID) {
 			t.Fatal("must not return task assigned only to unlisted contacts")
 		}
 	}

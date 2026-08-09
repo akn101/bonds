@@ -151,7 +151,7 @@ func TestGetVault_ReturnsNavigationTabVisibility(t *testing.T) {
 	}
 }
 
-func TestCreateVault_UserContactAutoCreated(t *testing.T) {
+func TestCreateVault_DoesNotCreateAContactForUser(t *testing.T) {
 	svc, accountID, userID := setupVaultTest(t)
 
 	vault, err := svc.CreateVault(accountID, userID, dto.CreateVaultRequest{
@@ -161,33 +161,16 @@ func TestCreateVault_UserContactAutoCreated(t *testing.T) {
 		t.Fatalf("CreateVault failed: %v", err)
 	}
 
-	if vault.UserContactID == "" {
-		t.Fatal("Expected UserContactID to be populated after vault creation")
-	}
-
 	var uv models.UserVault
 	if err := svc.db.Where("user_id = ? AND vault_id = ?", userID, vault.ID).First(&uv).Error; err != nil {
 		t.Fatalf("UserVault lookup failed: %v", err)
 	}
-	if uv.ContactID == "" {
-		t.Fatal("Expected UserVault.ContactID to be set")
+	var contactCount int64
+	if err := svc.db.Model(&models.Contact{}).Where("vault_id = ?", vault.ID).Count(&contactCount).Error; err != nil {
+		t.Fatalf("Count contacts failed: %v", err)
 	}
-	if uv.ContactID != vault.UserContactID {
-		t.Errorf("UserVault.ContactID (%s) != VaultResponse.UserContactID (%s)", uv.ContactID, vault.UserContactID)
-	}
-
-	var contact models.Contact
-	if err := svc.db.First(&contact, "id = ?", uv.ContactID).Error; err != nil {
-		t.Fatalf("Self-contact lookup failed: %v", err)
-	}
-	if contact.CanBeDeleted {
-		t.Error("Self-contact should have CanBeDeleted=false")
-	}
-	if contact.Listed {
-		t.Error("Self-contact should have Listed=false")
-	}
-	if contact.VaultID != vault.ID {
-		t.Errorf("Self-contact VaultID = %s, want %s", contact.VaultID, vault.ID)
+	if contactCount != 0 {
+		t.Fatalf("vault creation created %d contact(s), want 0", contactCount)
 	}
 }
 

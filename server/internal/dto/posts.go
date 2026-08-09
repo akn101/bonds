@@ -59,12 +59,14 @@ type PostSectionResponse struct {
 }
 
 type PostContactResponse struct {
-	ID         string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	FirstName  string `json:"first_name" example:"John"`
-	MiddleName string `json:"middle_name" example:"Michael"`
-	LastName   string `json:"last_name" example:"Doe"`
-	Nickname   string `json:"nickname" example:"Johnny"`
-	MaidenName string `json:"maiden_name" example:"Smith"`
-	Prefix     string `json:"prefix" example:"Mr."`
-	Suffix     string `json:"suffix" example:"Jr."`
+	ID           string     `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	FirstName    string     `json:"first_name" example:"John"`
+	MiddleName   string     `json:"middle_name" example:"Michael"`
+	LastName     string     `json:"last_name" example:"Doe"`
+	Nickname     string     `json:"nickname" example:"Johnny"`
+	MaidenName   string     `json:"maiden_name" example:"Smith"`
+	Prefix       string     `json:"prefix" example:"Mr."`
+	Suffix       string     `json:"suffix" example:"Jr."`
+	JobPosition  string     `json:"job_position,omitempty" example:"Software Engineer"`
+	LastTalkedTo *time.Time `json:"last_talked_to,omitempty" example:"2026-01-15T10:30:00Z"`
 }

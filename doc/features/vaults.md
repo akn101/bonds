@@ -31,12 +31,12 @@ Each vault has its own set of defaults, seeded on creation:
 - **Life event categories**: 4 categories with 20 event types.
 - **Quick facts templates**: How we met, hobbies, food preferences.
 
-## User Shadow Contacts
+## System Users and Contacts
 
-Bonds uses a shadow contact architecture. Each user has a private shadow contact automatically created inside every vault they belong to.
-- **User-vault mapping**: The shadow contact ID is linked in `UserVault.ContactID` and exposed to the web app via `user_contact_id` on the vault response object.
-- **Personal usage**: The shadow contact tracks your personal mood and life events, keeping them distinct from external contacts.
-- **Privacy rules**: The shadow contact is hidden from the main contact listings, search results, address books, and exports. It cannot be deleted.
+Vault members and contacts are independent concepts. Joining or creating a vault never creates a contact for the system user.
+- **Membership and permissions**: `UserVault` only links a system user to a vault and stores their role.
+- **Mood recording**: Mood entries belong directly to the current system user within the vault.
+- **Life events**: Events created from the dashboard store the system user as their subject. Optional participants are ordinary contacts and are the only events shown on contact timelines.
 
 ## Vault Dashboard
 
@@ -48,12 +48,12 @@ Displays your **Recent Contacts** and **Most Consulted** contacts for quick acce
 ### Center Column
 Features a Segmented control to switch between three dynamic tabs. Your selected tab is persisted to the server using the `defaultTab` setting, loading your preferred tab automatically on next visit.
 1. **Activity**: A feed showing recent changes and actions taken by users in this vault.
-2. **Your Life Events**: An overview of personal milestones recorded on your shadow contact. Events can include additional participants from the same vault and will appear on each participant's contact timeline.
+2. **Life Events**: An overview of all life events in the vault. Dashboard-created events identify the creating system user as their subject and can include optional contact participants; those events also appear on each participant's contact timeline.
 3. **Life Metrics**: Simple event logs tracking custom metrics. Click "+1" to log an occurrence. Click details to view a monthly bar chart of recorded events.
 
 ### Right Column
 Contains widgets for:
-- **Mood Recording**: Log your mood on a five-point scale, linked to your shadow contact.
+- **Mood Recording**: Log your mood on a five-point scale. The entry is scoped to your system user and the current vault.
 - **Upcoming Reminders**: Reminders coming up in the near future.
 - **Due Tasks**: Open tasks requiring your attention.
 

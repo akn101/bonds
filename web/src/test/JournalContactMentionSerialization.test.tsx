@@ -44,6 +44,32 @@ function ContactMentionEditorFixture({
 }
 
 describe("journal contact mention serialization", () => {
+  it("loads contact choices as soon as a bare @ is typed", async () => {
+    const contact = { id: CONTACT_ID, name: "Alice Example" };
+    mockSelectableContacts.mockResolvedValue({ data: [contact] });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider>
+          <AntApp>
+            <ContactMentionEditorFixture onMentionSelect={vi.fn()} />
+          </AntApp>
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Mention contact" }),
+      "@",
+    );
+
+    expect(await screen.findByText(contact.name)).toBeInTheDocument();
+    expect(mockSelectableContacts).toHaveBeenCalledWith("v1", { search: "" });
+  });
+
   it("serializes a closing bracket into the marker inserted by the editor", async () => {
     const contact = { id: CONTACT_ID, name: "Research ] Team" };
     mockSelectableContacts.mockResolvedValue({ data: [contact] });
