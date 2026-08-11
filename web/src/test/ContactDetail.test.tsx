@@ -878,6 +878,7 @@ describe("ContactDetail", () => {
   });
 
   beforeEach(() => {
+    window.localStorage.clear();
     vi.clearAllMocks();
     mockContactQuery.mockReset();
     mockMutate.mockReset();
@@ -952,26 +953,65 @@ describe("ContactDetail", () => {
     );
   });
 
-  it("defaults to read view mode and allows toggling to edit view", async () => {
+  it("always shows the full template tabs with Summary selected by default", async () => {
     const user = userEvent.setup();
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
     renderContactDetail();
 
     expect(screen.getByText("ContactSummaryCard:read")).toBeInTheDocument();
-    expect(screen.getByText("QuickFactsModule:read")).toBeInTheDocument();
-    expect(screen.getByText("NotesModule:read")).toBeInTheDocument();
-    expect(screen.queryByText("Overview")).not.toBeInTheDocument();
-
-    await user.click(
-      screen.getByText("Full view", { selector: ".ant-segmented-item-label" }),
+    expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
-
     expect(screen.getByText("Overview")).toBeInTheDocument();
     expect(screen.getByText("Relationships")).toBeInTheDocument();
     expect(screen.getByText("Information")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    expect(screen.getByText("QuickFactsModule:edit")).toBeInTheDocument();
+    expect(screen.getByText("NotesModule:edit")).toBeInTheDocument();
   });
 
-  it("forces fallback notes links into Full view and passes the note target", () => {
+  it("restores and updates the last selected tab for a contact template", async () => {
+    const user = userEvent.setup();
+    mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
+    mockTabsData = {
+      template_id: 42,
+      pages: [
+        {
+          id: 1,
+          name: "Summary",
+          slug: "summary",
+          modules: [
+            { id: 10, name: "Contact summary", type: "contact_summary" },
+          ],
+        },
+        {
+          id: 2,
+          name: "Life & goals",
+          slug: "life-goals",
+          modules: [{ id: 11, name: "Life events", type: "life_events" }],
+        },
+      ],
+    };
+    window.localStorage.setItem(
+      "bonds:contact-template:42:last-tab",
+      "life-goals",
+    );
+
+    renderContactDetail();
+
+    expect(screen.getByRole("tab", { name: "Life & goals" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await user.click(screen.getByRole("tab", { name: "Summary" }));
+    expect(window.localStorage.getItem("bonds:contact-template:42:last-tab")).toBe(
+      "summary",
+    );
+  });
+
+  it("routes fallback notes links directly to their template tab", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
 
     renderContactDetail("/vaults/1/contacts/2?focus=notes&source=Note:42");
@@ -1068,7 +1108,7 @@ describe("ContactDetail", () => {
     );
   });
 
-  it("preserves default read behavior for invalid canonical query parameters", () => {
+  it("preserves the default Summary tab for invalid canonical query parameters", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
 
     renderContactDetail(
@@ -1076,14 +1116,11 @@ describe("ContactDetail", () => {
     );
 
     expect(screen.getByText("ContactSummaryCard:read")).toBeInTheDocument();
-    expect(screen.getByText("NotesModule:read")).toBeInTheDocument();
-    expect(screen.getByTestId("notes-module")).toHaveAttribute(
-      "data-target",
-      "none",
+    expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
-    expect(
-      screen.queryByRole("tab", { name: "Overview" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("notes-module")).not.toBeInTheDocument();
   });
 
   it("preserves default behavior when dynamic tabs omit the requested module", () => {
@@ -1101,19 +1138,16 @@ describe("ContactDetail", () => {
 
     renderContactDetail("/vaults/1/contacts/2?focus=notes&source=Note:42");
 
-    expect(screen.getByText("ContactSummaryCard:read")).toBeInTheDocument();
-    expect(screen.getByText("NotesModule:read")).toBeInTheDocument();
-    expect(screen.getByTestId("notes-module")).toHaveAttribute(
-      "data-target",
-      "none",
+    expect(screen.queryByText("ContactSummaryCard:read")).not.toBeInTheDocument();
+    expect(screen.getByText("GiftsModule")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
-    expect(
-      screen.queryByRole("tab", { name: "General" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("notes-module")).not.toBeInTheDocument();
   });
 
-  it("renders gifts from dynamic contact tabs", async () => {
-    const user = userEvent.setup();
+  it("renders gifts from dynamic contact tabs without a view-mode toggle", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
     mockTabsData = {
       pages: [
@@ -1127,9 +1161,6 @@ describe("ContactDetail", () => {
     };
 
     renderContactDetail();
-    await user.click(
-      screen.getByText("Full view", { selector: ".ant-segmented-item-label" }),
-    );
 
     expect(screen.getByText("Information")).toBeInTheDocument();
     expect(screen.getByText("GiftsModule")).toBeInTheDocument();

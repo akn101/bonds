@@ -79,10 +79,6 @@ async function navigateToContactTab(
   tabName: string,
   exact = false,
 ) {
-  await page
-    .locator(".ant-segmented-item-label")
-    .getByText("Full view", { exact: true })
-    .click();
   const tab = page.getByRole("tab", { name: tabName, exact });
   await expect(tab).toBeVisible({ timeout: 10000 });
   await tab.click();
@@ -445,9 +441,6 @@ test.describe("Notes Module Pagination", () => {
       `/vaults/${vaultId}/contacts/${contactId}?focus=notes&source=Note:${targetNoteId}`,
     );
 
-    await expect(page.locator(".ant-segmented-item-selected")).toContainText(
-      "Full view",
-    );
     await expect(
       page.getByRole("tab", { name: "Information", exact: true }),
     ).toHaveAttribute("aria-selected", "true");

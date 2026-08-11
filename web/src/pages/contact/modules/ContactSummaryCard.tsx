@@ -12,7 +12,6 @@ import type {
 import { useTranslation } from "react-i18next";
 import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
 import { getReadableLabelTagColors } from "@/utils/labelColor";
-import NetworkGraph from "@/components/NetworkGraph";
 import type { ImportantDate, ImportantDateTypeResponse } from "@/api";
 import { useDateFormat } from "@/utils/dateFormat";
 import {
@@ -673,13 +672,6 @@ export default function ContactSummaryCard({
         </div>
       )}
 
-      {/* 10. Relationship network */}
-      <div style={{ padding: "10px 0" }} data-testid="summary-network">
-        <Text type="secondary" style={sectionLabelStyle}>
-          {t("contact.detail.summary.network")}
-        </Text>
-        <NetworkGraph vaultId={String(vaultId)} contactId={String(contactId)} />
-      </div>
     </div>
   );
 }

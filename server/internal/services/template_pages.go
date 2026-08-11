@@ -75,6 +75,14 @@ func (s *TemplatePageService) Create(templateID uint, accountID string, req dto.
 	if err := s.db.Create(&page).Error; err != nil {
 		return nil, err
 	}
+	// GORM applies the model's default:true tag when a false bool is created.
+	// Persist an explicitly hidden page in a second statement.
+	if req.Visible != nil && !*req.Visible {
+		if err := s.db.Model(&page).Update("visible", false).Error; err != nil {
+			return nil, err
+		}
+		page.Visible = false
+	}
 	resp := toTemplatePageResponse(&page)
 	return &resp, nil
 }
@@ -90,13 +98,28 @@ func (s *TemplatePageService) Update(pageID uint, accountID string, req dto.Upda
 	if page.Template.AccountID != accountID {
 		return nil, ErrTemplatePageNotFound
 	}
-	page.Name = strPtrOrNil(req.Name)
-	if req.Slug != "" {
-		page.Slug = req.Slug
+	updates := make(map[string]interface{})
+	if req.Name != nil {
+		updates["name"] = strPtrOrNil(*req.Name)
 	}
-	page.Position = &req.Position
-	page.Type = strPtrOrNil(req.Type)
-	if err := s.db.Save(&page).Error; err != nil {
+	if req.Slug != nil && *req.Slug != "" {
+		updates["slug"] = *req.Slug
+	}
+	if req.Position != nil {
+		updates["position"] = *req.Position
+	}
+	if req.Type != nil {
+		updates["type"] = strPtrOrNil(*req.Type)
+	}
+	if req.Visible != nil {
+		updates["visible"] = *req.Visible
+	}
+	if len(updates) > 0 {
+		if err := s.db.Model(&page).Updates(updates).Error; err != nil {
+			return nil, err
+		}
+	}
+	if err := s.db.First(&page, page.ID).Error; err != nil {
 		return nil, err
 	}
 	resp := toTemplatePageResponse(&page)
@@ -247,6 +270,7 @@ func toTemplatePageResponse(p *models.TemplatePage) dto.TemplatePageResponse {
 		Slug:               p.Slug,
 		Position:           pos,
 		Type:               ptrToStr(p.Type),
+		Visible:            p.Visible,
 		CanBeDeleted:       p.CanBeDeleted,
 		CreatedAt:          p.CreatedAt,
 		UpdatedAt:          p.UpdatedAt,

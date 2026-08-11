@@ -43,7 +43,7 @@ func (s *ContactTabService) GetTabs(contactID, vaultID string) (*dto.ContactTabs
 	}
 
 	var pages []models.TemplatePage
-	if err := s.db.Where("template_id = ?", tmpl.ID).Order("position ASC").Find(&pages).Error; err != nil {
+	if err := s.db.Where("template_id = ? AND visible = ?", tmpl.ID, true).Order("position ASC").Find(&pages).Error; err != nil {
 		return nil, err
 	}
 

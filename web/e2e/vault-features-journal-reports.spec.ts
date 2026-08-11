@@ -39,10 +39,6 @@ async function navigateToContactTab(
   tabName: string,
   exact = false,
 ) {
-  await page
-    .locator(".ant-segmented-item-label")
-    .getByText("Full view", { exact: true })
-    .click();
   const tab = page.getByRole("tab", { name: tabName, exact });
   await expect(tab).toBeVisible({ timeout: 10000 });
   await tab.click();
@@ -613,7 +609,7 @@ test.describe("Vault - Feed, Calendar, Journal and Settings", () => {
       .first()
       .click();
 
-    await modal.getByRole("textbox", { name: "Label" }).fill("Graduated from university");
+    await modal.getByRole("textbox", { name: "Title" }).fill("Graduated from university");
     await modal.locator("textarea").fill("Got my degree");
 
     const dashboardLifeEventResp = page.waitForResponse(

@@ -102,6 +102,9 @@ func main() {
 	if err := models.BackfillGiftContactModules(db); err != nil {
 		log.Printf("WARNING: failed to backfill gift contact modules: %v", err)
 	}
+	if err := models.BackfillContactTemplateLayout(db); err != nil {
+		log.Printf("WARNING: failed to backfill contact template layout: %v", err)
+	}
 
 	scheduler := cron.NewScheduler(db)
 	scheduler.Start()

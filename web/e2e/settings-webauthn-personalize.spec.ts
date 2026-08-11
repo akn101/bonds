@@ -134,9 +134,9 @@ test.describe('Settings - WebAuthn and Modules', () => {
     const subItemsArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Pages' });
     const pageItems = subItemsArea.locator('.ant-list-item');
     await expect(pageItems.first()).toBeVisible({ timeout: 10000 });
-    // Click the modules icon (AppstoreOutlined) on the first page
-    const firstPageItem = pageItems.first();
-    await firstPageItem.locator('button').filter({ has: page.locator('.anticon-appstore') }).click();
+    // Use Contact information because it has multiple sortable modules.
+    const contactPageItem = pageItems.filter({ hasText: 'Contact information' }).first();
+    await contactPageItem.locator('button').filter({ has: page.locator('.anticon-appstore') }).click();
     await page.waitForTimeout(500);
 
     // Verify modules list with up/down arrow buttons appears
@@ -166,8 +166,8 @@ test.describe('Settings - WebAuthn and Modules', () => {
     const subItemsArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Pages' });
     const pageItems = subItemsArea.locator('.ant-list-item');
     await expect(pageItems.first()).toBeVisible({ timeout: 10000 });
-    const firstPageItem = pageItems.first();
-    await firstPageItem.locator('button').filter({ has: page.locator('.anticon-appstore') }).click();
+    const contactPageItem = pageItems.filter({ hasText: 'Contact information' }).first();
+    await contactPageItem.locator('button').filter({ has: page.locator('.anticon-appstore') }).click();
     await page.waitForTimeout(500);
     // Wait for module list with Page Modules label
     await expect(templatesPanel.getByText('Page Modules').first()).toBeVisible({ timeout: 10000 });
@@ -193,6 +193,43 @@ test.describe('Settings - WebAuthn and Modules', () => {
     if (response) {
       expect(firstModuleName).not.toBe(newFirstModuleName);
     }
+  });
+
+  test('should hide and restore a template page without deleting it', async ({ page }) => {
+    await registerUser(page);
+    await page.goto('/settings/personalize');
+    await page.waitForLoadState('networkidle');
+
+    const templatesPanel = page.locator('.ant-collapse-item').filter({
+      has: page.locator('.ant-collapse-header span').getByText('Templates', { exact: true }),
+    });
+    await templatesPanel.locator('.ant-collapse-header').click();
+    const firstTemplateItem = templatesPanel.locator('.ant-list-item').first();
+    await expect(firstTemplateItem).toBeVisible({ timeout: 10000 });
+    await firstTemplateItem.locator('button').filter({ has: page.locator('.anticon-right, .anticon-down') }).first().click();
+
+    const networkPageItem = templatesPanel.locator('.ant-list-item').filter({
+      hasText: 'Relationship network',
+    }).first();
+    await expect(networkPageItem).toBeVisible({ timeout: 10000 });
+    const visibilitySwitch = networkPageItem.getByRole('switch', {
+      name: /show page relationship network/i,
+    });
+    await expect(visibilitySwitch).toBeChecked();
+
+    const hideResponse = page.waitForResponse(
+      (response) => response.url().includes('/pages/') && response.request().method() === 'PUT' && response.status() < 400,
+    );
+    await visibilitySwitch.click();
+    await hideResponse;
+    await expect(visibilitySwitch).not.toBeChecked();
+
+    const restoreResponse = page.waitForResponse(
+      (response) => response.url().includes('/pages/') && response.request().method() === 'PUT' && response.status() < 400,
+    );
+    await visibilitySwitch.click();
+    await restoreResponse;
+    await expect(visibilitySwitch).toBeChecked();
   });
 });
 

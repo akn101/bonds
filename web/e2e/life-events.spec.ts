@@ -144,10 +144,6 @@ async function navigateToContactLifeGoals(
 ) {
   await page.goto(`/vaults/${vaultId}/contacts/${contactId}`);
   await page.waitForLoadState("networkidle");
-  await page
-    .locator(".ant-segmented-item-label")
-    .getByText("Full view", { exact: true })
-    .click();
   const lifeGoalsTab = page.getByRole("tab", { name: "Life & goals" });
   await expect(lifeGoalsTab).toBeVisible({ timeout: 30000 });
   await lifeGoalsTab.click();
@@ -447,5 +443,25 @@ test.describe("Vault Settings - Life Events", () => {
 
     await navigateToContactLifeGoals(page, vaultId, contactBId);
     await expectParticipantLifeEventVisible(page, "AliceLife Host");
+  });
+});
+
+test.describe("Vault activity quick action", () => {
+  test("uses activity wording and respects the default calendar preference", async ({
+    page,
+  }) => {
+    await setupVault(page);
+
+    await page
+      .getByRole("button", { name: /Add activity/i })
+      .click();
+
+    const modal = page.locator(".ant-modal:visible");
+    await expect(modal.locator(".ant-modal-title")).toHaveText("Add activity");
+    await expect(modal.getByText("Title", { exact: true })).toBeVisible();
+    await expect(modal.getByText("Gregorian", { exact: true })).toHaveCount(0);
+    await expect(
+      modal.getByText("Chinese Lunar", { exact: true }),
+    ).toHaveCount(0);
   });
 });

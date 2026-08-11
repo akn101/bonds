@@ -352,12 +352,15 @@
   "seed.post_templates.inspirational_post": "感悟文章",
 
   "seed.templates.default_template": "默认模板",
+  "seed.template_pages.summary": "摘要",
   "seed.template_pages.contact_information": "联系人信息",
   "seed.template_pages.feed": "动态",
   "seed.template_pages.social": "社交",
+  "seed.template_pages.relationship_network": "关系网络",
   "seed.template_pages.life_and_goals": "生活与目标",
   "seed.template_pages.information": "资料",
 
+  "seed.modules.contact_summary": "联系人摘要",
   "seed.modules.avatar": "头像",
   "seed.modules.contact_name": "联系人名称",
   "seed.modules.family_summary": "家庭概况",
@@ -369,6 +372,7 @@
   "seed.modules.religions": "宗教信仰",
   "seed.modules.contact_feed": "联系人动态",
   "seed.modules.relationships": "关系",
+  "seed.modules.relationship_network": "关系网络",
   "seed.modules.pets": "宠物",
   "seed.modules.groups": "群组",
   "seed.modules.addresses": "地址",

@@ -346,12 +346,15 @@
   "seed.post_templates.inspirational_post": "Inspirierender Beitrag",
 
   "seed.templates.default_template": "Standardvorlage",
+  "seed.template_pages.summary": "Zusammenfassung",
   "seed.template_pages.contact_information": "Kontaktinformationen",
   "seed.template_pages.feed": "Feed",
   "seed.template_pages.social": "Soziales",
+  "seed.template_pages.relationship_network": "Beziehungsnetzwerk",
   "seed.template_pages.life_and_goals": "Leben & Ziele",
   "seed.template_pages.information": "Informationen",
 
+  "seed.modules.contact_summary": "Kontaktübersicht",
   "seed.modules.avatar": "Avatar",
   "seed.modules.contact_name": "Kontaktname",
   "seed.modules.family_summary": "Familienzusammenfassung",
@@ -363,6 +366,7 @@
   "seed.modules.religions": "Religionen",
   "seed.modules.contact_feed": "Kontakt-Feed",
   "seed.modules.relationships": "Beziehungen",
+  "seed.modules.relationship_network": "Beziehungsnetzwerk",
   "seed.modules.pets": "Haustiere",
   "seed.modules.groups": "Gruppen",
   "seed.modules.addresses": "Adressen",

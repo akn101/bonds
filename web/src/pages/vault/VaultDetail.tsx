@@ -677,6 +677,7 @@ function LifeEventsTab({
       key={createSignal}
       vaultId={vaultId}
       initiallyOpen={createSignal > 0}
+      initialCreateKind="activity"
       onModalClose={onCreateClosed}
     />
   );

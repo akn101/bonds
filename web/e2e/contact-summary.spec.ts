@@ -41,7 +41,6 @@ async function createContact(page: import('@playwright/test').Page, firstName: s
 }
 
 async function navigateToTab(page: import('@playwright/test').Page, tabName: string, exact = false) {
-  await page.locator('.ant-segmented-item-label').getByText('Full view', { exact: true }).click();
   const tab = page.getByRole('tab', { name: tabName, exact });
   await expect(tab).toBeVisible({ timeout: 10000 });
   await tab.click();
@@ -106,6 +105,7 @@ test.describe('Contact Summary Card', () => {
     await page.waitForLoadState('networkidle');
 
     // Now verify the summary card shows the label
+    await navigateToTab(page, 'Summary', true);
     const summaryCard = page.locator('[data-testid="contact-summary-card"]');
     await expect(summaryCard).toBeVisible({ timeout: 10000 });
     const labelTag = summaryCard.locator('[data-testid="summary-labels"] .ant-tag').filter({ hasText: 'summary-label' });
@@ -164,6 +164,7 @@ test.describe('Contact Summary Card', () => {
     await page.waitForLoadState('networkidle');
 
     // Now check summary card shows the contact info
+    await navigateToTab(page, 'Summary', true);
     const summaryCard = page.locator('[data-testid="contact-summary-card"]');
     await expect(summaryCard).toBeVisible({ timeout: 10000 });
     await expect(summaryCard.getByText('summary@example.com')).toBeVisible({ timeout: 10000 });
@@ -201,6 +202,7 @@ test.describe('Contact Summary Card', () => {
     await page.waitForLoadState('networkidle');
 
     // Check summary card shows the address
+    await navigateToTab(page, 'Summary', true);
     const summaryCard = page.locator('[data-testid="contact-summary-card"]');
     await expect(summaryCard).toBeVisible({ timeout: 10000 });
     await expect(summaryCard.getByText(/123 Main St/)).toBeVisible({ timeout: 10000 });
@@ -239,6 +241,7 @@ test.describe('Contact Summary Card', () => {
     await page.waitForLoadState('networkidle');
 
     // Summary card should show the religion name
+    await navigateToTab(page, 'Summary', true);
     const summaryCard = page.locator('[data-testid="contact-summary-card"]');
     await expect(summaryCard).toBeVisible({ timeout: 10000 });
     // The religion should appear somewhere in the summary (from seed data)
@@ -306,6 +309,7 @@ test.describe('Contact Summary Card', () => {
     await page.waitForLoadState('networkidle');
 
     // Summary card should show the job
+    await navigateToTab(page, 'Summary', true);
     const summaryCard = page.locator('[data-testid="contact-summary-card"]');
     await expect(summaryCard).toBeVisible({ timeout: 10000 });
     await expect(summaryCard.getByText(/Acme Corp/)).toBeVisible({ timeout: 10000 });
@@ -366,18 +370,18 @@ test.describe('Contact Summary Card', () => {
     await page.goto(parentUrl);
     await page.waitForLoadState('networkidle');
 
+    await navigateToTab(page, 'Summary', true);
     const summaryCard = page.locator('[data-testid="contact-summary-card"]');
     await expect(summaryCard).toBeVisible({ timeout: 10000 });
     // Should show the relationship (ChildSum User) in the relationships section.
-    // Scope to the family/relationships block since the embedded network graph
-    // also renders the related contact's name as a node label.
+    // Scope to the family/relationships block.
     const relationshipSection = summaryCard.locator(
       '[data-testid="summary-family"], [data-testid="summary-relationships"]',
     );
     await expect(relationshipSection.getByText(/ChildSum/).first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('summary shows clickable groups and the relationship network graph', async ({ page }) => {
+  test('summary shows clickable groups and relationship network remains a visible default tab', async ({ page }) => {
     await setupVault(page, 'summary-groups');
     const vaultUrl = page.url();
 
@@ -417,11 +421,15 @@ test.describe('Contact Summary Card', () => {
     await addResp;
     await page.waitForLoadState('networkidle');
 
+    await navigateToTab(page, 'Summary', true);
     const summaryCard = page.locator('[data-testid="contact-summary-card"]');
     await expect(summaryCard).toBeVisible({ timeout: 10000 });
 
-    // Network graph is embedded in the summary
-    await expect(summaryCard.locator('[data-testid="summary-network"]')).toBeVisible({ timeout: 10000 });
+    const networkTab = page.getByRole('tab', { name: 'Relationship network', exact: true });
+    await expect(networkTab).toBeVisible({ timeout: 10000 });
+    await networkTab.click();
+    await expect(page.locator('.ant-tabs-tabpane-active svg')).toBeVisible({ timeout: 10000 });
+    await navigateToTab(page, 'Summary', true);
 
     // Group tag is clickable and deep-links into the filtered contacts list
     const groupTag = summaryCard.locator('[data-testid="summary-groups"] .ant-tag').filter({ hasText: 'summary-group' });

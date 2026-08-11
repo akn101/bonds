@@ -531,11 +531,13 @@ func seedDefaultTemplate(tx *gorm.DB, accountID, locale string) error {
 		undel    bool
 	}
 	pages := []pageDef{
-		{"seed.template_pages.contact_information", "contact", 1, strPtr("contact"), true},
-		{"seed.template_pages.feed", "feed", 2, nil, false},
-		{"seed.template_pages.social", "social", 3, nil, false},
-		{"seed.template_pages.life_and_goals", "life-goals", 4, nil, false},
-		{"seed.template_pages.information", "information", 5, nil, false},
+		{"seed.template_pages.summary", "summary", 1, nil, true},
+		{"seed.template_pages.contact_information", "contact", 2, strPtr("contact"), true},
+		{"seed.template_pages.feed", "feed", 3, nil, false},
+		{"seed.template_pages.social", "social", 4, nil, false},
+		{"seed.template_pages.relationship_network", "relationship-network", 5, nil, true},
+		{"seed.template_pages.life_and_goals", "life-goals", 6, nil, false},
+		{"seed.template_pages.information", "information", 7, nil, false},
 	}
 
 	for _, p := range pages {
@@ -583,6 +585,9 @@ func seedDefaultModules(tx *gorm.DB, accountID, locale string) error {
 	}
 
 	pageModules := map[string][]moduleDef{
+		"summary": {
+			{"seed.modules.contact_summary", "contact_summary", true},
+		},
 		"contact": {
 			{"seed.modules.avatar", "avatar", true},
 			{"seed.modules.contact_name", "contact_names", true},
@@ -606,6 +611,9 @@ func seedDefaultModules(tx *gorm.DB, accountID, locale string) error {
 			{"seed.modules.pets", "pets", false},
 			{"seed.modules.groups", "groups", false},
 		},
+		"relationship-network": {
+			{"seed.modules.relationship_network", "relationship_network", false},
+		},
 		"life-goals": {
 			{"seed.modules.life_events", "life_events", false},
 			{"seed.modules.goals", "goals", false},
@@ -625,7 +633,7 @@ func seedDefaultModules(tx *gorm.DB, accountID, locale string) error {
 
 	var undeletableModuleIDs []uint
 
-	for _, slug := range []string{"contact", "feed", "social", "life-goals", "information"} {
+	for _, slug := range []string{"summary", "contact", "feed", "social", "relationship-network", "life-goals", "information"} {
 		page, ok := pageBySlug[slug]
 		if !ok {
 			continue

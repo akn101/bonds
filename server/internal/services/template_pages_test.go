@@ -50,8 +50,8 @@ func TestTemplatePageList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
-	if len(pages) != 5 {
-		t.Errorf("Expected 5 default pages, got %d", len(pages))
+	if len(pages) != 7 {
+		t.Errorf("Expected 7 default pages, got %d", len(pages))
 	}
 }
 
@@ -120,10 +120,10 @@ func TestTemplatePageUpdate(t *testing.T) {
 	}
 
 	updated, err := svc.Update(created.ID, accountID, dto.UpdateTemplatePageRequest{
-		Name:     "Updated",
-		Slug:     "updated",
-		Position: 5,
-		Type:     "new-type",
+		Name:     strPtr("Updated"),
+		Slug:     strPtr("updated"),
+		Position: intPtr(5),
+		Type:     strPtr("new-type"),
 	})
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
@@ -141,6 +141,35 @@ func TestTemplatePageUpdate(t *testing.T) {
 		t.Errorf("Expected type 'new-type', got '%s'", updated.Type)
 	}
 }
+
+func TestTemplatePageVisibility(t *testing.T) {
+	svc, accountID, templateID := setupTemplatePageTest(t)
+
+	created, err := svc.Create(templateID, accountID, dto.CreateTemplatePageRequest{
+		Name: "Hidden Page", Slug: "hidden-page", Visible: boolPtr(false),
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	if created.Visible {
+		t.Fatal("expected explicitly hidden page")
+	}
+
+	updated, err := svc.Update(created.ID, accountID, dto.UpdateTemplatePageRequest{
+		Visible: boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("Update visibility failed: %v", err)
+	}
+	if !updated.Visible {
+		t.Fatal("expected page to be visible after update")
+	}
+	if updated.Name != "Hidden Page" || updated.Slug != "hidden-page" {
+		t.Fatalf("visibility update changed page identity: %+v", updated)
+	}
+}
+
+func boolPtr(value bool) *bool { return &value }
 
 func TestTemplatePageDelete(t *testing.T) {
 	svc, accountID, templateID := setupTemplatePageTest(t)

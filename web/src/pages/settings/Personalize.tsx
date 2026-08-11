@@ -176,6 +176,15 @@ function SubItemsPanel({ parentId, sectionKey }: { parentId: number; sectionKey:
     onError: (e: APIError) => message.error(e.message),
   });
 
+  const pageVisibilityMutation = useMutation({
+    mutationFn: ({ itemId, visible }: { itemId: number; visible: boolean }) =>
+      api.templatePages.personalizeTemplatesPagesUpdate(parentId, itemId, {
+        visible,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk }),
+    onError: (e: APIError) => message.error(e.message),
+  });
+
   function resetForm() {
     setAdding(false);
     setEditingId(null);
@@ -266,6 +275,21 @@ function SubItemsPanel({ parentId, sectionKey }: { parentId: number; sectionKey:
             <List.Item
               style={{ padding: "4px 0" }}
               actions={[
+                ...(showModules ? [
+                  <Switch
+                    key="visibility"
+                    size="small"
+                    checked={item.visible !== false}
+                    loading={pageVisibilityMutation.isPending}
+                    aria-label={`${t("settings.personalize.page_visible")} ${getDisplayLabel(item)}`}
+                    onChange={(visible) =>
+                      pageVisibilityMutation.mutate({
+                        itemId: item.id as number,
+                        visible,
+                      })
+                    }
+                  />,
+                ] : []),
                 ...(hasPosition ? [
                   <Button
                     key="up"
@@ -299,7 +323,13 @@ function SubItemsPanel({ parentId, sectionKey }: { parentId: number; sectionKey:
                 ] : []),
                 <Button key="e" type="text" size="small" icon={<EditOutlined />} onClick={() => startEdit(item)} />,
                 <Popconfirm key="d" title={t("settings.personalize.delete_confirm")} onConfirm={() => deleteMutation.mutate(item.id as number)}>
-                  <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                  <Button
+                    type="text"
+                    size="small"
+                    danger
+                    disabled={item.can_be_deleted === false}
+                    icon={<DeleteOutlined />}
+                  />
                 </Popconfirm>,
               ]}
             >

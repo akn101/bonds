@@ -7,13 +7,15 @@ type CreateTemplatePageRequest struct {
 	Slug     string `json:"slug" validate:"required" example:"contact-info"`
 	Position int    `json:"position" example:"1"`
 	Type     string `json:"type" example:"contact"`
+	Visible  *bool  `json:"visible" example:"true"`
 }
 
 type UpdateTemplatePageRequest struct {
-	Name     string `json:"name" validate:"required" example:"Contact Information"`
-	Slug     string `json:"slug" example:"contact-info"`
-	Position int    `json:"position" example:"1"`
-	Type     string `json:"type" example:"contact"`
+	Name     *string `json:"name" example:"Contact Information"`
+	Slug     *string `json:"slug" example:"contact-info"`
+	Position *int    `json:"position" example:"1"`
+	Type     *string `json:"type" example:"contact"`
+	Visible  *bool   `json:"visible" example:"true"`
 }
 
 type TemplatePageResponse struct {
@@ -24,6 +26,7 @@ type TemplatePageResponse struct {
 	Slug               string    `json:"slug" example:"contact-info"`
 	Position           int       `json:"position" example:"1"`
 	Type               string    `json:"type" example:"contact"`
+	Visible            bool      `json:"visible" example:"true"`
 	CanBeDeleted       bool      `json:"can_be_deleted" example:"false"`
 	CreatedAt          time.Time `json:"created_at" example:"2026-01-15T10:30:00Z"`
 	UpdatedAt          time.Time `json:"updated_at" example:"2026-01-15T10:30:00Z"`

@@ -37,7 +37,6 @@ import {
   theme,
   Dropdown,
   Checkbox,
-  Segmented,
 } from "antd";
 import {
   EditOutlined,
@@ -105,7 +104,8 @@ import LabelsModule from "./modules/LabelsModule";
 import FeedModule from "./modules/FeedModule";
 import ExtraInfoModule from "./modules/ExtraInfoModule";
 import GroupsModule from "./modules/GroupsModule";
-import ContactSummaryCard from "./modules/ContactSummaryCard";
+import ContactSummaryModule from "./modules/ContactSummaryModule";
+import RelationshipNetworkModule from "./modules/RelationshipNetworkModule";
 
 const { Title, Text } = Typography;
 
@@ -244,6 +244,8 @@ const MODULE_COMPONENT_MAP: Record<
   photos: PhotosModule,
   documents: DocumentsModule,
   feed: FeedModule,
+  contact_summary: ContactSummaryModule,
+  relationship_network: RelationshipNetworkModule,
 };
 
 export default function ContactDetail() {
@@ -258,7 +260,6 @@ export default function ContactDetail() {
   const { token } = theme.useToken();
   const nameOrder = useVaultNameOrder(vaultId);
   const dateFormats = useDateFormat();
-  const [viewMode, setViewMode] = useState<"read" | "edit">("read");
   const [tabSelection, setTabSelection] = useState<{
     readonly context: string;
     readonly key: string;
@@ -679,6 +680,7 @@ export default function ContactDetail() {
   const moduleProps = {
     vaultId,
     contactId: cId,
+    contact,
     currentContactName: formatContactName(nameOrder, contact),
   };
   const requestedSourceFocus = parseContactSourceFocus(location.search);
@@ -686,7 +688,6 @@ export default function ContactDetail() {
     ? findTargetTabKey(requestedSourceFocus.source, tabsData)
     : null;
   const sourceTarget = targetTabKey ? requestedSourceFocus?.source : undefined;
-  const effectiveViewMode = sourceTarget ? "edit" : viewMode;
 
   // Compact overview card — only shows fields that have values,
   // timestamps rendered as subtle footer text to save vertical space.
@@ -861,7 +862,7 @@ export default function ContactDetail() {
           <QuickFactsModule
             key={`mod-${mod.id}`}
             {...moduleProps}
-            readOnly={effectiveViewMode === "read"}
+            readOnly={false}
             target={
               sourceTarget?.module === "quick_facts" ? sourceTarget : undefined
             }
@@ -924,6 +925,11 @@ export default function ContactDetail() {
 
   const fallbackTabItems = [
     {
+      key: "summary",
+      label: t("contact.detail.view_mode"),
+      children: <ContactSummaryModule {...moduleProps} />,
+    },
+    {
       key: "overview",
       label: t("contact.detail.tabs.overview"),
       children: (
@@ -932,14 +938,14 @@ export default function ContactDetail() {
           <LabelsModule {...moduleProps} />
           <QuickFactsModule
             {...moduleProps}
-            readOnly={effectiveViewMode === "read"}
+            readOnly={false}
             target={
               sourceTarget?.module === "quick_facts" ? sourceTarget : undefined
             }
           />
           <NotesModule
             {...moduleProps}
-            readOnly={effectiveViewMode === "read"}
+            readOnly={false}
             target={sourceTarget?.module === "notes" ? sourceTarget : undefined}
           />
         </Space>
@@ -956,6 +962,11 @@ export default function ContactDetail() {
           }
         />
       ),
+    },
+    {
+      key: "relationship-network",
+      label: t("contact.detail.summary.network"),
+      children: <RelationshipNetworkModule {...moduleProps} />,
     },
     {
       key: "information",
@@ -1047,11 +1058,21 @@ export default function ContactDetail() {
   const tabSelectionContext =
     sourceTarget && targetTabKey
       ? `${sourceTarget.kind}:${sourceTarget.id}:${targetTabKey}`
-      : "default";
+      : `template:${tabsData?.template_id ?? "fallback"}`;
+  const rememberedTabKey = tabsData?.template_id
+    ? window.localStorage.getItem(
+        `bonds:contact-template:${tabsData.template_id}:last-tab`,
+      )
+    : null;
+  const validRememberedTabKey = tabItems.some(
+    (item) => item.key === rememberedTabKey,
+  )
+    ? rememberedTabKey
+    : null;
   const activeTabKey =
     tabSelection?.context === tabSelectionContext
       ? tabSelection.key
-      : (targetTabKey ?? tabItems[0]?.key ?? "overview");
+      : (targetTabKey ?? validRememberedTabKey ?? tabItems[0]?.key ?? "summary");
   const isRelationshipOnlyHiddenContact =
     contact.needs_verification && !contact.listed;
 
@@ -1338,53 +1359,26 @@ export default function ContactDetail() {
         <div style={{ marginBottom: 16 }}>{stayInTouchPanel}</div>
       )}
 
-      <div style={{ marginBottom: 16 }}>
-        <ContactSummaryCard
-          vaultId={vaultId}
-          contactId={cId}
-          contact={contact}
-          readOnly={viewMode === "read"}
-        />
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginBottom: 16,
-        }}
-      >
-        <Segmented
-          options={[
-            { label: t("contact.detail.view_mode"), value: "read" },
-            { label: t("contact.detail.edit_mode"), value: "edit" },
-          ]}
-          value={effectiveViewMode}
-          onChange={(val) => setViewMode(val as "read" | "edit")}
-        />
-      </div>
-
-      {effectiveViewMode === "edit" ? (
-        <Tabs
-          items={tabItems}
-          activeKey={activeTabKey}
-          onChange={(key) =>
-            setTabSelection({ context: tabSelectionContext, key })
+      <Tabs
+        items={tabItems}
+        activeKey={activeTabKey}
+        onChange={(key) => {
+          setTabSelection({ context: tabSelectionContext, key });
+          if (tabsData?.template_id) {
+            window.localStorage.setItem(
+              `bonds:contact-template:${tabsData.template_id}:last-tab`,
+              key,
+            );
           }
-          style={{
-            marginTop: 4,
-          }}
-          tabBarStyle={{
-            marginBottom: 20,
-            paddingLeft: 4,
-          }}
-        />
-      ) : (
-        <Space direction="vertical" style={{ width: "100%" }} size={16}>
-          <QuickFactsModule {...moduleProps} readOnly={true} />
-          <NotesModule {...moduleProps} readOnly={true} />
-        </Space>
-      )}
+        }}
+        style={{
+          marginTop: 4,
+        }}
+        tabBarStyle={{
+          marginBottom: 20,
+          paddingLeft: 4,
+        }}
+      />
 
       <Modal
         title={t("contact.detail.edit_title")}

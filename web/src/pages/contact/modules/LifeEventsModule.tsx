@@ -25,6 +25,7 @@ import type {
   LifeEvent,
   LifeEventCategoryResponse,
   PaginationMeta,
+  UserPreferences,
 } from "@/api";
 import ContactMentionEditor from "@/components/journal/ContactMentionEditor";
 import ContactMentionText from "@/components/journal/ContactMentionText";
@@ -55,11 +56,13 @@ export default function LifeEventsModule({
   vaultId,
   contactId,
   initiallyOpen = false,
+  initialCreateKind = "life_event",
   onModalClose,
 }: {
   vaultId: string | number;
   contactId?: string | number;
   initiallyOpen?: boolean;
+  initialCreateKind?: "activity" | "life_event";
   onModalClose?: () => void;
   target?: unknown;
 }) {
@@ -69,6 +72,7 @@ export default function LifeEventsModule({
   const dateFormats = useDateFormat();
   const [form] = Form.useForm<FormValues>();
   const [open, setOpen] = useState(initiallyOpen);
+  const [createKind, setCreateKind] = useState(initialCreateKind);
   const [editing, setEditing] = useState<LifeEvent | null>(null);
   const [description, setDescription] = useState("");
   const [page, setPage] = useState(1);
@@ -117,6 +121,14 @@ export default function LifeEventsModule({
       return (response.data ?? []) as LifeEventCategoryResponse[];
     },
   });
+
+  const { data: preferences } = useQuery<UserPreferences | undefined>({
+    queryKey: ["settings", "preferences"],
+    queryFn: async () =>
+      (await api.preferences.preferencesList()).data ?? undefined,
+  });
+  const enableAlternativeCalendar =
+    preferences?.enable_alternative_calendar ?? false;
 
   const typeOptions = useMemo(
     () =>
@@ -224,6 +236,7 @@ export default function LifeEventsModule({
 
   const startCreate = () => {
     setEditing(null);
+    setCreateKind("life_event");
     setDescription("");
     form.setFieldsValue({
       start_calendar: {
@@ -240,6 +253,7 @@ export default function LifeEventsModule({
   };
   const startEdit = (event: LifeEvent) => {
     setEditing(event);
+    setCreateKind("life_event");
     setDescription(event.description ?? "");
     form.setFieldsValue({
       life_event_type_id: event.life_event_type_id,
@@ -416,7 +430,11 @@ export default function LifeEventsModule({
         title={
           editing
             ? t("modules.life_events.edit_event")
-            : t("modules.life_events.add_event")
+            : t(
+                createKind === "activity"
+                  ? "modules.life_events.add_activity"
+                  : "modules.life_events.add_event",
+              )
         }
         open={open}
         onCancel={() => {
@@ -464,7 +482,7 @@ export default function LifeEventsModule({
           </Form.Item>
           <Form.Item
             name="title"
-            label={t("modules.life_events.label")}
+            label={t("modules.life_events.title_label")}
             rules={[{ required: true }]}
           >
             <Input />
@@ -475,7 +493,7 @@ export default function LifeEventsModule({
             rules={[{ required: true }]}
           >
             <CalendarDatePicker
-              enableAlternativeCalendar
+              enableAlternativeCalendar={enableAlternativeCalendar}
               enableDatePrecision
               allowedDatePrecisions={["full", "month", "year"]}
             />

@@ -4665,14 +4665,14 @@ func TestContactTabs_Success(t *testing.T) {
 	if tabs.TemplateName != "Default template" {
 		t.Errorf("expected 'Default template', got '%s'", tabs.TemplateName)
 	}
-	if len(tabs.Pages) != 5 {
-		t.Fatalf("expected 5 pages, got %d", len(tabs.Pages))
+	if len(tabs.Pages) != 7 {
+		t.Fatalf("expected 7 pages, got %d", len(tabs.Pages))
 	}
-	if tabs.Pages[0].Slug != "contact" {
-		t.Errorf("expected first page slug 'contact', got '%s'", tabs.Pages[0].Slug)
+	if tabs.Pages[0].Slug != "summary" {
+		t.Errorf("expected first page slug 'summary', got '%s'", tabs.Pages[0].Slug)
 	}
-	if len(tabs.Pages[0].Modules) != 11 {
-		t.Errorf("expected 11 modules on contact page, got %d", len(tabs.Pages[0].Modules))
+	if len(tabs.Pages[1].Modules) != 11 {
+		t.Errorf("expected 11 modules on contact page, got %d", len(tabs.Pages[1].Modules))
 	}
 }
 

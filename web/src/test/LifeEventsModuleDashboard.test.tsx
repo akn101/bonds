@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { App as AntApp, ConfigProvider } from "antd";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import LifeEventsModule from "@/pages/contact/modules/LifeEventsModule";
 
 const mockLifeEventsList = vi.fn();
+const mockPreferencesList = vi.fn().mockResolvedValue({ data: {} });
 
 vi.mock("@/api", () => ({
   api: {
@@ -19,7 +20,7 @@ vi.mock("@/api", () => ({
       settingsLifeEventCategoriesList: vi.fn().mockResolvedValue({ data: [] }),
     },
     preferences: {
-      preferencesList: vi.fn().mockResolvedValue({ data: {} }),
+      preferencesList: (...args: unknown[]) => mockPreferencesList(...args),
     },
     vaults: {
       vaultsDetail: vi.fn().mockResolvedValue({
@@ -29,7 +30,10 @@ vi.mock("@/api", () => ({
   },
 }));
 
-function renderModule(initiallyOpen = false) {
+function renderModule(
+  initiallyOpen = false,
+  initialCreateKind: "activity" | "life_event" = "life_event",
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -40,6 +44,7 @@ function renderModule(initiallyOpen = false) {
           <LifeEventsModule
             vaultId="vault-1"
             initiallyOpen={initiallyOpen}
+            initialCreateKind={initialCreateKind}
           />
         </AntApp>
       </ConfigProvider>
@@ -84,5 +89,39 @@ describe("LifeEventsModule on the vault dashboard", () => {
 
     expect(await screen.findByText("You")).toBeInTheDocument();
     expect(screen.queryByText("user-1")).not.toBeInTheDocument();
+  });
+
+  it("uses activity wording and the Title field for the dashboard quick action", async () => {
+    mockLifeEventsList.mockResolvedValue({
+      data: [],
+      meta: { page: 1, total_pages: 1 },
+    });
+    mockPreferencesList.mockResolvedValueOnce({
+      data: { enable_alternative_calendar: false },
+    });
+
+    renderModule(true, "activity");
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Add activity")).toBeInTheDocument();
+    expect(within(dialog).getByText("Title")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Gregorian")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Chinese Lunar")).not.toBeInTheDocument();
+  });
+
+  it("shows the calendar selector only when alternative calendars are enabled", async () => {
+    mockLifeEventsList.mockResolvedValue({
+      data: [],
+      meta: { page: 1, total_pages: 1 },
+    });
+    mockPreferencesList.mockResolvedValueOnce({
+      data: { enable_alternative_calendar: true },
+    });
+
+    renderModule(true, "activity");
+
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Gregorian")).toBeInTheDocument();
+    expect(within(dialog).getByText("Chinese Lunar")).toBeInTheDocument();
   });
 });

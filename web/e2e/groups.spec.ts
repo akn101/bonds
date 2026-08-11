@@ -64,10 +64,6 @@ async function navigateToTab(
   page: import("@playwright/test").Page,
   tabName: string,
 ) {
-  await page
-    .locator(".ant-segmented-item-label")
-    .getByText("Full view", { exact: true })
-    .click();
   const tab = page.getByRole("tab", { name: tabName });
   await expect(tab).toBeVisible({ timeout: 15000 });
   await tab.click();

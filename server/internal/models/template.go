@@ -24,6 +24,7 @@ type TemplatePage struct {
 	Slug               string    `json:"slug" gorm:"not null"`
 	Position           *int      `json:"position"`
 	Type               *string   `json:"type"`
+	Visible            bool      `json:"visible" gorm:"default:true"`
 	CanBeDeleted       bool      `json:"can_be_deleted" gorm:"default:true"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`

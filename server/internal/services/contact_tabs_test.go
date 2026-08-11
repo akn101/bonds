@@ -58,11 +58,16 @@ func TestGetTabs_WithTemplate(t *testing.T) {
 	if tabs.TemplateName != "Default template" {
 		t.Errorf("Expected template name 'Default template', got '%s'", tabs.TemplateName)
 	}
-	if len(tabs.Pages) != 5 {
-		t.Fatalf("Expected 5 pages, got %d", len(tabs.Pages))
+	if len(tabs.Pages) != 7 {
+		t.Fatalf("Expected 7 pages, got %d", len(tabs.Pages))
 	}
 
-	contactPage := tabs.Pages[0]
+	summaryPage := tabs.Pages[0]
+	if summaryPage.Slug != "summary" || len(summaryPage.Modules) != 1 || summaryPage.Modules[0].Type != "contact_summary" {
+		t.Fatalf("unexpected summary page: %+v", summaryPage)
+	}
+
+	contactPage := tabs.Pages[1]
 	if contactPage.Slug != "contact" {
 		t.Errorf("Expected first page slug 'contact', got '%s'", contactPage.Slug)
 	}
@@ -72,7 +77,7 @@ func TestGetTabs_WithTemplate(t *testing.T) {
 		t.Errorf("Expected 11 modules on contact page, got %d", len(contactPage.Modules))
 	}
 
-	feedPage := tabs.Pages[1]
+	feedPage := tabs.Pages[2]
 	if feedPage.Slug != "feed" {
 		t.Errorf("Expected second page slug 'feed', got '%s'", feedPage.Slug)
 	}
@@ -80,7 +85,7 @@ func TestGetTabs_WithTemplate(t *testing.T) {
 		t.Errorf("Expected 1 module on feed page, got %d", len(feedPage.Modules))
 	}
 
-	socialPage := tabs.Pages[2]
+	socialPage := tabs.Pages[3]
 	if socialPage.Slug != "social" {
 		t.Errorf("Expected third page slug 'social', got '%s'", socialPage.Slug)
 	}
@@ -88,7 +93,12 @@ func TestGetTabs_WithTemplate(t *testing.T) {
 		t.Errorf("Expected 3 modules on social page, got %d", len(socialPage.Modules))
 	}
 
-	lifeGoalsPage := tabs.Pages[3]
+	networkPage := tabs.Pages[4]
+	if networkPage.Slug != "relationship-network" || len(networkPage.Modules) != 1 || networkPage.Modules[0].Type != "relationship_network" {
+		t.Fatalf("unexpected relationship network page: %+v", networkPage)
+	}
+
+	lifeGoalsPage := tabs.Pages[5]
 	if lifeGoalsPage.Slug != "life-goals" {
 		t.Errorf("Expected fourth page slug 'life-goals', got '%s'", lifeGoalsPage.Slug)
 	}
@@ -96,7 +106,7 @@ func TestGetTabs_WithTemplate(t *testing.T) {
 		t.Errorf("Expected 2 modules on life-goals page, got %d", len(lifeGoalsPage.Modules))
 	}
 
-	infoPage := tabs.Pages[4]
+	infoPage := tabs.Pages[6]
 	if infoPage.Slug != "information" {
 		t.Errorf("Expected fifth page slug 'information', got '%s'", infoPage.Slug)
 	}
@@ -125,8 +135,8 @@ func TestGetTabs_WithoutTemplate(t *testing.T) {
 	if tabs.TemplateName != "Default template" {
 		t.Errorf("Expected fallback to 'Default template', got '%s'", tabs.TemplateName)
 	}
-	if len(tabs.Pages) != 5 {
-		t.Fatalf("Expected 5 pages, got %d", len(tabs.Pages))
+	if len(tabs.Pages) != 7 {
+		t.Fatalf("Expected 7 pages, got %d", len(tabs.Pages))
 	}
 }
 
@@ -147,7 +157,7 @@ func TestGetTabs_ModuleOrdering(t *testing.T) {
 		t.Fatalf("GetTabs failed: %v", err)
 	}
 
-	contactPage := tabs.Pages[0]
+	contactPage := tabs.Pages[1]
 	for i, mod := range contactPage.Modules {
 		expectedPos := i + 1
 		if mod.Position != expectedPos {
@@ -159,6 +169,33 @@ func TestGetTabs_ModuleOrdering(t *testing.T) {
 	for i, mod := range contactPage.Modules {
 		if mod.Type != expectedTypes[i] {
 			t.Errorf("Module %d: expected type '%s', got '%s'", i, expectedTypes[i], mod.Type)
+		}
+	}
+}
+
+func TestGetTabs_HidesInvisiblePages(t *testing.T) {
+	svc, contactID, vaultID, accountID := setupContactTabsTest(t)
+
+	var page models.TemplatePage
+	if err := svc.db.Joins("JOIN templates ON templates.id = template_pages.template_id").
+		Where("templates.account_id = ? AND template_pages.slug = ?", accountID, "relationship-network").
+		First(&page).Error; err != nil {
+		t.Fatalf("find relationship network page: %v", err)
+	}
+	if err := svc.db.Model(&page).Update("visible", false).Error; err != nil {
+		t.Fatalf("hide page: %v", err)
+	}
+
+	tabs, err := svc.GetTabs(contactID, vaultID)
+	if err != nil {
+		t.Fatalf("GetTabs failed: %v", err)
+	}
+	if len(tabs.Pages) != 6 {
+		t.Fatalf("Expected 6 visible pages, got %d", len(tabs.Pages))
+	}
+	for _, visiblePage := range tabs.Pages {
+		if visiblePage.Slug == "relationship-network" {
+			t.Fatal("hidden relationship network page was returned")
 		}
 	}
 }
