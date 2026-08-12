@@ -1,12 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { apiUrl } from './api-base-url';
+import { E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD } from './admin-test-account';
 
-// fullyParallel + workers>1 时，不同 describe 块可能被分配到不同 worker，
-// 导致 serial 的 "Admin Features" 中 adminEmail 闭包变量为 undefined。
-// 整个文件串行运行避免跨 worker 状态丢失。
+// Admin tests mutate shared instance-wide state and therefore run in order.
 test.describe.configure({ mode: 'serial' });
 
-const PASSWORD = 'password123';
+const PASSWORD = E2E_ADMIN_PASSWORD;
 
 type LoginResponse = {
   data?: {
@@ -86,18 +85,10 @@ test.describe('Login Page Improvements', () => {
 });
 
 test.describe('Admin Features', () => {
-  let adminEmail: string;
-
-  // fullyParallel 模式下 serial describe 可能被分配到晚启动的 worker，
-  // 此 hook 确保每个测试执行前 adminEmail 已初始化
-  test.beforeEach(async ({ page }) => {
-    if (!adminEmail) {
-      adminEmail = `admin-${Date.now()}@example.com`;
-      await registerUser(page, adminEmail, 'Admin', 'Boss');
-    }
-  });
+  const adminEmail = E2E_ADMIN_EMAIL;
 
   test('first registered user is admin and can access User Management', async ({ page }) => {
+    await loginUser(page, adminEmail);
     await page.goto('/admin/users');
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('User Management')).toBeVisible({ timeout: 10000 });

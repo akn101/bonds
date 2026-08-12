@@ -51,8 +51,14 @@ export default defineConfig({
   },
   projects: [
     {
+      name: 'setup',
+      testMatch: /admin-bootstrap\.setup\.ts/,
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+      testIgnore: /admin-bootstrap\.setup\.ts/,
     },
   ],
   webServer: [

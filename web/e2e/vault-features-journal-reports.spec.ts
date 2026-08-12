@@ -594,7 +594,12 @@ test.describe("Vault - Feed, Calendar, Journal and Settings", () => {
       .click();
 
     // Dashboard reuses the same Activities module as contact detail.
-    const addBtn = page.getByRole("button", { name: "Add activity" });
+    const activitiesCard = page.locator(".ant-card").filter({
+      has: page.getByText("Activities", { exact: true }),
+    });
+    const addBtn = activitiesCard.getByRole("button", {
+      name: /Add activity/i,
+    });
     await expect(addBtn).toBeVisible({ timeout: 10000 });
 
     // Click "Add an activity" — opens the modal
