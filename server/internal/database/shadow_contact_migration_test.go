@@ -80,20 +80,20 @@ func TestAutoMigrateRemovesLegacyShadowContactsWithoutLosingUserHistory(t *testi
 		t.Fatalf("link legacy shadow contact: %v", err)
 	}
 
-	category := models.LifeEventCategory{VaultID: vault.ID}
+	category := models.ActivityCategory{VaultID: vault.ID}
 	if err := db.Create(&category).Error; err != nil {
 		t.Fatalf("create category: %v", err)
 	}
-	eventType := models.LifeEventType{LifeEventCategoryID: category.ID}
+	eventType := models.ActivityType{ActivityCategoryID: category.ID}
 	if err := db.Create(&eventType).Error; err != nil {
 		t.Fatalf("create event type: %v", err)
 	}
-	event := models.LifeEvent{VaultID: vault.ID, LifeEventTypeID: &eventType.ID, Title: "Legacy event"}
+	event := models.Activity{VaultID: vault.ID, ActivityTypeID: &eventType.ID, Title: "Legacy event"}
 	if err := db.Create(&event).Error; err != nil {
 		t.Fatalf("create event: %v", err)
 	}
 	for _, participantID := range []string{shadow.ID, ordinary.ID} {
-		if err := db.Create(&models.LifeEventParticipant{LifeEventID: event.ID, ContactID: participantID}).Error; err != nil {
+		if err := db.Create(&models.ActivityParticipant{ActivityID: event.ID, ContactID: participantID}).Error; err != nil {
 			t.Fatalf("create event participant: %v", err)
 		}
 	}
@@ -139,7 +139,7 @@ func TestAutoMigrateRemovesLegacyShadowContactsWithoutLosingUserHistory(t *testi
 		t.Fatal("legacy contact_id columns still exist")
 	}
 
-	var migratedEvent models.LifeEvent
+	var migratedEvent models.Activity
 	if err := db.First(&migratedEvent, event.ID).Error; err != nil {
 		t.Fatalf("reload event: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestAutoMigrateRemovesLegacyShadowContactsWithoutLosingUserHistory(t *testi
 		t.Fatalf("event subject name = %v, want Alice Admin", migratedEvent.SubjectUserName)
 	}
 	var participantIDs []string
-	if err := db.Model(&models.LifeEventParticipant{}).Where("life_event_id = ?", event.ID).Pluck("contact_id", &participantIDs).Error; err != nil {
+	if err := db.Model(&models.ActivityParticipant{}).Where("activity_id = ?", event.ID).Pluck("contact_id", &participantIDs).Error; err != nil {
 		t.Fatalf("load remaining participants: %v", err)
 	}
 	if len(participantIDs) != 1 || participantIDs[0] != ordinary.ID {

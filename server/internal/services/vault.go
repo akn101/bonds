@@ -150,10 +150,10 @@ func (s *VaultService) DeleteVault(vaultID string) error {
 //
 // Deletion order rationale:
 //  1. Collect all contact IDs in the vault (including soft-deleted contacts)
-//  2. Delete deepest children first: ContactReminderScheduled, Streaks, LifeEvents,
+//  2. Delete deepest children first: ContactReminderScheduled, Streaks, Activities,
 //     PostMetrics, PostSections, PostTags, etc.
 //  3. Delete contact-level children: reminders, goals, notes, tasks, pivots, etc.
-//  4. Delete vault-level children: journals, life events, labels, etc.
+//  4. Delete vault-level children: journals, activities, labels, etc.
 //  5. Delete contacts themselves
 //  6. Delete the vault
 func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
@@ -239,7 +239,7 @@ func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
 			&models.ContactPost{},
 			&models.ContactCompany{},
 			&models.ContactLifeMetric{},
-			&models.LifeEventParticipant{},
+			&models.ActivityParticipant{},
 			&models.ContactSubscriptionState{},
 		}
 		for _, m := range contactPivotModels {
@@ -315,32 +315,32 @@ func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
 		}
 	}
 
-	// LifeEventCategory cascade: LifeEvent participants → LifeEvent → LifeEventType → LifeEventCategory
-	if err := tx.Where("life_event_id IN (?)", tx.Model(&models.LifeEvent{}).Select("id").Where("vault_id = ?", vaultID)).Delete(&models.LifeEventParticipant{}).Error; err != nil {
-		return fmt.Errorf("delete LifeEventParticipant: %w", err)
+	// ActivityCategory cascade: Activity participants → Activity → ActivityType → ActivityCategory
+	if err := tx.Where("activity_id IN (?)", tx.Model(&models.Activity{}).Select("id").Where("vault_id = ?", vaultID)).Delete(&models.ActivityParticipant{}).Error; err != nil {
+		return fmt.Errorf("delete ActivityParticipant: %w", err)
 	}
-	if err := tx.Where("vault_id = ?", vaultID).Delete(&models.LifeEvent{}).Error; err != nil {
-		return fmt.Errorf("delete LifeEvent: %w", err)
+	if err := tx.Where("vault_id = ?", vaultID).Delete(&models.Activity{}).Error; err != nil {
+		return fmt.Errorf("delete Activity: %w", err)
 	}
 	var categoryIDs []uint
-	if err := tx.Model(&models.LifeEventCategory{}).Where("vault_id = ?", vaultID).Pluck("id", &categoryIDs).Error; err != nil {
-		return fmt.Errorf("pluck LifeEventCategory ids: %w", err)
+	if err := tx.Model(&models.ActivityCategory{}).Where("vault_id = ?", vaultID).Pluck("id", &categoryIDs).Error; err != nil {
+		return fmt.Errorf("pluck ActivityCategory ids: %w", err)
 	}
 	if len(categoryIDs) > 0 {
 		var typeIDs []uint
-		if err := tx.Model(&models.LifeEventType{}).Where("life_event_category_id IN ?", categoryIDs).Pluck("id", &typeIDs).Error; err != nil {
-			return fmt.Errorf("pluck LifeEventType ids: %w", err)
+		if err := tx.Model(&models.ActivityType{}).Where("activity_category_id IN ?", categoryIDs).Pluck("id", &typeIDs).Error; err != nil {
+			return fmt.Errorf("pluck ActivityType ids: %w", err)
 		}
 		if len(typeIDs) > 0 {
-			if err := tx.Where("life_event_type_id IN ?", typeIDs).Delete(&models.LifeEvent{}).Error; err != nil {
-				return fmt.Errorf("delete LifeEvent by life_event_type_id: %w", err)
+			if err := tx.Where("activity_type_id IN ?", typeIDs).Delete(&models.Activity{}).Error; err != nil {
+				return fmt.Errorf("delete Activity by activity_type_id: %w", err)
 			}
-			if err := tx.Where("id IN ?", typeIDs).Delete(&models.LifeEventType{}).Error; err != nil {
-				return fmt.Errorf("delete LifeEventType: %w", err)
+			if err := tx.Where("id IN ?", typeIDs).Delete(&models.ActivityType{}).Error; err != nil {
+				return fmt.Errorf("delete ActivityType: %w", err)
 			}
 		}
-		if err := tx.Where("id IN ?", categoryIDs).Delete(&models.LifeEventCategory{}).Error; err != nil {
-			return fmt.Errorf("delete LifeEventCategory: %w", err)
+		if err := tx.Where("id IN ?", categoryIDs).Delete(&models.ActivityCategory{}).Error; err != nil {
+			return fmt.Errorf("delete ActivityCategory: %w", err)
 		}
 	}
 
@@ -533,13 +533,13 @@ func toVaultResponse(v *models.Vault, userNameOrder string) dto.VaultResponse {
 		desc = *v.Description
 	}
 	return dto.VaultResponse{
-		ID:                 v.ID,
-		AccountID:          v.AccountID,
-		Name:               v.Name,
-		Description:        desc,
-		NameOrder:          v.NameOrder,
-		EffectiveNameOrder: effectiveVaultNameOrder(v, userNameOrder),
-		DefaultActivityTab: v.DefaultActivityTab,
+		ID:                  v.ID,
+		AccountID:           v.AccountID,
+		Name:                v.Name,
+		Description:         desc,
+		NameOrder:           v.NameOrder,
+		EffectiveNameOrder:  effectiveVaultNameOrder(v, userNameOrder),
+		DefaultDashboardTab: v.DefaultDashboardTab,
 		// Layout reads the Viewer-accessible vault detail, not Manager-only settings.
 		ShowGroupTab:     v.ShowGroupTab,
 		ShowTasksTab:     v.ShowTasksTab,

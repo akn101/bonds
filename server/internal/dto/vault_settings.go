@@ -156,29 +156,29 @@ type MoodTrackingParameterResponse struct {
 	UpdatedAt time.Time `json:"updated_at" example:"2026-01-15T10:30:00Z"`
 }
 
-// --- Life Event Categories + Types ---
+// --- Activity Categories + Types ---
 
-type CreateLifeEventCategoryRequest struct {
+type CreateActivityCategoryRequest struct {
 	Label    string `json:"label" validate:"required,min=1" example:"Birthdate"`
 	Position *int   `json:"position" example:"1"`
 }
 
-type UpdateLifeEventCategoryRequest struct {
+type UpdateActivityCategoryRequest struct {
 	Label    string `json:"label" validate:"required,min=1" example:"Birthdate"`
 	Position *int   `json:"position" example:"1"`
 }
 
-type LifeEventCategoryResponse struct {
-	ID           uint                    `json:"id" example:"1"`
-	Label        string                  `json:"label" example:"Birthdate"`
-	CanBeDeleted bool                    `json:"can_be_deleted" example:"false"`
-	Position     *int                    `json:"position" example:"1"`
-	Types        []LifeEventTypeResponse `json:"types,omitempty"`
-	CreatedAt    time.Time               `json:"created_at" example:"2026-01-15T10:30:00Z"`
-	UpdatedAt    time.Time               `json:"updated_at" example:"2026-01-15T10:30:00Z"`
+type ActivityCategoryResponse struct {
+	ID           uint                   `json:"id" example:"1"`
+	Label        string                 `json:"label" example:"Birthdate"`
+	CanBeDeleted bool                   `json:"can_be_deleted" example:"false"`
+	Position     *int                   `json:"position" example:"1"`
+	Types        []ActivityTypeResponse `json:"types,omitempty"`
+	CreatedAt    time.Time              `json:"created_at" example:"2026-01-15T10:30:00Z"`
+	UpdatedAt    time.Time              `json:"updated_at" example:"2026-01-15T10:30:00Z"`
 }
 
-type CreateLifeEventTypeRequest struct {
+type CreateActivityTypeRequest struct {
 	Label               string  `json:"label" validate:"required,min=1" example:"Birthdate"`
 	Position            *int    `json:"position" example:"1"`
 	Icon                *string `json:"icon" example:"coffee"`
@@ -186,7 +186,7 @@ type CreateLifeEventTypeRequest struct {
 	CountsAsInteraction bool    `json:"counts_as_interaction" example:"true"`
 }
 
-type UpdateLifeEventTypeRequest struct {
+type UpdateActivityTypeRequest struct {
 	Label               string  `json:"label" validate:"required,min=1" example:"Birthdate"`
 	Position            *int    `json:"position" example:"1"`
 	Icon                *string `json:"icon" example:"coffee"`
@@ -194,7 +194,7 @@ type UpdateLifeEventTypeRequest struct {
 	CountsAsInteraction bool    `json:"counts_as_interaction" example:"true"`
 }
 
-type LifeEventTypeResponse struct {
+type ActivityTypeResponse struct {
 	ID                  uint      `json:"id" example:"1"`
 	CategoryID          uint      `json:"category_id" example:"1"`
 	Label               string    `json:"label" example:"Birthdate"`

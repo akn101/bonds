@@ -28,7 +28,7 @@ Cada cofre tem seu próprio conjunto de padrões, semeados na criação:
 
 - **Tipos de data importantes**: Data de nascimento, data de falecimento (incorporado), além de tipos personalizados.
 - **Parâmetros de registro de humor**: Escala de humor de 5 níveis com emoji e cores.
-- **Categorias de eventos da vida**: 4 categorias com 20 tipos de eventos.
+- **Categorias de atividades**: 4 categorias com 20 tipos de atividades.
 - **Modelos de fatos rápidos**: Como nos conhecemos, hobbies, preferências alimentares.
 
 ## Usuários do Sistema e Contatos
@@ -36,7 +36,7 @@ Cada cofre tem seu próprio conjunto de padrões, semeados na criação:
 Membros do cofre e contatos são conceitos independentes. Criar ou ingressar em um cofre nunca cria um contato para o usuário do sistema.
 - **Associação e permissões**: `UserVault` apenas vincula um usuário do sistema ao cofre e armazena sua função.
 - **Registro de humor**: Os registros de humor pertencem diretamente ao usuário atual dentro do cofre.
-- **Eventos da vida**: Eventos criados no painel armazenam o usuário do sistema como sujeito. Participantes opcionais são contatos comuns e somente eles recebem o evento em suas linhas do tempo.
+- **Atividades**: Atividades criadas no painel armazenam o usuário do sistema como sujeito. Participantes opcionais são contatos comuns e somente eles recebem a atividade em suas linhas do tempo.
 
 ## Painel do Cofre
 
@@ -46,9 +46,9 @@ O espaço de trabalho principal em um cofre é um painel responsivo de três col
 Exibe seus **Contatos Recentes** e **Mais Consultados** para acesso rápido. Esta coluna fica oculta em telas de tablet pequeno.
 
 ### Coluna Central
-Apresenta um controle Segmentado para alternar entre três abas dinâmicas. Sua aba selecionada é persisitida no servidor usando a configuração `defaultTab`, carregando sua aba preferida automaticamente na próxima visita.
-1. **Atividades**: Um feed mostrando alterações recentes e ações tomadas por usuários neste cofre.
-2. **Eventos da Vida**: Uma visão geral de todos os eventos da vida no cofre. Eventos criados no painel identificam o usuário do sistema como sujeito e podem incluir contatos opcionais; esses eventos também aparecem na linha do tempo de cada participante.
+Apresenta um controle Segmentado para alternar entre três abas dinâmicas. Sua aba selecionada é persistida no servidor usando `default-dashboard-tab`, carregando sua aba preferida automaticamente na próxima visita.
+1. **Feed**: Alterações recentes e ações tomadas por usuários neste cofre.
+2. **Atividades**: Uma visão geral de todas as atividades no cofre. Atividades criadas no painel identificam o usuário do sistema como sujeito e podem incluir contatos opcionais; essas atividades também aparecem na linha do tempo de cada participante.
 3. **Métricas da Vida**: Registros simples de eventos rastreando métricas personalizadas. Clique em "+1" para registrar uma ocorrência. Clique em detalhes para ver um gráfico de barras mensal dos eventos registrados.
 
 ### Coluna Direita

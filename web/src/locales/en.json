@@ -158,8 +158,7 @@
       "no_consulted": "No contacts consulted yet"
     },
     "dashboard": {
-      "activity_tab": "Activity",
-      "life_events_tab": "Life Events",
+      "activities_tab": "Activities",
       "life_metrics_tab": "Life Metrics",
       "recent_contacts": "Recent Contacts",
       "most_consulted": "Most Consulted",
@@ -175,7 +174,7 @@
       "events_this_year": "Events this year",
       "show_graph": "Show graph",
       "no_metrics": "Life metrics let you track metrics that are important to you.",
-      "no_life_events": "No life events recorded yet",
+      "no_activities": "No activities recorded yet",
       "mood_title": "Record your mood",
       "mood_how_are_you": "How are you?",
       "mood_record": "Record your mood",
@@ -189,19 +188,15 @@
       "due_tasks": "Due Tasks",
       "no_tasks": "No tasks due soon",
       "view_all": "View all",
-      "add_life_event": "Add a life event",
       "select_category": "Select category",
       "select_type": "Select event type",
-      "life_event_summary": "Summary",
-      "life_event_description": "Description",
-      "life_event_added": "Life event added",
-      "life_event_date": "Date",
       "catch_up_title": "Catch-Up",
       "no_catch_up": "No one is due for a catch-up",
       "catch_up_due": "{{days}} days overdue",
       "catch_up_last_talked": "Last talked {{date}}",
       "catch_up_mark": "Done",
-      "catch_up_marked": "Catch-up recorded"
+      "catch_up_marked": "Catch-up recorded",
+      "feed_tab": "Feed"
     },
     "calendar": {
       "title": "Calendar",
@@ -633,8 +628,9 @@
         "relationships": "Relationships",
         "information": "Information",
         "activities": "Activities",
-        "life": "Life",
-        "photos_docs": "Media & Docs"
+        "photos_docs": "Media & Docs",
+        "operations": "Tasks & follow-ups",
+        "goals": "Goals"
       },
       "first_name": "First name",
       "last_name": "Last name",
@@ -973,33 +969,19 @@
       "one_way_only": "one-way only",
       "one_way_hint": "You don't have edit permission on this contact's vault. Only a one-way relationship will be created."
     },
-    "life_events": {
-      "title": "Life Events",
+    "activities": {
+      "title": "Activities",
       "participants": "Additional participants",
       "participants_placeholder": "Select participants...",
-      "add_activity": "Add activity",
       "place": "Place",
       "duration_minutes": "Duration (minutes)",
       "self_participant": "You",
-      "event": "Event",
-      "delete_event_confirm": "Delete?",
-      "event_added": "Life event added",
-      "event_updated": "Life event updated",
-      "event_deleted": "Life event deleted",
-      "event_modal": "Add Life Event",
-      "edit_event": "Edit Life Event",
-      "toggle_event": "Toggle event",
-      "event_toggled": "Event toggled",
-      "label": "Label",
       "title_label": "Title",
-      "started_at": "Started at",
       "happened_at": "When",
-      "add_event": "Add life event",
-      "add_first_event": "Add first life event",
       "empty_description": "Remember the moments that shaped this person's life.",
       "empty_description_vault": "Remember the important moments across this Vault.",
-      "saved": "Life event saved",
-      "type": "Event type",
+      "saved": "Activity saved",
+      "type": "Activity type",
       "description": "Description",
       "description_placeholder": "Write what happened. Type @ to mention a contact...",
       "related_experience": "Related experience (optional)",
@@ -1013,7 +995,12 @@
       "end_unknown": "Ended, date unknown",
       "precision_day": "Day",
       "precision_month": "Month",
-      "precision_year": "Year"
+      "precision_year": "Year",
+      "add": "Add activity",
+      "edit": "Edit activity",
+      "delete_confirm": "Delete this activity?",
+      "deleted": "Activity deleted",
+      "add_first": "Add first activity"
     },
     "mood_tracking": {
       "title": "Mood Tracking",
@@ -1157,7 +1144,6 @@
       "currencies": "Currencies",
       "religions": "Religions",
       "call_reasons": "Call Reasons",
-      "life_event_categories": "Life Event Categories",
       "gift_occasions": "Gift Occasions",
       "gift_states": "Gift States",
       "pages": "Pages",
@@ -1195,7 +1181,8 @@
       "sync_translations": "Sync Translations",
       "sync_translations_desc": "Update default labels to match your current language. Custom labels won't be affected.",
       "sync_success": "Translations synchronized",
-      "sync_confirm": "This will update all default labels to match your current language. Custom labels won't be affected. Continue?"
+      "sync_confirm": "This will update all default labels to match your current language. Custom labels won't be affected. Continue?",
+      "activity_categories": "Activity Categories"
     },
     "users": {
       "title": "Users",
@@ -1375,7 +1362,7 @@
     "tags": "Tags",
     "date_types": "Important Date Types",
     "mood_params": "Mood Parameters",
-    "life_events": "Life Events",
+    "activities": "Activities",
     "quick_facts": "Quick Fact Templates",
     "tabs": "Tab Visibility",
     "users": "Users",
@@ -1397,8 +1384,6 @@
     "template_updated": "Vault template updated",
     "template_description": "New contacts will use this template",
     "select_template": "Select a template",
-    "life_event_category_updated": "Life event category updated",
-    "life_event_type_updated": "Life event type updated",
     "move_up": "Move Up",
     "move_down": "Move Down",
     "quick_fact_templates": {
@@ -1482,7 +1467,7 @@
       "reminders": "Reminders",
       "relationships": "Relationships",
       "addresses": "Addresses",
-      "life_events": "Life Events",
+      "activities": "Activities",
       "documents": "Documents",
       "photos": "Photos",
       "skipped": "Skipped",
@@ -1495,7 +1480,9 @@
     "name_order_override": "Use a vault-specific order",
     "name_order_condition_help": "Optional segments can use conditional syntax, for example {nickname? (%nickname%)}.",
     "name_order_save": "Save override",
-    "name_order_clear": "Use global preference"
+    "name_order_clear": "Use global preference",
+    "activity_category_updated": "Activity category updated",
+    "activity_type_updated": "Activity type updated"
   },
   "backups": {
     "title": "Backups",

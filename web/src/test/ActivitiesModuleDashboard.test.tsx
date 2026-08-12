@@ -2,22 +2,22 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { App as AntApp, ConfigProvider } from "antd";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import LifeEventsModule from "@/pages/contact/modules/LifeEventsModule";
+import ActivitiesModule from "@/pages/contact/modules/ActivitiesModule";
 
-const mockLifeEventsList = vi.fn();
+const mockActivitiesList = vi.fn();
 const mockPreferencesList = vi.fn().mockResolvedValue({ data: {} });
 
 vi.mock("@/api", () => ({
   api: {
-    lifeEvents: {
-      lifeEventsList: (...args: unknown[]) => mockLifeEventsList(...args),
+    activities: {
+      activitiesList: (...args: unknown[]) => mockActivitiesList(...args),
     },
     contacts: {
       contactsList: vi.fn().mockResolvedValue({ data: [] }),
       contactsSelectableList: vi.fn().mockResolvedValue({ data: [] }),
     },
     vaultSettings: {
-      settingsLifeEventCategoriesList: vi.fn().mockResolvedValue({ data: [] }),
+      settingsActivityCategoriesList: vi.fn().mockResolvedValue({ data: [] }),
     },
     preferences: {
       preferencesList: (...args: unknown[]) => mockPreferencesList(...args),
@@ -30,10 +30,7 @@ vi.mock("@/api", () => ({
   },
 }));
 
-function renderModule(
-  initiallyOpen = false,
-  initialCreateKind: "activity" | "life_event" = "life_event",
-) {
+function renderModule(initiallyOpen = false) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -41,20 +38,16 @@ function renderModule(
     <QueryClientProvider client={queryClient}>
       <ConfigProvider>
         <AntApp>
-          <LifeEventsModule
-            vaultId="vault-1"
-            initiallyOpen={initiallyOpen}
-            initialCreateKind={initialCreateKind}
-          />
+          <ActivitiesModule vaultId="vault-1" initiallyOpen={initiallyOpen} />
         </AntApp>
       </ConfigProvider>
     </QueryClientProvider>,
   );
 }
 
-describe("LifeEventsModule on the vault dashboard", () => {
-  it("lists all vault events without filtering by the default participant", async () => {
-    mockLifeEventsList.mockResolvedValue({
+describe("ActivitiesModule on the vault dashboard", () => {
+  it("lists all vault activities without filtering by the default participant", async () => {
+    mockActivitiesList.mockResolvedValue({
       data: [],
       meta: { page: 1, total_pages: 1 },
     });
@@ -62,7 +55,7 @@ describe("LifeEventsModule on the vault dashboard", () => {
     renderModule();
 
     await waitFor(() =>
-      expect(mockLifeEventsList).toHaveBeenCalledWith("vault-1", {
+      expect(mockActivitiesList).toHaveBeenCalledWith("vault-1", {
         contact_id: undefined,
         page: 1,
         per_page: 15,
@@ -71,7 +64,7 @@ describe("LifeEventsModule on the vault dashboard", () => {
   });
 
   it("renders the current system-user subject as You", async () => {
-    mockLifeEventsList.mockResolvedValue({
+    mockActivitiesList.mockResolvedValue({
       data: [
         {
           id: 1,
@@ -92,7 +85,7 @@ describe("LifeEventsModule on the vault dashboard", () => {
   });
 
   it("uses activity wording and the Title field for the dashboard quick action", async () => {
-    mockLifeEventsList.mockResolvedValue({
+    mockActivitiesList.mockResolvedValue({
       data: [],
       meta: { page: 1, total_pages: 1 },
     });
@@ -100,7 +93,7 @@ describe("LifeEventsModule on the vault dashboard", () => {
       data: { enable_alternative_calendar: false },
     });
 
-    renderModule(true, "activity");
+    renderModule(true);
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Add activity")).toBeInTheDocument();
@@ -110,7 +103,7 @@ describe("LifeEventsModule on the vault dashboard", () => {
   });
 
   it("shows the calendar selector only when alternative calendars are enabled", async () => {
-    mockLifeEventsList.mockResolvedValue({
+    mockActivitiesList.mockResolvedValue({
       data: [],
       meta: { page: 1, total_pages: 1 },
     });
@@ -118,7 +111,7 @@ describe("LifeEventsModule on the vault dashboard", () => {
       data: { enable_alternative_calendar: true },
     });
 
-    renderModule(true, "activity");
+    renderModule(true);
 
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText("Gregorian")).toBeInTheDocument();

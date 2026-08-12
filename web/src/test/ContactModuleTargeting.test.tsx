@@ -35,7 +35,7 @@ vi.mock("@/api", () => ({
       contactsTasksToggleUpdate: vi.fn(),
       contactsTasksDelete: vi.fn(),
     },
-    lifeEvents: {},
+    activities: {},
     calls: {
       contactsCallsList: vi.fn(),
       contactsCallsCreate: vi.fn(),
@@ -51,7 +51,7 @@ vi.mock("@/api", () => ({
       contactsDocumentsDelete: vi.fn(),
     },
     contacts: { contactsList: vi.fn() },
-    vaultSettings: { settingsLifeEventCategoriesList: vi.fn() },
+    vaultSettings: { settingsActivityCategoriesList: vi.fn() },
     preferences: { preferencesList: vi.fn() },
   },
 }));
@@ -82,7 +82,7 @@ describe("contact module source targeting", () => {
     });
     vi.mocked(api.contacts.contactsList).mockResolvedValue({ data: [] });
     vi.mocked(
-      api.vaultSettings.settingsLifeEventCategoriesList,
+      api.vaultSettings.settingsActivityCategoriesList,
     ).mockResolvedValue({ data: [] });
   });
 

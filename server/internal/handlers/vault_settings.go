@@ -18,7 +18,7 @@ type VaultSettingsHandler struct {
 	tagService      *services.VaultTagService
 	dateTypeService *services.VaultImportantDateTypeService
 	moodService     *services.VaultMoodParamService
-	lifeEventSvc    *services.VaultLifeEventService
+	activitySvc     *services.VaultActivityService
 	quickFactSvc    *services.VaultQuickFactTemplateService
 }
 
@@ -29,7 +29,7 @@ func NewVaultSettingsHandler(
 	tagService *services.VaultTagService,
 	dateTypeService *services.VaultImportantDateTypeService,
 	moodService *services.VaultMoodParamService,
-	lifeEventSvc *services.VaultLifeEventService,
+	activitySvc *services.VaultActivityService,
 	quickFactSvc *services.VaultQuickFactTemplateService,
 ) *VaultSettingsHandler {
 	return &VaultSettingsHandler{
@@ -39,7 +39,7 @@ func NewVaultSettingsHandler(
 		tagService:      tagService,
 		dateTypeService: dateTypeService,
 		moodService:     moodService,
-		lifeEventSvc:    lifeEventSvc,
+		activitySvc:     activitySvc,
 		quickFactSvc:    quickFactSvc,
 	}
 }
@@ -865,104 +865,104 @@ func (h *VaultSettingsHandler) DeleteMoodParam(c echo.Context) error {
 	return response.NoContent(c)
 }
 
-// ListLifeEventCategories godoc
+// ListActivityCategories godoc
 //
-//	@Summary		List life event categories
-//	@Description	Return all life event categories for a vault
+//	@Summary		List activity categories
+//	@Description	Return all activity categories for a vault
 //	@Tags			vault-settings
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			vault_id	path		string	true	"Vault ID"
-//	@Success		200			{object}	response.APIResponse{data=[]dto.LifeEventCategoryResponse}
+//	@Success		200			{object}	response.APIResponse{data=[]dto.ActivityCategoryResponse}
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/settings/lifeEventCategories [get]
-func (h *VaultSettingsHandler) ListLifeEventCategories(c echo.Context) error {
+//	@Router			/vaults/{vault_id}/settings/activityCategories [get]
+func (h *VaultSettingsHandler) ListActivityCategories(c echo.Context) error {
 	vaultID := c.Param("vault_id")
-	cats, err := h.lifeEventSvc.ListCategories(vaultID)
+	cats, err := h.activitySvc.ListCategories(vaultID)
 	if err != nil {
-		return response.InternalError(c, "err.failed_to_list_life_event_categories")
+		return response.InternalError(c, "err.failed_to_list_activity_categories")
 	}
 	return response.OK(c, cats)
 }
 
-// CreateLifeEventCategory godoc
+// CreateActivityCategory godoc
 //
-//	@Summary		Create a life event category
-//	@Description	Create a new life event category for a vault
+//	@Summary		Create an activity category
+//	@Description	Create a new activity category for a vault
 //	@Tags			vault-settings
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			vault_id	path		string									true	"Vault ID"
-//	@Param			request		body		dto.CreateLifeEventCategoryRequest	true	"Category details"
-//	@Success		201			{object}	response.APIResponse{data=dto.LifeEventCategoryResponse}
+//	@Param			request		body		dto.CreateActivityCategoryRequest	true	"Category details"
+//	@Success		201			{object}	response.APIResponse{data=dto.ActivityCategoryResponse}
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/settings/lifeEventCategories [post]
-func (h *VaultSettingsHandler) CreateLifeEventCategory(c echo.Context) error {
+//	@Router			/vaults/{vault_id}/settings/activityCategories [post]
+func (h *VaultSettingsHandler) CreateActivityCategory(c echo.Context) error {
 	vaultID := c.Param("vault_id")
-	var req dto.CreateLifeEventCategoryRequest
+	var req dto.CreateActivityCategoryRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
 	if err := validateRequest(req); err != nil {
 		return response.ValidationError(c, map[string]string{"validation": err.Error()})
 	}
-	cat, err := h.lifeEventSvc.CreateCategory(vaultID, req)
+	cat, err := h.activitySvc.CreateCategory(vaultID, req)
 	if err != nil {
-		return response.InternalError(c, "err.failed_to_create_life_event_category")
+		return response.InternalError(c, "err.failed_to_create_activity_category")
 	}
 	return response.Created(c, cat)
 }
 
-// UpdateLifeEventCategory godoc
+// UpdateActivityCategory godoc
 //
-//	@Summary		Update a life event category
-//	@Description	Update an existing life event category
+//	@Summary		Update an activity category
+//	@Description	Update an existing activity category
 //	@Tags			vault-settings
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			vault_id	path		string									true	"Vault ID"
 //	@Param			id			path		integer									true	"Category ID"
-//	@Param			request		body		dto.UpdateLifeEventCategoryRequest	true	"Category details"
-//	@Success		200			{object}	response.APIResponse{data=dto.LifeEventCategoryResponse}
+//	@Param			request		body		dto.UpdateActivityCategoryRequest	true	"Category details"
+//	@Success		200			{object}	response.APIResponse{data=dto.ActivityCategoryResponse}
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/settings/lifeEventCategories/{id} [put]
-func (h *VaultSettingsHandler) UpdateLifeEventCategory(c echo.Context) error {
+//	@Router			/vaults/{vault_id}/settings/activityCategories/{id} [put]
+func (h *VaultSettingsHandler) UpdateActivityCategory(c echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_category_id", nil)
 	}
-	var req dto.UpdateLifeEventCategoryRequest
+	var req dto.UpdateActivityCategoryRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
 	if err := validateRequest(req); err != nil {
 		return response.ValidationError(c, map[string]string{"validation": err.Error()})
 	}
-	cat, err := h.lifeEventSvc.UpdateCategory(uint(id), vaultID, req)
+	cat, err := h.activitySvc.UpdateCategory(uint(id), vaultID, req)
 	if err != nil {
 		if errors.Is(err, services.ErrLifeCategoryNotFound) {
-			return response.NotFound(c, "err.life_event_category_not_found")
+			return response.NotFound(c, "err.activity_category_not_found")
 		}
-		return response.InternalError(c, "err.failed_to_update_life_event_category")
+		return response.InternalError(c, "err.failed_to_update_activity_category")
 	}
 	return response.OK(c, cat)
 }
 
-// UpdateLifeEventCategoryOrder godoc
+// UpdateActivityCategoryOrder godoc
 //
-//	@Summary		Update life event category position
-//	@Description	Update the position of a life event category
+//	@Summary		Update activity category position
+//	@Description	Update the position of an activity category
 //	@Tags			vault-settings
 //	@Accept			json
 //	@Produce		json
@@ -970,13 +970,13 @@ func (h *VaultSettingsHandler) UpdateLifeEventCategory(c echo.Context) error {
 //	@Param			vault_id	path		string						true	"Vault ID"
 //	@Param			id			path		integer						true	"Category ID"
 //	@Param			request		body		dto.UpdatePositionRequest	true	"Position"
-//	@Success		200			{object}	response.APIResponse{data=dto.LifeEventCategoryResponse}
+//	@Success		200			{object}	response.APIResponse{data=dto.ActivityCategoryResponse}
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/settings/lifeEventCategories/{id}/position [post]
-func (h *VaultSettingsHandler) UpdateLifeEventCategoryOrder(c echo.Context) error {
+//	@Router			/vaults/{vault_id}/settings/activityCategories/{id}/position [post]
+func (h *VaultSettingsHandler) UpdateActivityCategoryOrder(c echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -986,20 +986,20 @@ func (h *VaultSettingsHandler) UpdateLifeEventCategoryOrder(c echo.Context) erro
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
-	cat, err := h.lifeEventSvc.UpdateCategoryPosition(uint(id), vaultID, req.Position)
+	cat, err := h.activitySvc.UpdateCategoryPosition(uint(id), vaultID, req.Position)
 	if err != nil {
 		if errors.Is(err, services.ErrLifeCategoryNotFound) {
-			return response.NotFound(c, "err.life_event_category_not_found")
+			return response.NotFound(c, "err.activity_category_not_found")
 		}
 		return response.InternalError(c, "err.failed_to_update_category_order")
 	}
 	return response.OK(c, cat)
 }
 
-// DeleteLifeEventCategory godoc
+// DeleteActivityCategory godoc
 //
-//	@Summary		Delete a life event category
-//	@Description	Delete a life event category from a vault
+//	@Summary		Delete an activity category
+//	@Description	Delete an activity category from a vault
 //	@Tags			vault-settings
 //	@Security		BearerAuth
 //	@Param			vault_id	path	string	true	"Vault ID"
@@ -1009,70 +1009,70 @@ func (h *VaultSettingsHandler) UpdateLifeEventCategoryOrder(c echo.Context) erro
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/settings/lifeEventCategories/{id} [delete]
-func (h *VaultSettingsHandler) DeleteLifeEventCategory(c echo.Context) error {
+//	@Router			/vaults/{vault_id}/settings/activityCategories/{id} [delete]
+func (h *VaultSettingsHandler) DeleteActivityCategory(c echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_category_id", nil)
 	}
-	if err := h.lifeEventSvc.DeleteCategory(uint(id), vaultID); err != nil {
+	if err := h.activitySvc.DeleteCategory(uint(id), vaultID); err != nil {
 		if errors.Is(err, services.ErrLifeCategoryNotFound) {
-			return response.NotFound(c, "err.life_event_category_not_found")
+			return response.NotFound(c, "err.activity_category_not_found")
 		}
 		if errors.Is(err, services.ErrCannotDeleteDefault) {
 			return response.BadRequest(c, "err.cannot_delete_default", nil)
 		}
-		return response.InternalError(c, "err.failed_to_delete_life_event_category")
+		return response.InternalError(c, "err.failed_to_delete_activity_category")
 	}
 	return response.NoContent(c)
 }
 
-// CreateLifeEventType godoc
+// CreateActivityType godoc
 //
-//	@Summary		Create a life event type
-//	@Description	Create a new life event type under a category
+//	@Summary		Create an activity type
+//	@Description	Create a new activity type under a category
 //	@Tags			vault-settings
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			vault_id		path		string							true	"Vault ID"
 //	@Param			categoryId	path		integer							true	"Category ID"
-//	@Param			request			body		dto.CreateLifeEventTypeRequest	true	"Type details"
-//	@Success		201				{object}	response.APIResponse{data=dto.LifeEventTypeResponse}
+//	@Param			request			body		dto.CreateActivityTypeRequest	true	"Type details"
+//	@Success		201				{object}	response.APIResponse{data=dto.ActivityTypeResponse}
 //	@Failure		400				{object}	response.APIResponse
 //	@Failure		401				{object}	response.APIResponse
 //	@Failure		404				{object}	response.APIResponse
 //	@Failure		422				{object}	response.APIResponse
 //	@Failure		500				{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/settings/lifeEventCategories/{categoryId}/types [post]
-func (h *VaultSettingsHandler) CreateLifeEventType(c echo.Context) error {
+//	@Router			/vaults/{vault_id}/settings/activityCategories/{categoryId}/types [post]
+func (h *VaultSettingsHandler) CreateActivityType(c echo.Context) error {
 	vaultID := c.Param("vault_id")
 	categoryID, err := strconv.ParseUint(c.Param("categoryId"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_category_id", nil)
 	}
-	var req dto.CreateLifeEventTypeRequest
+	var req dto.CreateActivityTypeRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
 	if err := validateRequest(req); err != nil {
 		return response.ValidationError(c, map[string]string{"validation": err.Error()})
 	}
-	lt, err := h.lifeEventSvc.CreateType(uint(categoryID), vaultID, req)
+	lt, err := h.activitySvc.CreateType(uint(categoryID), vaultID, req)
 	if err != nil {
 		if errors.Is(err, services.ErrLifeCategoryNotFound) {
-			return response.NotFound(c, "err.life_event_category_not_found")
+			return response.NotFound(c, "err.activity_category_not_found")
 		}
-		return response.InternalError(c, "err.failed_to_create_life_event_type")
+		return response.InternalError(c, "err.failed_to_create_activity_type")
 	}
 	return response.Created(c, lt)
 }
 
-// UpdateLifeEventType godoc
+// UpdateActivityType godoc
 //
-//	@Summary		Update a life event type
-//	@Description	Update an existing life event type
+//	@Summary		Update an activity type
+//	@Description	Update an existing activity type
 //	@Tags			vault-settings
 //	@Accept			json
 //	@Produce		json
@@ -1080,15 +1080,15 @@ func (h *VaultSettingsHandler) CreateLifeEventType(c echo.Context) error {
 //	@Param			vault_id		path		string							true	"Vault ID"
 //	@Param			categoryId	path		integer							true	"Category ID"
 //	@Param			typeId		path		integer							true	"Type ID"
-//	@Param			request			body		dto.UpdateLifeEventTypeRequest	true	"Type details"
-//	@Success		200				{object}	response.APIResponse{data=dto.LifeEventTypeResponse}
+//	@Param			request			body		dto.UpdateActivityTypeRequest	true	"Type details"
+//	@Success		200				{object}	response.APIResponse{data=dto.ActivityTypeResponse}
 //	@Failure		400				{object}	response.APIResponse
 //	@Failure		401				{object}	response.APIResponse
 //	@Failure		404				{object}	response.APIResponse
 //	@Failure		422				{object}	response.APIResponse
 //	@Failure		500				{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/settings/lifeEventCategories/{categoryId}/types/{typeId} [put]
-func (h *VaultSettingsHandler) UpdateLifeEventType(c echo.Context) error {
+//	@Router			/vaults/{vault_id}/settings/activityCategories/{categoryId}/types/{typeId} [put]
+func (h *VaultSettingsHandler) UpdateActivityType(c echo.Context) error {
 	vaultID := c.Param("vault_id")
 	categoryID, err := strconv.ParseUint(c.Param("categoryId"), 10, 64)
 	if err != nil {
@@ -1098,30 +1098,30 @@ func (h *VaultSettingsHandler) UpdateLifeEventType(c echo.Context) error {
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_type_id", nil)
 	}
-	var req dto.UpdateLifeEventTypeRequest
+	var req dto.UpdateActivityTypeRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
 	if err := validateRequest(req); err != nil {
 		return response.ValidationError(c, map[string]string{"validation": err.Error()})
 	}
-	lt, err := h.lifeEventSvc.UpdateType(uint(typeID), uint(categoryID), vaultID, req)
+	lt, err := h.activitySvc.UpdateType(uint(typeID), uint(categoryID), vaultID, req)
 	if err != nil {
 		if errors.Is(err, services.ErrLifeCategoryNotFound) {
-			return response.NotFound(c, "err.life_event_category_not_found")
+			return response.NotFound(c, "err.activity_category_not_found")
 		}
 		if errors.Is(err, services.ErrLifeTypeNotFound) {
-			return response.NotFound(c, "err.life_event_type_not_found")
+			return response.NotFound(c, "err.activity_type_not_found")
 		}
-		return response.InternalError(c, "err.failed_to_update_life_event_type")
+		return response.InternalError(c, "err.failed_to_update_activity_type")
 	}
 	return response.OK(c, lt)
 }
 
-// UpdateLifeEventTypeOrder godoc
+// UpdateActivityTypeOrder godoc
 //
-//	@Summary		Update life event type position
-//	@Description	Update the position of a life event type
+//	@Summary		Update activity type position
+//	@Description	Update the position of an activity type
 //	@Tags			vault-settings
 //	@Accept			json
 //	@Produce		json
@@ -1130,13 +1130,13 @@ func (h *VaultSettingsHandler) UpdateLifeEventType(c echo.Context) error {
 //	@Param			categoryId	path		integer						true	"Category ID"
 //	@Param			typeId		path		integer						true	"Type ID"
 //	@Param			request			body		dto.UpdatePositionRequest	true	"Position"
-//	@Success		200				{object}	response.APIResponse{data=dto.LifeEventTypeResponse}
+//	@Success		200				{object}	response.APIResponse{data=dto.ActivityTypeResponse}
 //	@Failure		400				{object}	response.APIResponse
 //	@Failure		401				{object}	response.APIResponse
 //	@Failure		404				{object}	response.APIResponse
 //	@Failure		500				{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/settings/lifeEventCategories/{categoryId}/lifeEventTypes/{typeId}/position [post]
-func (h *VaultSettingsHandler) UpdateLifeEventTypeOrder(c echo.Context) error {
+//	@Router			/vaults/{vault_id}/settings/activityCategories/{categoryId}/activityTypes/{typeId}/position [post]
+func (h *VaultSettingsHandler) UpdateActivityTypeOrder(c echo.Context) error {
 	vaultID := c.Param("vault_id")
 	categoryID, err := strconv.ParseUint(c.Param("categoryId"), 10, 64)
 	if err != nil {
@@ -1150,23 +1150,23 @@ func (h *VaultSettingsHandler) UpdateLifeEventTypeOrder(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
-	lt, err := h.lifeEventSvc.UpdateTypePosition(uint(typeID), uint(categoryID), vaultID, req.Position)
+	lt, err := h.activitySvc.UpdateTypePosition(uint(typeID), uint(categoryID), vaultID, req.Position)
 	if err != nil {
 		if errors.Is(err, services.ErrLifeCategoryNotFound) {
-			return response.NotFound(c, "err.life_event_category_not_found")
+			return response.NotFound(c, "err.activity_category_not_found")
 		}
 		if errors.Is(err, services.ErrLifeTypeNotFound) {
-			return response.NotFound(c, "err.life_event_type_not_found")
+			return response.NotFound(c, "err.activity_type_not_found")
 		}
 		return response.InternalError(c, "err.failed_to_update_type_order")
 	}
 	return response.OK(c, lt)
 }
 
-// DeleteLifeEventType godoc
+// DeleteActivityType godoc
 //
-//	@Summary		Delete a life event type
-//	@Description	Delete a life event type from a category
+//	@Summary		Delete an activity type
+//	@Description	Delete an activity type from a category
 //	@Tags			vault-settings
 //	@Security		BearerAuth
 //	@Param			vault_id		path	string	true	"Vault ID"
@@ -1177,8 +1177,8 @@ func (h *VaultSettingsHandler) UpdateLifeEventTypeOrder(c echo.Context) error {
 //	@Failure		401				{object}	response.APIResponse
 //	@Failure		404				{object}	response.APIResponse
 //	@Failure		500				{object}	response.APIResponse
-//	@Router			/vaults/{vault_id}/settings/lifeEventCategories/{categoryId}/types/{typeId} [delete]
-func (h *VaultSettingsHandler) DeleteLifeEventType(c echo.Context) error {
+//	@Router			/vaults/{vault_id}/settings/activityCategories/{categoryId}/types/{typeId} [delete]
+func (h *VaultSettingsHandler) DeleteActivityType(c echo.Context) error {
 	vaultID := c.Param("vault_id")
 	categoryID, err := strconv.ParseUint(c.Param("categoryId"), 10, 64)
 	if err != nil {
@@ -1188,17 +1188,17 @@ func (h *VaultSettingsHandler) DeleteLifeEventType(c echo.Context) error {
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_type_id", nil)
 	}
-	if err := h.lifeEventSvc.DeleteType(uint(typeID), uint(categoryID), vaultID); err != nil {
+	if err := h.activitySvc.DeleteType(uint(typeID), uint(categoryID), vaultID); err != nil {
 		if errors.Is(err, services.ErrLifeCategoryNotFound) {
-			return response.NotFound(c, "err.life_event_category_not_found")
+			return response.NotFound(c, "err.activity_category_not_found")
 		}
 		if errors.Is(err, services.ErrLifeTypeNotFound) {
-			return response.NotFound(c, "err.life_event_type_not_found")
+			return response.NotFound(c, "err.activity_type_not_found")
 		}
 		if errors.Is(err, services.ErrCannotDeleteDefault) {
 			return response.BadRequest(c, "err.cannot_delete_default", nil)
 		}
-		return response.InternalError(c, "err.failed_to_delete_life_event_type")
+		return response.InternalError(c, "err.failed_to_delete_activity_type")
 	}
 	return response.NoContent(c)
 }

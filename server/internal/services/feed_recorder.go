@@ -21,7 +21,7 @@ const (
 	ActionTaskCreated       = "task_created"
 	ActionTaskCompleted     = "task_completed"
 	ActionAddressAdded      = "address_added"
-	ActionLifeEventCreated  = "life_event_created"
+	ActionActivityCreated   = "activity_created"
 	ActionFileUploaded      = "file_uploaded"
 	ActionLoanCreated       = "loan_created"
 	ActionRelationshipAdded = "relationship_added"
@@ -83,7 +83,7 @@ func validateFeedActionSource(action string, feedableID *uint, feedableType *str
 		ActionTaskCreated:       "ContactTask",
 		ActionTaskCompleted:     "ContactTask",
 		ActionAddressAdded:      "Address",
-		ActionLifeEventCreated:  "LifeEvent",
+		ActionActivityCreated:   "Activity",
 		ActionFileUploaded:      "File",
 		ActionLoanCreated:       "Loan",
 		ActionRelationshipAdded: "Relationship",

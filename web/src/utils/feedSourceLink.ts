@@ -6,7 +6,7 @@ const FEED_SOURCE_KINDS = [
   "Call",
   "ContactTask",
   "Address",
-  "LifeEvent",
+  "Activity",
   "Loan",
   "Relationship",
   "File",
@@ -19,7 +19,7 @@ export type FeedSourceModule =
   | "calls"
   | "tasks"
   | "addresses"
-  | "life_events"
+  | "activities"
   | "loans"
   | "relationships"
   | "photos"
@@ -46,8 +46,8 @@ export type NormalizedFeedSource =
     }
   | {
       readonly id: number;
-      readonly kind: "LifeEvent";
-      readonly module: "life_events";
+      readonly kind: "Activity";
+      readonly module: "activities";
     }
   | { readonly id: number; readonly kind: "Loan"; readonly module: "loans" }
   | {
@@ -96,8 +96,8 @@ function normalizeMappedSource(
       return module === "tasks" ? { id, kind, module } : null;
     case "Address":
       return module === "addresses" ? { id, kind, module } : null;
-    case "LifeEvent":
-      return module === "life_events" ? { id, kind, module } : null;
+    case "Activity":
+      return module === "activities" ? { id, kind, module } : null;
     case "Loan":
       return module === "loans" ? { id, kind, module } : null;
     case "Relationship":

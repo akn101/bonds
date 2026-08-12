@@ -536,8 +536,9 @@ func seedDefaultTemplate(tx *gorm.DB, accountID, locale string) error {
 		{"seed.template_pages.feed", "feed", 3, nil, false},
 		{"seed.template_pages.social", "social", 4, nil, false},
 		{"seed.template_pages.relationship_network", "relationship-network", 5, nil, true},
-		{"seed.template_pages.life_and_goals", "life-goals", 6, nil, false},
-		{"seed.template_pages.information", "information", 7, nil, false},
+		{"seed.template_pages.activities", "activities", 6, nil, false},
+		{"seed.template_pages.goals", "goals", 7, nil, false},
+		{"seed.template_pages.information", "information", 8, nil, false},
 	}
 
 	for _, p := range pages {
@@ -614,8 +615,10 @@ func seedDefaultModules(tx *gorm.DB, accountID, locale string) error {
 		"relationship-network": {
 			{"seed.modules.relationship_network", "relationship_network", false},
 		},
-		"life-goals": {
-			{"seed.modules.life_events", "life_events", false},
+		"activities": {
+			{"seed.modules.activities", "activities", false},
+		},
+		"goals": {
 			{"seed.modules.goals", "goals", false},
 		},
 		"information": {
@@ -633,7 +636,7 @@ func seedDefaultModules(tx *gorm.DB, accountID, locale string) error {
 
 	var undeletableModuleIDs []uint
 
-	for _, slug := range []string{"summary", "contact", "feed", "social", "relationship-network", "life-goals", "information"} {
+	for _, slug := range []string{"summary", "contact", "feed", "social", "relationship-network", "activities", "goals", "information"} {
 		page, ok := pageBySlug[slug]
 		if !ok {
 			continue

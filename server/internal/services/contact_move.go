@@ -107,7 +107,7 @@ func (s *ContactMoveService) MoveMany(contactIDs []string, currentVaultID, targe
 			if err := cleanSourceScopedMovePivots(tx, uniqueContactIDs, currentVaultID); err != nil {
 				return err
 			}
-			if err := cleanMovedContactsFromLifeEvents(tx, uniqueContactIDs); err != nil {
+			if err := cleanMovedContactsFromActivities(tx, uniqueContactIDs); err != nil {
 				return err
 			}
 		}
@@ -526,13 +526,13 @@ func cloneFloat64Ptr(value *float64) *float64 {
 	return &copyValue
 }
 
-func cleanMovedContactsFromLifeEvents(tx *gorm.DB, contactIDs []string) error {
-	if err := tx.Where("contact_id IN ?", contactIDs).Delete(&models.LifeEventParticipant{}).Error; err != nil {
+func cleanMovedContactsFromActivities(tx *gorm.DB, contactIDs []string) error {
+	if err := tx.Where("contact_id IN ?", contactIDs).Delete(&models.ActivityParticipant{}).Error; err != nil {
 		return err
 	}
-	orphans := tx.Model(&models.LifeEventParticipant{}).Select("life_event_id")
-	if err := tx.Model(&models.LifeEvent{}).Where("id NOT IN (?)", orphans).Update("parent_id", nil).Error; err != nil {
+	orphans := tx.Model(&models.ActivityParticipant{}).Select("activity_id")
+	if err := tx.Model(&models.Activity{}).Where("id NOT IN (?)", orphans).Update("parent_id", nil).Error; err != nil {
 		return err
 	}
-	return tx.Where("id NOT IN (?)", orphans).Delete(&models.LifeEvent{}).Error
+	return tx.Where("id NOT IN (?)", orphans).Delete(&models.Activity{}).Error
 }

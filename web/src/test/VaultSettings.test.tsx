@@ -107,13 +107,13 @@ vi.mock("@/api/vaultSettings", () => ({
     createMoodTrackingParameter: vi.fn(),
     updateMoodTrackingParameter: vi.fn(),
     deleteMoodTrackingParameter: vi.fn(),
-    listLifeEventCategories: vi.fn(),
-    createLifeEventCategory: vi.fn(),
-    updateLifeEventCategory: vi.fn(),
-    deleteLifeEventCategory: vi.fn(),
-    createLifeEventCategoryType: vi.fn(),
-    updateLifeEventCategoryType: vi.fn(),
-    deleteLifeEventCategoryType: vi.fn(),
+    listActivityCategories: vi.fn(),
+    createActivityCategory: vi.fn(),
+    updateActivityCategory: vi.fn(),
+    deleteActivityCategory: vi.fn(),
+    createActivityCategoryType: vi.fn(),
+    updateActivityCategoryType: vi.fn(),
+    deleteActivityCategoryType: vi.fn(),
     listQuickFactTemplates: vi.fn(),
     createQuickFactTemplate: vi.fn(),
     updateQuickFactTemplate: vi.fn(),
@@ -1581,13 +1581,13 @@ describe("VaultSettings", () => {
     expect(screen.getByText(/Vegetarian, No preference/)).toBeInTheDocument();
   });
 
-  it("renders seeded life event categories and types in settings", async () => {
+  it("renders seeded activity categories and types in settings", async () => {
     const user = userEvent.setup();
     mockUseQuery.mockImplementation((opts: { queryKey: unknown[] }) => {
       if (
         Array.isArray(opts.queryKey) &&
         opts.queryKey[0] === "vault" &&
-        opts.queryKey[2] === "lifeEventCategories"
+        opts.queryKey[2] === "activityCategories"
       ) {
         return {
           data: [
@@ -1623,7 +1623,7 @@ describe("VaultSettings", () => {
 
     renderVaultSettings();
 
-    await user.click(screen.getByRole("tab", { name: /life events/i }));
+    await user.click(screen.getByRole("tab", { name: /activities/i }));
     const categoryPanel = await screen.findByText("Transportation");
     expect(categoryPanel).toBeInTheDocument();
     expect(screen.getAllByTitle("Move Up")[0]).toBeDisabled();

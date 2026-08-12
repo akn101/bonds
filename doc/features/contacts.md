@@ -31,8 +31,7 @@ Contact edit pages are built from **modules**, which are configurable building b
 | Calls | Phone call logs with notes |
 | Gifts | Gift ideas and tracking |
 | Loans | Money or items lent and borrowed, including quantity, loan date, due date, and returned status |
-| Activities | Shared activities and events |
-| Life events | Major milestones (graduation, marriage, etc.), including shared events with other contacts in the same vault |
+| Activities | Important activities and milestones, including shared activities with other contacts in the same vault |
 | Pets | Pets with names and categories (categories are managed at the account level) |
 | Groups | Contact group membership |
 | Documents | Uploaded files (PDF, images) |
@@ -48,8 +47,9 @@ Templates control the layout of contact detail pages. Each template has **pages*
 1. **Contact information**: Avatar, names, important dates, gender, labels, company, religions.
 2. **Feed**: Activity timeline.
 3. **Social**: Relationships, pets, groups, addresses, contact methods.
-4. **Life & goals**: Life events, goals.
-5. **Information**: Documents, media, notes, reminders, loans, tasks, calls, posts.
+4. **Activities**: Important activities and milestones.
+5. **Goals**: Personal goals and progress.
+6. **Information**: Documents, media, notes, reminders, loans, tasks, calls, posts.
 
 Templates and module assignments are customizable through the [personalization settings](/features/admin#personalization).
 

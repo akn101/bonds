@@ -9,9 +9,9 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func TestInteractionLifeEventTranslationKeysExistForEverySupportedLocale(t *testing.T) {
-	keys := []string{"seed.life_event_categories.interactions"}
-	for _, def := range interactionLifeEventTypeDefs {
+func TestInteractionActivityTranslationKeysExistForEverySupportedLocale(t *testing.T) {
+	keys := []string{"seed.activity_categories.interactions"}
+	for _, def := range interactionActivityTypeDefs {
 		keys = append(keys, def.key)
 	}
 
@@ -24,26 +24,26 @@ func TestInteractionLifeEventTranslationKeysExistForEverySupportedLocale(t *test
 	}
 }
 
-func TestBackfillInteractionLifeEventTypesSeedsEveryVaultIdempotently(t *testing.T) {
+func TestBackfillInteractionActivityTypesSeedsEveryVaultIdempotently(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent), DisableForeignKeyConstraintWhenMigrating: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&Vault{}, &LifeEventCategory{}, &LifeEventType{}); err != nil {
+	if err := db.AutoMigrate(&Vault{}, &ActivityCategory{}, &ActivityType{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Create(&[]Vault{{ID: "vault-a"}, {ID: "vault-b"}}).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := BackfillInteractionLifeEventTypes(db); err != nil {
+	if err := BackfillInteractionActivityTypes(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := BackfillInteractionLifeEventTypes(db); err != nil {
+	if err := BackfillInteractionActivityTypes(db); err != nil {
 		t.Fatal(err)
 	}
 	for _, vaultID := range []string{"vault-a", "vault-b"} {
 		var count int64
-		if err := db.Model(&LifeEventType{}).Joins("JOIN life_event_categories ON life_event_categories.id = life_event_types.life_event_category_id").Where("life_event_categories.vault_id = ? AND counts_as_interaction = ?", vaultID, true).Count(&count).Error; err != nil {
+		if err := db.Model(&ActivityType{}).Joins("JOIN activity_categories ON activity_categories.id = activity_types.activity_category_id").Where("activity_categories.vault_id = ? AND counts_as_interaction = ?", vaultID, true).Count(&count).Error; err != nil {
 			t.Fatal(err)
 		}
 		if count != 3 {

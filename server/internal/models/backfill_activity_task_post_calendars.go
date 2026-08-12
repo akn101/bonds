@@ -2,8 +2,8 @@ package models
 
 import "gorm.io/gorm"
 
-// BackfillLifeEventTaskPostCalendarTypes stamps `calendar_type='gregorian'` on
-// LifeEvent / ContactTask / Post rows that pre-date the column. GORM's column
+// BackfillActivityTaskPostCalendarTypes stamps `calendar_type='gregorian'` on
+// Activity / ContactTask / Post rows that pre-date the column. GORM's column
 // default only fires for new inserts; legacy rows inserted before the
 // AutoMigrate ALTER end up with an empty string, and applyCalendarFields
 // treats empty as "fall through to gregorian" which is the right behaviour —
@@ -12,12 +12,12 @@ import "gorm.io/gorm"
 //
 // Idempotent: rows already carrying any non-empty value are skipped, including
 // freshly-inserted rows defaulted by GORM. Safe to invoke on every boot.
-func BackfillLifeEventTaskPostCalendarTypes(db *gorm.DB) error {
+func BackfillActivityTaskPostCalendarTypes(db *gorm.DB) error {
 	updates := []struct {
 		table string
 		model any
 	}{
-		{"life_events", &LifeEvent{}},
+		{"activities", &Activity{}},
 		{"contact_tasks", &ContactTask{}},
 		{"posts", &Post{}},
 	}

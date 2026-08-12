@@ -158,8 +158,7 @@
       "no_consulted": "暂无查看记录"
     },
     "dashboard": {
-      "activity_tab": "动态",
-      "life_events_tab": "生活事件",
+      "activities_tab": "活动记录",
       "life_metrics_tab": "生活指标",
       "recent_contacts": "最近联系人",
       "most_consulted": "最常访问",
@@ -175,7 +174,7 @@
       "events_this_year": "本年事件",
       "show_graph": "显示图表",
       "no_metrics": "生活指标帮助你追踪对你重要的事项。",
-      "no_life_events": "暂无生活事件记录",
+      "no_activities": "暂无活动记录",
       "mood_title": "记录心情",
       "mood_how_are_you": "你好吗？",
       "mood_record": "记录心情",
@@ -189,19 +188,15 @@
       "due_tasks": "待办任务",
       "no_tasks": "暂无近期待办任务",
       "view_all": "查看全部",
-      "add_life_event": "添加生活事件",
       "select_category": "选择分类",
       "select_type": "选择事件类型",
-      "life_event_summary": "摘要",
-      "life_event_description": "描述",
-      "life_event_added": "生活事件已添加",
-      "life_event_date": "日期",
       "catch_up_title": "保持联系",
       "no_catch_up": "暂无需要联系的人",
       "catch_up_due": "已逾期 {{days}} 天",
       "catch_up_last_talked": "上次联系 {{date}}",
       "catch_up_mark": "完成",
-      "catch_up_marked": "已记录本次联系"
+      "catch_up_marked": "已记录本次联系",
+      "feed_tab": "动态"
     },
     "calendar": {
       "title": "日历",
@@ -632,9 +627,10 @@
         "overview": "概览",
         "relationships": "关系",
         "information": "信息",
-        "activities": "活动",
-        "life": "生活",
-        "photos_docs": "媒体与文档"
+        "activities": "活动记录",
+        "photos_docs": "媒体与文档",
+        "operations": "任务与跟进",
+        "goals": "目标"
       },
       "first_name": "名",
       "last_name": "姓",
@@ -973,33 +969,19 @@
       "one_way_only": "仅单向",
       "one_way_hint": "你没有该联系人所在 Vault 的编辑权限，将只创建单向关系。"
     },
-    "life_events": {
-      "title": "人生事件",
+    "activities": {
+      "title": "活动记录",
       "participants": "其他参与者",
       "participants_placeholder": "选择参与者...",
-      "add_activity": "添加活动",
       "place": "地点",
       "duration_minutes": "时长（分钟）",
       "self_participant": "我",
-      "event": "事件",
-      "delete_event_confirm": "确定删除？",
-      "event_added": "事件已添加",
-      "event_updated": "事件已更新",
-      "event_deleted": "事件已删除",
-      "event_modal": "添加人生事件",
-      "edit_event": "编辑人生事件",
-      "toggle_event": "切换事件",
-      "event_toggled": "事件已切换",
-      "label": "标签",
       "title_label": "标题",
-      "started_at": "开始时间",
       "happened_at": "发生时间",
-      "add_event": "添加人生事件",
-      "add_first_event": "添加第一条人生事件",
       "empty_description": "记录塑造这个人的重要时刻。",
       "empty_description_vault": "记录这个保险库中的重要时刻。",
-      "saved": "人生事件已保存",
-      "type": "事件类型",
+      "saved": "活动已保存",
+      "type": "活动类型",
       "description": "描述",
       "description_placeholder": "写下发生的事情，输入 @ 提及联系人……",
       "related_experience": "关联经历（可选）",
@@ -1013,7 +995,12 @@
       "end_unknown": "已结束，日期未知",
       "precision_day": "日",
       "precision_month": "月",
-      "precision_year": "年"
+      "precision_year": "年",
+      "add": "添加活动",
+      "edit": "编辑活动",
+      "delete_confirm": "删除这条活动？",
+      "deleted": "活动已删除",
+      "add_first": "添加第一条活动"
     },
     "mood_tracking": {
       "title": "心情追踪",
@@ -1157,7 +1144,6 @@
       "currencies": "货币",
       "religions": "宗教",
       "call_reasons": "通话原因",
-      "life_event_categories": "人生事件类别",
       "gift_occasions": "礼物场合",
       "gift_states": "礼物状态",
       "pages": "页面",
@@ -1195,7 +1181,8 @@
       "sync_translations": "同步翻译",
       "sync_translations_desc": "将默认标签更新为当前语言。自定义标签不受影响。",
       "sync_success": "翻译已同步",
-      "sync_confirm": "这将把所有默认标签更新为当前语言。自定义标签不受影响。确认继续？"
+      "sync_confirm": "这将把所有默认标签更新为当前语言。自定义标签不受影响。确认继续？",
+      "activity_categories": "活动类别"
     },
     "users": {
       "title": "用户",
@@ -1375,7 +1362,7 @@
     "tags": "标签分类",
     "date_types": "重要日期类型",
     "mood_params": "心情参数",
-    "life_events": "人生事件",
+    "activities": "活动记录",
     "quick_facts": "速览模板",
     "tabs": "标签页可见性",
     "users": "用户",
@@ -1397,8 +1384,6 @@
     "template_updated": "保险库模板已更新",
     "template_description": "新联系人将使用此模板",
     "select_template": "选择模板",
-    "life_event_category_updated": "人生事件分类已更新",
-    "life_event_type_updated": "人生事件类型已更新",
     "move_up": "上移",
     "move_down": "下移",
     "quick_fact_templates": {
@@ -1482,7 +1467,7 @@
       "reminders": "提醒",
       "relationships": "关系",
       "addresses": "地址",
-      "life_events": "人生事件",
+      "activities": "活动记录",
       "documents": "文档",
       "photos": "照片",
       "skipped": "跳过",
@@ -1495,7 +1480,9 @@
     "name_order_override": "使用此保管库专用顺序",
     "name_order_condition_help": "可选片段可以使用条件语法，例如 {nickname? (%nickname%)}。",
     "name_order_save": "保存覆盖设置",
-    "name_order_clear": "使用全局偏好"
+    "name_order_clear": "使用全局偏好",
+    "activity_category_updated": "活动类别已更新",
+    "activity_type_updated": "活动类型已更新"
   },
   "backups": {
     "title": "备份管理",

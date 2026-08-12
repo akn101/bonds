@@ -1,7 +1,7 @@
 package dto
 
-type UpdateDefaultTabRequest struct {
-	DefaultActivityTab string `json:"default_activity_tab" validate:"required" example:"notes"`
+type UpdateDefaultDashboardTabRequest struct {
+	DefaultDashboardTab string `json:"default_dashboard_tab" validate:"required,oneof=feed activities life_metrics" example:"activities"`
 }
 
 type UpdatePostSliceRequest struct {

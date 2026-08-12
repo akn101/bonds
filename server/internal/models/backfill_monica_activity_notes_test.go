@@ -14,10 +14,10 @@ func TestBackfillMonicaActivityNotesGroupsParticipantsAndIsIdempotent(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec(`CREATE TABLE life_event_participants (id integer primary key autoincrement, contact_id text not null, life_event_id integer not null, created_at datetime, updated_at datetime, UNIQUE(contact_id, life_event_id))`).Error; err != nil {
+	if err := db.Exec(`CREATE TABLE activity_participants (id integer primary key autoincrement, contact_id text not null, activity_id integer not null, created_at datetime, updated_at datetime, UNIQUE(contact_id, activity_id))`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&Note{}, &LifeEventCategory{}, &LifeEventType{}, &LifeEvent{}); err != nil {
+	if err := db.AutoMigrate(&Note{}, &ActivityCategory{}, &ActivityType{}, &Activity{}); err != nil {
 		t.Fatal(err)
 	}
 	sourceType, sourceUUID := "monica_activity", "activity-1"
@@ -35,13 +35,13 @@ func TestBackfillMonicaActivityNotesGroupsParticipantsAndIsIdempotent(t *testing
 	if err := BackfillMonicaActivityNotes(db); err != nil {
 		t.Fatal(err)
 	}
-	var events []LifeEvent
+	var events []Activity
 	if err := db.Find(&events).Error; err != nil {
 		t.Fatal(err)
 	}
 	var participantCount int64
 	if len(events) == 1 {
-		if err := db.Table("life_event_participants").Where("life_event_id = ?", events[0].ID).Count(&participantCount).Error; err != nil {
+		if err := db.Table("activity_participants").Where("activity_id = ?", events[0].ID).Count(&participantCount).Error; err != nil {
 			t.Fatal(err)
 		}
 	}

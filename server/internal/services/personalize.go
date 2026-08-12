@@ -257,8 +257,8 @@ var accountSyncEntities = []syncableEntity{
 
 var vaultSyncEntities = []syncableEntity{
 	{table: "mood_tracking_parameters", displayCol: "label", keyCol: "label_translation_key", ownerCol: "vault_id"},
-	{table: "life_event_categories", displayCol: "label", keyCol: "label_translation_key", ownerCol: "vault_id"},
-	{table: "life_event_types", displayCol: "label", keyCol: "label_translation_key", ownerCol: "vault_id", parentTable: "life_event_categories", parentJoinCol: "life_event_category_id"},
+	{table: "activity_categories", displayCol: "label", keyCol: "label_translation_key", ownerCol: "vault_id"},
+	{table: "activity_types", displayCol: "label", keyCol: "label_translation_key", ownerCol: "vault_id", parentTable: "activity_categories", parentJoinCol: "activity_category_id"},
 	{table: "vault_quick_facts_templates", displayCol: "label", keyCol: "label_translation_key", ownerCol: "vault_id"},
 	// contact_important_date_types was historically absent from this list, which
 	// is why switching locales and clicking "Sync translations" left birthday /

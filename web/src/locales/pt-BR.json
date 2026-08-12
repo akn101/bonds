@@ -158,8 +158,7 @@
       "no_consulted": "Nenhum contato consultado ainda"
     },
     "dashboard": {
-      "activity_tab": "Atividades",
-      "life_events_tab": "Eventos da Vida",
+      "activities_tab": "Atividades",
       "life_metrics_tab": "Métricas de Vida",
       "recent_contacts": "Contatos Recentes",
       "most_consulted": "Mais Consultados",
@@ -175,7 +174,7 @@
       "events_this_year": "Eventos este ano",
       "show_graph": "Mostrar gráfico",
       "no_metrics": "Métricas de vida permitem que você acompanhe o que é importante para você.",
-      "no_life_events": "Nenhum evento de vida registrado ainda",
+      "no_activities": "Nenhuma atividade registrada ainda",
       "mood_title": "Registre seu humor",
       "mood_how_are_you": "Como você está?",
       "mood_record": "Registrar humor",
@@ -189,19 +188,15 @@
       "due_tasks": "Tarefas Pendentes",
       "no_tasks": "Nenhuma tarefa com prazo próximo",
       "view_all": "Ver tudo",
-      "add_life_event": "Adicionar evento de vida",
       "select_category": "Selecionar categoria",
       "select_type": "Selecionar tipo de evento",
-      "life_event_summary": "Resumo",
-      "life_event_description": "Descrição",
-      "life_event_added": "Evento de vida adicionado",
-      "life_event_date": "Data",
       "catch_up_title": "Atualização",
       "no_catch_up": "Ninguém está pendente de atualização",
       "catch_up_due": "{{days}} dias em atraso",
       "catch_up_last_talked": "Última conversa em {{date}}",
       "catch_up_mark": "Feito",
-      "catch_up_marked": "Atualização registrada"
+      "catch_up_marked": "Atualização registrada",
+      "feed_tab": "Feed"
     },
     "calendar": {
       "title": "Calendário",
@@ -633,8 +628,9 @@
         "relationships": "Relacionamentos",
         "information": "Informações",
         "activities": "Atividades",
-        "life": "Vida",
-        "photos_docs": "Mídia e Documentos"
+        "photos_docs": "Mídia e Documentos",
+        "operations": "Tarefas e acompanhamentos",
+        "goals": "Metas"
       },
       "first_name": "Nome",
       "last_name": "Sobrenome",
@@ -973,33 +969,19 @@
       "one_way_only": "apenas um lado",
       "one_way_hint": "Você não tem permissão de edição no cofre deste contato. Apenas um relacionamento unilateral será criado."
     },
-    "life_events": {
-      "title": "Eventos da Vida",
+    "activities": {
+      "title": "Atividades",
       "participants": "Participantes adicionais",
       "participants_placeholder": "Selecionar participantes...",
-      "add_activity": "Adicionar atividade",
       "place": "Local",
       "duration_minutes": "Duração (minutos)",
       "self_participant": "Você",
-      "event": "Evento",
-      "delete_event_confirm": "Excluir?",
-      "event_added": "Evento de vida adicionado",
-      "event_updated": "Evento de vida atualizado",
-      "event_deleted": "Evento de vida excluído",
-      "event_modal": "Adicionar Evento de Vida",
-      "edit_event": "Editar Evento de Vida",
-      "toggle_event": "Alternar evento",
-      "event_toggled": "Evento alternado",
-      "label": "Rótulo",
       "title_label": "Título",
-      "started_at": "Iniciado em",
       "happened_at": "Quando",
-      "add_event": "Adicionar evento de vida",
-      "add_first_event": "Adicionar o primeiro evento",
       "empty_description": "Registre os momentos que marcaram a vida desta pessoa.",
       "empty_description_vault": "Registre os momentos importantes deste cofre.",
-      "saved": "Evento de vida salvo",
-      "type": "Tipo de evento",
+      "saved": "Atividade salva",
+      "type": "Tipo de atividade",
       "description": "Descrição",
       "description_placeholder": "Escreva o que aconteceu. Digite @ para mencionar um contato...",
       "related_experience": "Experiência relacionada (opcional)",
@@ -1013,7 +995,12 @@
       "end_unknown": "Terminou, data desconhecida",
       "precision_day": "Dia",
       "precision_month": "Mês",
-      "precision_year": "Ano"
+      "precision_year": "Ano",
+      "add": "Adicionar atividade",
+      "edit": "Editar atividade",
+      "delete_confirm": "Excluir esta atividade?",
+      "deleted": "Atividade excluída",
+      "add_first": "Adicionar a primeira atividade"
     },
     "mood_tracking": {
       "title": "Registro de Humor",
@@ -1157,7 +1144,6 @@
       "currencies": "Moedas",
       "religions": "Religiões",
       "call_reasons": "Motivos de Ligação",
-      "life_event_categories": "Categorias de Eventos de Vida",
       "gift_occasions": "Ocasiões de Presente",
       "gift_states": "Estados de Presente",
       "pages": "Páginas",
@@ -1195,7 +1181,8 @@
       "sync_translations": "Sincronizar Traduções",
       "sync_translations_desc": "Atualizar os rótulos padrão para o idioma atual. Rótulos personalizados não serão afetados.",
       "sync_success": "Traduções sincronizadas",
-      "sync_confirm": "Isto atualizará todos os rótulos padrão para o idioma atual. Rótulos personalizados não serão afetados. Continuar?"
+      "sync_confirm": "Isto atualizará todos os rótulos padrão para o idioma atual. Rótulos personalizados não serão afetados. Continuar?",
+      "activity_categories": "Categorias de atividades"
     },
     "users": {
       "title": "Usuários",
@@ -1375,7 +1362,7 @@
     "tags": "Marcadores",
     "date_types": "Tipos de Data Importante",
     "mood_params": "Parâmetros de Humor",
-    "life_events": "Eventos da Vida",
+    "activities": "Atividades",
     "quick_facts": "Modelos de Informações Rápidas",
     "tabs": "Visibilidade das Abas",
     "users": "Usuários",
@@ -1397,8 +1384,6 @@
     "template_updated": "Modelo do cofre atualizado",
     "template_description": "Novos contatos usarão este modelo",
     "select_template": "Selecionar um modelo",
-    "life_event_category_updated": "Categoria de evento de vida atualizada",
-    "life_event_type_updated": "Tipo de evento de vida atualizado",
     "move_up": "Mover para Cima",
     "move_down": "Mover para Baixo",
     "quick_fact_templates": {
@@ -1482,7 +1467,7 @@
       "reminders": "Lembretes",
       "relationships": "Relacionamentos",
       "addresses": "Endereços",
-      "life_events": "Eventos da Vida",
+      "activities": "Atividades",
       "documents": "Documentos",
       "photos": "Fotos",
       "skipped": "Pulados",
@@ -1495,7 +1480,9 @@
     "name_order_override": "Usar uma ordem específica do cofre",
     "name_order_condition_help": "Segmentos opcionais podem usar sintaxe condicional, por exemplo {nickname? (%nickname%)}.",
     "name_order_save": "Salvar personalização",
-    "name_order_clear": "Usar preferência global"
+    "name_order_clear": "Usar preferência global",
+    "activity_category_updated": "Categoria de atividade atualizada",
+    "activity_type_updated": "Tipo de atividade atualizado"
   },
   "backups": {
     "title": "Backups",

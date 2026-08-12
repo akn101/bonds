@@ -63,4 +63,3 @@ func TestDeleteCalendarObjectAlsoDeletesPivot(t *testing.T) {
 	}
 }
 
-

@@ -11,7 +11,7 @@ import (
 	"github.com/naiba/bonds/internal/testutil"
 )
 
-func setupUnifiedLifeEventTest(t *testing.T) (*LifeEventService, string, models.Contact, models.Contact, uint) {
+func setupUnifiedActivityTest(t *testing.T) (*ActivityService, string, models.Contact, models.Contact, uint) {
 	t.Helper()
 	db := testutil.SetupTestDB(t)
 	account := models.Account{}
@@ -30,22 +30,22 @@ func setupUnifiedLifeEventTest(t *testing.T) (*LifeEventService, string, models.
 	if err := db.Create(&mentioned).Error; err != nil {
 		t.Fatal(err)
 	}
-	category := models.LifeEventCategory{VaultID: vault.ID}
+	category := models.ActivityCategory{VaultID: vault.ID}
 	if err := db.Create(&category).Error; err != nil {
 		t.Fatal(err)
 	}
-	eventType := models.LifeEventType{LifeEventCategoryID: category.ID}
+	eventType := models.ActivityType{ActivityCategoryID: category.ID}
 	if err := db.Create(&eventType).Error; err != nil {
 		t.Fatal(err)
 	}
-	return NewLifeEventService(db), vault.ID, primary, mentioned, eventType.ID
+	return NewActivityService(db), vault.ID, primary, mentioned, eventType.ID
 }
 
-func TestLifeEventCRUDMentionsPeriodsAndMilestones(t *testing.T) {
-	svc, vaultID, primary, mentioned, typeID := setupUnifiedLifeEventTest(t)
+func TestActivityCRUDMentionsPeriodsAndMilestones(t *testing.T) {
+	svc, vaultID, primary, mentioned, typeID := setupUnifiedActivityTest(t)
 	start := time.Date(2022, 7, 1, 0, 0, 0, 0, time.UTC)
 	description := fmt.Sprintf("Worked with @[Mentioned](contact:%s)", mentioned.ID)
-	parent, err := svc.Create(vaultID, dto.LifeEventUpsertRequest{PrimaryContactID: primary.ID, LifeEventTypeID: typeID, Title: "Worked at Acme", Description: description, StartDate: &start, StartPrecision: "month", EndStatus: "ongoing"})
+	parent, err := svc.Create(vaultID, dto.ActivityUpsertRequest{PrimaryContactID: primary.ID, ActivityTypeID: typeID, Title: "Worked at Acme", Description: description, StartDate: &start, StartPrecision: "month", EndStatus: "ongoing"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestLifeEventCRUDMentionsPeriodsAndMilestones(t *testing.T) {
 		t.Fatalf("participants = %+v", parent.Participants)
 	}
 	milestoneStart := start.AddDate(1, 0, 0)
-	milestone, err := svc.Create(vaultID, dto.LifeEventUpsertRequest{PrimaryContactID: primary.ID, ParentID: &parent.ID, LifeEventTypeID: typeID, Title: "Promoted", StartDate: &milestoneStart, StartPrecision: "day", EndStatus: "none"})
+	milestone, err := svc.Create(vaultID, dto.ActivityUpsertRequest{PrimaryContactID: primary.ID, ParentID: &parent.ID, ActivityTypeID: typeID, Title: "Promoted", StartDate: &milestoneStart, StartPrecision: "day", EndStatus: "none"})
 	if err != nil || milestone.ParentID == nil || *milestone.ParentID != parent.ID {
 		t.Fatalf("milestone=%+v err=%v", milestone, err)
 	}
@@ -62,14 +62,14 @@ func TestLifeEventCRUDMentionsPeriodsAndMilestones(t *testing.T) {
 		t.Fatalf("mention list=%+v meta=%+v err=%v", items, meta, err)
 	}
 	end := start.Add(-time.Hour)
-	_, err = svc.Update(vaultID, parent.ID, dto.LifeEventUpsertRequest{PrimaryContactID: primary.ID, LifeEventTypeID: typeID, Title: "Invalid", StartDate: &start, EndDate: &end, EndStatus: "known"})
-	if !errors.Is(err, ErrInvalidLifeEventTime) {
+	_, err = svc.Update(vaultID, parent.ID, dto.ActivityUpsertRequest{PrimaryContactID: primary.ID, ActivityTypeID: typeID, Title: "Invalid", StartDate: &start, EndDate: &end, EndStatus: "known"})
+	if !errors.Is(err, ErrInvalidActivityTime) {
 		t.Fatalf("invalid period error=%v", err)
 	}
 	if err := svc.Delete(vaultID, parent.ID); err != nil {
 		t.Fatal(err)
 	}
-	var reloaded models.LifeEvent
+	var reloaded models.Activity
 	if err := svc.db.First(&reloaded, milestone.ID).Error; err != nil || reloaded.ParentID != nil {
 		t.Fatalf("detached milestone=%+v err=%v", reloaded, err)
 	}
@@ -83,7 +83,7 @@ func TestContactMentionIDsDedupe(t *testing.T) {
 	}
 }
 
-func TestLifeEventContactRefsIncludeHoverCardDetails(t *testing.T) {
+func TestActivityContactRefsIncludeHoverCardDetails(t *testing.T) {
 	firstName := "Alice"
 	lastName := "Example"
 	nickname := "Ace"
@@ -110,12 +110,12 @@ func TestLifeEventContactRefsIncludeHoverCardDetails(t *testing.T) {
 	}
 }
 
-func TestLifeEventExplicitParticipantsKeepDescriptionMentionsIndependent(t *testing.T) {
-	svc, vaultID, primary, mentioned, typeID := setupUnifiedLifeEventTest(t)
+func TestActivityExplicitParticipantsKeepDescriptionMentionsIndependent(t *testing.T) {
+	svc, vaultID, primary, mentioned, typeID := setupUnifiedActivityTest(t)
 	start := time.Now().UTC().Truncate(time.Second)
 	empty := []string{}
 	description := fmt.Sprintf("和 @[Mentioned](contact:%s) 吃饭，@[Mentioned](contact:%s) 喝吐了", mentioned.ID, mentioned.ID)
-	event, err := svc.Create(vaultID, dto.LifeEventUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &empty, LifeEventTypeID: typeID, Title: "吃饭", Description: description, StartDate: &start})
+	event, err := svc.Create(vaultID, dto.ActivityUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &empty, ActivityTypeID: typeID, Title: "吃饭", Description: description, StartDate: &start})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,18 +130,18 @@ func TestLifeEventExplicitParticipantsKeepDescriptionMentionsIndependent(t *test
 	}
 }
 
-func TestLifeEventInteractionUpdatesAllParticipantsMonotonically(t *testing.T) {
-	svc, vaultID, primary, other, typeID := setupUnifiedLifeEventTest(t)
-	if err := svc.db.Model(&models.LifeEventType{}).Where("id = ?", typeID).Update("counts_as_interaction", true).Error; err != nil {
+func TestActivityInteractionUpdatesAllParticipantsMonotonically(t *testing.T) {
+	svc, vaultID, primary, other, typeID := setupUnifiedActivityTest(t)
+	if err := svc.db.Model(&models.ActivityType{}).Where("id = ?", typeID).Update("counts_as_interaction", true).Error; err != nil {
 		t.Fatal(err)
 	}
 	participants := []string{other.ID}
 	newer := time.Now().UTC().Add(-time.Hour)
-	if _, err := svc.Create(vaultID, dto.LifeEventUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &participants, LifeEventTypeID: typeID, Title: "见面", StartDate: &newer}); err != nil {
+	if _, err := svc.Create(vaultID, dto.ActivityUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &participants, ActivityTypeID: typeID, Title: "见面", StartDate: &newer}); err != nil {
 		t.Fatal(err)
 	}
 	older := newer.Add(-24 * time.Hour)
-	if _, err := svc.Create(vaultID, dto.LifeEventUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &participants, LifeEventTypeID: typeID, Title: "旧见面", StartDate: &older}); err != nil {
+	if _, err := svc.Create(vaultID, dto.ActivityUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &participants, ActivityTypeID: typeID, Title: "旧见面", StartDate: &older}); err != nil {
 		t.Fatal(err)
 	}
 	for _, id := range []string{primary.ID, other.ID} {
@@ -155,14 +155,14 @@ func TestLifeEventInteractionUpdatesAllParticipantsMonotonically(t *testing.T) {
 	}
 }
 
-func TestDashboardLifeEventUsesSystemUserSubjectWithoutCreatingContact(t *testing.T) {
-	svc, vaultID, _, _, typeID := setupUnifiedLifeEventTest(t)
+func TestDashboardActivityUsesSystemUserSubjectWithoutCreatingContact(t *testing.T) {
+	svc, vaultID, _, _, typeID := setupUnifiedActivityTest(t)
 	var vault models.Vault
 	if err := svc.db.First(&vault, "id = ?", vaultID).Error; err != nil {
 		t.Fatal(err)
 	}
 	firstName, lastName := "Alice", "Manager"
-	creator := models.User{AccountID: vault.AccountID, FirstName: &firstName, LastName: &lastName, Email: "alice-life-events@example.com"}
+	creator := models.User{AccountID: vault.AccountID, FirstName: &firstName, LastName: &lastName, Email: "alice-activities@example.com"}
 	if err := svc.db.Create(&creator).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -171,10 +171,10 @@ func TestDashboardLifeEventUsesSystemUserSubjectWithoutCreatingContact(t *testin
 	}
 
 	emptyParticipants := []string{}
-	event, err := svc.CreateForUser(vaultID, creator.ID, dto.LifeEventUpsertRequest{
-		ParticipantIDs:  &emptyParticipants,
-		LifeEventTypeID: typeID,
-		Title:           "Started a new role",
+	event, err := svc.CreateForUser(vaultID, creator.ID, dto.ActivityUpsertRequest{
+		ParticipantIDs: &emptyParticipants,
+		ActivityTypeID: typeID,
+		Title:          "Started a new role",
 	})
 	if err != nil {
 		t.Fatalf("CreateForUser failed: %v", err)
@@ -187,17 +187,17 @@ func TestDashboardLifeEventUsesSystemUserSubjectWithoutCreatingContact(t *testin
 	}
 
 	otherFirstName := "Bob"
-	other := models.User{AccountID: vault.AccountID, FirstName: &otherFirstName, Email: "bob-life-events@example.com"}
+	other := models.User{AccountID: vault.AccountID, FirstName: &otherFirstName, Email: "bob-activities@example.com"}
 	if err := svc.db.Create(&other).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := svc.db.Create(&models.UserVault{VaultID: vaultID, UserID: other.ID, Permission: models.PermissionManager}).Error; err != nil {
 		t.Fatal(err)
 	}
-	updated, err := svc.UpdateForUser(vaultID, other.ID, event.ID, dto.LifeEventUpsertRequest{
-		ParticipantIDs:  &emptyParticipants,
-		LifeEventTypeID: typeID,
-		Title:           "Started the new role",
+	updated, err := svc.UpdateForUser(vaultID, other.ID, event.ID, dto.ActivityUpsertRequest{
+		ParticipantIDs: &emptyParticipants,
+		ActivityTypeID: typeID,
+		Title:          "Started the new role",
 	})
 	if err != nil {
 		t.Fatalf("UpdateForUser failed: %v", err)

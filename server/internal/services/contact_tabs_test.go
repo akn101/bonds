@@ -58,8 +58,8 @@ func TestGetTabs_WithTemplate(t *testing.T) {
 	if tabs.TemplateName != "Default template" {
 		t.Errorf("Expected template name 'Default template', got '%s'", tabs.TemplateName)
 	}
-	if len(tabs.Pages) != 7 {
-		t.Fatalf("Expected 7 pages, got %d", len(tabs.Pages))
+	if len(tabs.Pages) != 8 {
+		t.Fatalf("Expected 8 pages, got %d", len(tabs.Pages))
 	}
 
 	summaryPage := tabs.Pages[0]
@@ -98,15 +98,23 @@ func TestGetTabs_WithTemplate(t *testing.T) {
 		t.Fatalf("unexpected relationship network page: %+v", networkPage)
 	}
 
-	lifeGoalsPage := tabs.Pages[5]
-	if lifeGoalsPage.Slug != "life-goals" {
-		t.Errorf("Expected fourth page slug 'life-goals', got '%s'", lifeGoalsPage.Slug)
+	activitiesPage := tabs.Pages[5]
+	if activitiesPage.Slug != "activities" {
+		t.Errorf("Expected activities page slug 'activities', got '%s'", activitiesPage.Slug)
 	}
-	if len(lifeGoalsPage.Modules) != 2 {
-		t.Errorf("Expected 2 modules on life-goals page, got %d", len(lifeGoalsPage.Modules))
+	if len(activitiesPage.Modules) != 1 || activitiesPage.Modules[0].Type != "activities" {
+		t.Errorf("unexpected activities page modules: %+v", activitiesPage.Modules)
 	}
 
-	infoPage := tabs.Pages[6]
+	goalsPage := tabs.Pages[6]
+	if goalsPage.Slug != "goals" {
+		t.Errorf("Expected goals page slug 'goals', got '%s'", goalsPage.Slug)
+	}
+	if len(goalsPage.Modules) != 1 || goalsPage.Modules[0].Type != "goals" {
+		t.Errorf("unexpected goals page modules: %+v", goalsPage.Modules)
+	}
+
+	infoPage := tabs.Pages[7]
 	if infoPage.Slug != "information" {
 		t.Errorf("Expected fifth page slug 'information', got '%s'", infoPage.Slug)
 	}
@@ -135,8 +143,8 @@ func TestGetTabs_WithoutTemplate(t *testing.T) {
 	if tabs.TemplateName != "Default template" {
 		t.Errorf("Expected fallback to 'Default template', got '%s'", tabs.TemplateName)
 	}
-	if len(tabs.Pages) != 7 {
-		t.Fatalf("Expected 7 pages, got %d", len(tabs.Pages))
+	if len(tabs.Pages) != 8 {
+		t.Fatalf("Expected 8 pages, got %d", len(tabs.Pages))
 	}
 }
 
@@ -190,8 +198,8 @@ func TestGetTabs_HidesInvisiblePages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetTabs failed: %v", err)
 	}
-	if len(tabs.Pages) != 6 {
-		t.Fatalf("Expected 6 visible pages, got %d", len(tabs.Pages))
+	if len(tabs.Pages) != 7 {
+		t.Fatalf("Expected 7 visible pages, got %d", len(tabs.Pages))
 	}
 	for _, visiblePage := range tabs.Pages {
 		if visiblePage.Slug == "relationship-network" {

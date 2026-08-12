@@ -51,7 +51,7 @@ import { Invitations } from "./generated/Invitations";
 import { Instance } from "./generated/Instance";
 import { JournalMetrics } from "./generated/JournalMetrics";
 import { Journals } from "./generated/Journals";
-import { LifeEvents } from "./generated/LifeEvents";
+import { Activities } from "./generated/Activities";
 import { LifeMetrics } from "./generated/LifeMetrics";
 import { Loans } from "./generated/Loans";
 import { MoodTracking } from "./generated/MoodTracking";
@@ -135,7 +135,7 @@ httpClient.instance.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   // Forward the active UI language so the backend uses the right locale for
-  // seeded labels (mood params, life events, …) and personalize sync. Without
+  // seeded labels (mood params, activities, …) and personalize sync. Without
   // this header the backend's locale middleware defaults to "en", which made
   // "Sync translations" silently overwrite Chinese labels with English and
   // caused freshly registered Chinese vaults to be seeded in English.
@@ -360,7 +360,7 @@ export const api = {
   instance: new Instance(httpClient),
   journalMetrics: new JournalMetrics(httpClient),
   journals: new Journals(httpClient),
-  lifeEvents: new LifeEvents(httpClient),
+  activities: new Activities(httpClient),
   lifeMetrics: new LifeMetrics(httpClient),
   loans: new Loans(httpClient),
   moodTracking: new MoodTracking(httpClient),
@@ -449,7 +449,7 @@ export type { GithubComNaibaBondsInternalDtoRelationshipResponse as Relationship
 export type { GithubComNaibaBondsInternalDtoRelationshipTypeWithGroupResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCrossVaultContactItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoGoalResponse as Goal } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoLifeEventResponse as LifeEvent } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoActivityResponse as Activity } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoQuickFactResponse as QuickFact } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoQuickFactGroupResponse as QuickFactGroup } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCreateQuickFactRequest as CreateQuickFactRequest } from "./generated/data-contracts";
@@ -492,8 +492,8 @@ export type { GithubComNaibaBondsInternalDtoCurrencyResponse as Currency } from 
 export type { GithubComNaibaBondsInternalDtoLabelResponse as LabelResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoImportantDateTypeResponse as ImportantDateTypeResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoMoodTrackingParameterResponse as MoodTrackingParameterResponse } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoLifeEventCategoryResponse as LifeEventCategoryResponse } from "./generated/data-contracts";
-export type { GithubComNaibaBondsInternalDtoLifeEventTypeResponse as LifeEventCategoryTypeResponse } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoActivityCategoryResponse as ActivityCategoryResponse } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoActivityTypeResponse as ActivityCategoryTypeResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoQuickFactTemplateResponse as QuickFactTemplateResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCreateQuickFactTemplateRequest as CreateQuickFactTemplateRequest } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoUpdateQuickFactTemplateRequest as UpdateQuickFactTemplateRequest } from "./generated/data-contracts";

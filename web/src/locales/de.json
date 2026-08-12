@@ -158,8 +158,7 @@
       "no_consulted": "Noch keine Kontakte aufgerufen"
     },
     "dashboard": {
-      "activity_tab": "Aktivitäten",
-      "life_events_tab": "Lebensereignisse",
+      "activities_tab": "Aktivitäten",
       "life_metrics_tab": "Lebensdaten",
       "recent_contacts": "Kürzliche Kontakte",
       "most_consulted": "Am häufigsten aufgerufen",
@@ -175,7 +174,7 @@
       "events_this_year": "Ereignisse dieses Jahr",
       "show_graph": "Diagramm anzeigen",
       "no_metrics": "Mit Lebensdaten können Sie für Sie wichtige Metriken verfolgen.",
-      "no_life_events": "Noch keine Lebensereignisse erfasst",
+      "no_activities": "Noch keine Aktivitäten erfasst",
       "mood_title": "Stimmung erfassen",
       "mood_how_are_you": "Wie geht es Ihnen?",
       "mood_record": "Stimmung erfassen",
@@ -189,19 +188,15 @@
       "due_tasks": "Fällige Aufgaben",
       "no_tasks": "Keine Aufgaben fällig",
       "view_all": "Alle anzeigen",
-      "add_life_event": "Lebensereignis hinzufügen",
       "select_category": "Kategorie auswählen",
       "select_type": "Ereignistyp auswählen",
-      "life_event_summary": "Zusammenfassung",
-      "life_event_description": "Beschreibung",
-      "life_event_added": "Lebensereignis hinzugefügt",
-      "life_event_date": "Datum",
       "catch_up_title": "Kontakt halten",
       "no_catch_up": "Kein Kontakt fällig",
       "catch_up_due": "{{days}} Tage überfällig",
       "catch_up_last_talked": "Zuletzt gesprochen {{date}}",
       "catch_up_mark": "Erledigt",
-      "catch_up_marked": "Kontakt erfasst"
+      "catch_up_marked": "Kontakt erfasst",
+      "feed_tab": "Feed"
     },
     "calendar": {
       "title": "Kalender",
@@ -633,8 +628,9 @@
         "relationships": "Beziehungen",
         "information": "Informationen",
         "activities": "Aktivitäten",
-        "life": "Leben",
-        "photos_docs": "Medien & Dokumente"
+        "photos_docs": "Medien & Dokumente",
+        "operations": "Aufgaben & Nachverfolgung",
+        "goals": "Ziele"
       },
       "first_name": "Vorname",
       "last_name": "Nachname",
@@ -973,33 +969,19 @@
       "one_way_only": "nur einseitig",
       "one_way_hint": "Sie haben keine Bearbeitungsberechtigung für den Tresor dieses Kontakts. Es wird nur eine einseitige Beziehung erstellt."
     },
-    "life_events": {
-      "title": "Lebensereignisse",
+    "activities": {
+      "title": "Aktivitäten",
       "participants": "Weitere Teilnehmer",
       "participants_placeholder": "Teilnehmer auswählen...",
-      "add_activity": "Aktivität hinzufügen",
       "place": "Ort",
       "duration_minutes": "Dauer (Minuten)",
       "self_participant": "Sie",
-      "event": "Ereignis",
-      "delete_event_confirm": "Löschen?",
-      "event_added": "Lebensereignis hinzugefügt",
-      "event_updated": "Lebensereignis aktualisiert",
-      "event_deleted": "Lebensereignis gelöscht",
-      "event_modal": "Lebensereignis hinzufügen",
-      "edit_event": "Lebensereignis bearbeiten",
-      "toggle_event": "Ereignis umschalten",
-      "event_toggled": "Ereignis umgeschaltet",
-      "label": "Bezeichnung",
       "title_label": "Titel",
-      "started_at": "Begonnen am",
       "happened_at": "Wann",
-      "add_event": "Lebensereignis hinzufügen",
-      "add_first_event": "Erstes Lebensereignis hinzufügen",
       "empty_description": "Halte die prägenden Momente im Leben dieser Person fest.",
       "empty_description_vault": "Halte wichtige Momente in diesem Tresor fest.",
-      "saved": "Lebensereignis gespeichert",
-      "type": "Ereignistyp",
+      "saved": "Aktivität gespeichert",
+      "type": "Aktivitätstyp",
       "description": "Beschreibung",
       "description_placeholder": "Beschreibe, was passiert ist. Mit @ einen Kontakt erwähnen...",
       "related_experience": "Zugehörige Erfahrung (optional)",
@@ -1013,7 +995,12 @@
       "end_unknown": "Beendet, Datum unbekannt",
       "precision_day": "Tag",
       "precision_month": "Monat",
-      "precision_year": "Jahr"
+      "precision_year": "Jahr",
+      "add": "Aktivität hinzufügen",
+      "edit": "Aktivität bearbeiten",
+      "delete_confirm": "Diese Aktivität löschen?",
+      "deleted": "Aktivität gelöscht",
+      "add_first": "Erste Aktivität hinzufügen"
     },
     "mood_tracking": {
       "title": "Stimmungsverfolgung",
@@ -1157,7 +1144,6 @@
       "currencies": "Währungen",
       "religions": "Religionen",
       "call_reasons": "Anrufgründe",
-      "life_event_categories": "Lebensereigniskategorien",
       "gift_occasions": "Geschenkanlässe",
       "gift_states": "Geschenkstatus",
       "pages": "Seiten",
@@ -1195,7 +1181,8 @@
       "sync_translations": "Übersetzungen synchronisieren",
       "sync_translations_desc": "Standardbezeichnungen an Ihre aktuelle Sprache anpassen. Benutzerdefinierte Bezeichnungen werden nicht geändert.",
       "sync_success": "Übersetzungen synchronisiert",
-      "sync_confirm": "Dadurch werden alle Standardbezeichnungen an Ihre aktuelle Sprache angepasst. Benutzerdefinierte Bezeichnungen bleiben unverändert. Fortfahren?"
+      "sync_confirm": "Dadurch werden alle Standardbezeichnungen an Ihre aktuelle Sprache angepasst. Benutzerdefinierte Bezeichnungen bleiben unverändert. Fortfahren?",
+      "activity_categories": "Aktivitätskategorien"
     },
     "users": {
       "title": "Benutzer",
@@ -1375,7 +1362,7 @@
     "tags": "Tags",
     "date_types": "Wichtige Datumstypen",
     "mood_params": "Stimmungsparameter",
-    "life_events": "Lebensereignisse",
+    "activities": "Aktivitäten",
     "quick_facts": "Schnellinfo-Vorlagen",
     "tabs": "Tab-Sichtbarkeit",
     "users": "Benutzer",
@@ -1397,8 +1384,6 @@
     "template_updated": "Tresor-Vorlage aktualisiert",
     "template_description": "Neue Kontakte verwenden diese Vorlage",
     "select_template": "Vorlage auswählen",
-    "life_event_category_updated": "Lebensereigniskategorie aktualisiert",
-    "life_event_type_updated": "Lebensereignistyp aktualisiert",
     "move_up": "Nach oben",
     "move_down": "Nach unten",
     "quick_fact_templates": {
@@ -1482,7 +1467,7 @@
       "reminders": "Erinnerungen",
       "relationships": "Beziehungen",
       "addresses": "Adressen",
-      "life_events": "Lebensereignisse",
+      "activities": "Aktivitäten",
       "documents": "Dokumente",
       "photos": "Fotos",
       "skipped": "Übersprungen",
@@ -1495,7 +1480,9 @@
     "name_order_override": "Tresorspezifische Reihenfolge verwenden",
     "name_order_condition_help": "Optionale Segmente können bedingte Syntax verwenden, z. B. {nickname? (%nickname%)}.",
     "name_order_save": "Überschreibung speichern",
-    "name_order_clear": "Globale Einstellung verwenden"
+    "name_order_clear": "Globale Einstellung verwenden",
+    "activity_category_updated": "Aktivitätskategorie aktualisiert",
+    "activity_type_updated": "Aktivitätstyp aktualisiert"
   },
   "backups": {
     "title": "Backups",

@@ -68,7 +68,7 @@ type Contact struct {
 	Goals               []Goal                 `json:"goals,omitempty" gorm:"foreignKey:ContactID"`
 	Groups              []Group                `json:"groups,omitempty" gorm:"many2many:contact_group"`
 	Posts               []Post                 `json:"posts,omitempty" gorm:"many2many:contact_post"`
-	LifeEvents          []LifeEvent            `json:"life_events,omitempty" gorm:"many2many:life_event_participants"`
+	Activities          []Activity             `json:"activities,omitempty" gorm:"many2many:activity_participants"`
 	Addresses           []Address              `json:"addresses,omitempty" gorm:"many2many:contact_address"`
 	QuickFacts          []QuickFact            `json:"quick_facts,omitempty" gorm:"foreignKey:ContactID"`
 	// LifeMetrics relation removed: pivot table now used as event log, not a static association

@@ -4665,8 +4665,8 @@ func TestContactTabs_Success(t *testing.T) {
 	if tabs.TemplateName != "Default template" {
 		t.Errorf("expected 'Default template', got '%s'", tabs.TemplateName)
 	}
-	if len(tabs.Pages) != 7 {
-		t.Fatalf("expected 7 pages, got %d", len(tabs.Pages))
+	if len(tabs.Pages) != 8 {
+		t.Fatalf("expected 8 pages, got %d", len(tabs.Pages))
 	}
 	if tabs.Pages[0].Slug != "summary" {
 		t.Errorf("expected first page slug 'summary', got '%s'", tabs.Pages[0].Slug)
@@ -6137,16 +6137,16 @@ func assertHandlerParticipantIDs(t *testing.T, participants []struct {
 	}
 }
 
-func TestLifeEvent_CreateListUpdateDelete(t *testing.T) {
+func TestActivity_CreateListUpdateDelete(t *testing.T) {
 	ts := setupTestServer(t)
-	token, _ := ts.registerTestUser(t, "life-event-api@example.com")
-	vault := ts.createTestVault(t, token, "Life Event Vault")
+	token, _ := ts.registerTestUser(t, "activity-api@example.com")
+	vault := ts.createTestVault(t, token, "Activity Vault")
 	contact := ts.createTestContact(t, token, vault.ID, "Primary")
 	mentioned := ts.createTestContact(t, token, vault.ID, "Mentioned")
 	var typeID uint
-	ts.db.Raw("SELECT life_event_types.id FROM life_event_types JOIN life_event_categories ON life_event_categories.id = life_event_types.life_event_category_id WHERE life_event_categories.vault_id = ? LIMIT 1", vault.ID).Scan(&typeID)
-	body := fmt.Sprintf("{\"primary_contact_id\":%q,\"life_event_type_id\":%d,\"title\":\"Dinner\",\"description\":\"Dinner with @[Mentioned](contact:%s)\",\"start_date\":\"2026-06-20T00:00:00Z\",\"start_precision\":\"day\",\"end_status\":\"none\"}", contact.ID, typeID, mentioned.ID)
-	rec := ts.doRequest(http.MethodPost, fmt.Sprintf("/api/vaults/%s/lifeEvents", vault.ID), body, token)
+	ts.db.Raw("SELECT activity_types.id FROM activity_types JOIN activity_categories ON activity_categories.id = activity_types.activity_category_id WHERE activity_categories.vault_id = ? LIMIT 1", vault.ID).Scan(&typeID)
+	body := fmt.Sprintf("{\"primary_contact_id\":%q,\"activity_type_id\":%d,\"title\":\"Dinner\",\"description\":\"Dinner with @[Mentioned](contact:%s)\",\"start_date\":\"2026-06-20T00:00:00Z\",\"start_precision\":\"day\",\"end_status\":\"none\"}", contact.ID, typeID, mentioned.ID)
+	rec := ts.doRequest(http.MethodPost, fmt.Sprintf("/api/vaults/%s/activities", vault.ID), body, token)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
@@ -6167,29 +6167,29 @@ func TestLifeEvent_CreateListUpdateDelete(t *testing.T) {
 	}
 	assertHandlerParticipantIDs(t, created.Participants, contact.ID, mentioned.ID)
 
-	rec = ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/lifeEvents?contact_id=%s", vault.ID, mentioned.ID), "", token)
+	rec = ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/activities?contact_id=%s", vault.ID, mentioned.ID), "", token)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list: %d %s", rec.Code, rec.Body.String())
 	}
-	update := fmt.Sprintf("{\"primary_contact_id\":%q,\"life_event_type_id\":%d,\"title\":\"Dinner updated\",\"start_date\":\"2026-06-20T00:00:00Z\",\"start_precision\":\"day\",\"end_status\":\"ongoing\"}", contact.ID, typeID)
-	rec = ts.doRequest(http.MethodPut, fmt.Sprintf("/api/vaults/%s/lifeEvents/%d", vault.ID, created.ID), update, token)
+	update := fmt.Sprintf("{\"primary_contact_id\":%q,\"activity_type_id\":%d,\"title\":\"Dinner updated\",\"start_date\":\"2026-06-20T00:00:00Z\",\"start_precision\":\"day\",\"end_status\":\"ongoing\"}", contact.ID, typeID)
+	rec = ts.doRequest(http.MethodPut, fmt.Sprintf("/api/vaults/%s/activities/%d", vault.ID, created.ID), update, token)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("update: %d %s", rec.Code, rec.Body.String())
 	}
-	rec = ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/lifeEvents/%d", vault.ID, created.ID), "", token)
+	rec = ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/activities/%d", vault.ID, created.ID), "", token)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("delete: %d %s", rec.Code, rec.Body.String())
 	}
 }
-func TestVaultSettingsLifeEventTypeCRUDViaTypesRoutes(t *testing.T) {
+func TestVaultSettingsActivityTypeCRUDViaTypesRoutes(t *testing.T) {
 	ts := setupTestServer(t)
-	token, _ := ts.registerTestUser(t, "life-event-types-routes@example.com")
-	vault := ts.createTestVault(t, token, "Life Event Types Routes Vault")
+	token, _ := ts.registerTestUser(t, "activity-types-routes@example.com")
+	vault := ts.createTestVault(t, token, "Activity Types Routes Vault")
 
 	categoryBody := `{"label":"Route Category"}`
-	rec := ts.doRequest(http.MethodPost, fmt.Sprintf("/api/vaults/%s/settings/lifeEventCategories", vault.ID), categoryBody, token)
+	rec := ts.doRequest(http.MethodPost, fmt.Sprintf("/api/vaults/%s/settings/activityCategories", vault.ID), categoryBody, token)
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("create life event category: expected 201, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("create activity category: expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 	resp := parseResponse(t, rec)
 	var category struct {
@@ -6203,9 +6203,9 @@ func TestVaultSettingsLifeEventTypeCRUDViaTypesRoutes(t *testing.T) {
 	}
 
 	createTypeBody := `{"label":"Route Type"}`
-	rec = ts.doRequest(http.MethodPost, fmt.Sprintf("/api/vaults/%s/settings/lifeEventCategories/%d/types", vault.ID, category.ID), createTypeBody, token)
+	rec = ts.doRequest(http.MethodPost, fmt.Sprintf("/api/vaults/%s/settings/activityCategories/%d/types", vault.ID, category.ID), createTypeBody, token)
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("create life event type via /types route: expected 201, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("create activity type via /types route: expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 	resp = parseResponse(t, rec)
 	var createdType struct {
@@ -6220,9 +6220,9 @@ func TestVaultSettingsLifeEventTypeCRUDViaTypesRoutes(t *testing.T) {
 	}
 
 	updateTypeBody := `{"label":"Route Type Updated"}`
-	rec = ts.doRequest(http.MethodPut, fmt.Sprintf("/api/vaults/%s/settings/lifeEventCategories/%d/types/%d", vault.ID, category.ID, createdType.ID), updateTypeBody, token)
+	rec = ts.doRequest(http.MethodPut, fmt.Sprintf("/api/vaults/%s/settings/activityCategories/%d/types/%d", vault.ID, category.ID, createdType.ID), updateTypeBody, token)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("update life event type via /types route: expected 200, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("update activity type via /types route: expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 	resp = parseResponse(t, rec)
 	var updatedType struct {
@@ -6235,28 +6235,28 @@ func TestVaultSettingsLifeEventTypeCRUDViaTypesRoutes(t *testing.T) {
 		t.Fatalf("expected updated type label Route Type Updated, got %+v", updatedType)
 	}
 
-	rec = ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/settings/lifeEventCategories/%d/types/%d", vault.ID, category.ID, createdType.ID), "", token)
+	rec = ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/settings/activityCategories/%d/types/%d", vault.ID, category.ID, createdType.ID), "", token)
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("delete life event type via /types route: expected 204, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("delete activity type via /types route: expected 204, got %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var deletedCount int64
-	if err := ts.db.Model(&models.LifeEventType{}).Where("id = ?", createdType.ID).Count(&deletedCount).Error; err != nil {
-		t.Fatalf("count deleted life event type failed: %v", err)
+	if err := ts.db.Model(&models.ActivityType{}).Where("id = ?", createdType.ID).Count(&deletedCount).Error; err != nil {
+		t.Fatalf("count deleted activity type failed: %v", err)
 	}
 	if deletedCount != 0 {
-		t.Fatalf("expected deleted life event type count 0, got %d", deletedCount)
+		t.Fatalf("expected deleted activity type count 0, got %d", deletedCount)
 	}
 }
 
-func TestVaultSettingsDeleteSeededLifeEventTypeViaTypesRoutes(t *testing.T) {
+func TestVaultSettingsDeleteSeededActivityTypeViaTypesRoutes(t *testing.T) {
 	ts := setupTestServer(t)
-	token, _ := ts.registerTestUser(t, "seeded-life-event-type-delete@example.com")
-	vault := ts.createTestVault(t, token, "Seeded Life Event Types Vault")
+	token, _ := ts.registerTestUser(t, "seeded-activity-type-delete@example.com")
+	vault := ts.createTestVault(t, token, "Seeded Activity Types Vault")
 
-	rec := ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/settings/lifeEventCategories", vault.ID), "", token)
+	rec := ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/settings/activityCategories", vault.ID), "", token)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("list life event categories: expected 200, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("list activity categories: expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 	resp := parseResponse(t, rec)
 	var categories []struct {
@@ -6269,33 +6269,33 @@ func TestVaultSettingsDeleteSeededLifeEventTypeViaTypesRoutes(t *testing.T) {
 		t.Fatalf("parse seeded categories failed: %v", err)
 	}
 	if len(categories) == 0 || len(categories[0].Types) == 0 {
-		t.Fatal("expected seeded life event category and type")
+		t.Fatal("expected seeded activity category and type")
 	}
 	targetCategoryID := categories[0].ID
 	targetTypeID := categories[0].Types[0].ID
 
-	rec = ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/settings/lifeEventCategories/%d/types/%d", vault.ID, targetCategoryID, targetTypeID), "", token)
+	rec = ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/settings/activityCategories/%d/types/%d", vault.ID, targetCategoryID, targetTypeID), "", token)
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("delete seeded life event type via /types route: expected 204, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("delete seeded activity type via /types route: expected 204, got %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var deletedCount int64
-	if err := ts.db.Model(&models.LifeEventType{}).Where("id = ?", targetTypeID).Count(&deletedCount).Error; err != nil {
-		t.Fatalf("count deleted seeded life event type failed: %v", err)
+	if err := ts.db.Model(&models.ActivityType{}).Where("id = ?", targetTypeID).Count(&deletedCount).Error; err != nil {
+		t.Fatalf("count deleted seeded activity type failed: %v", err)
 	}
 	if deletedCount != 0 {
-		t.Fatalf("expected deleted seeded life event type count 0, got %d", deletedCount)
+		t.Fatalf("expected deleted seeded activity type count 0, got %d", deletedCount)
 	}
 }
 
-func TestVaultSettingsDeleteSeededLifeEventCategory(t *testing.T) {
+func TestVaultSettingsDeleteSeededActivityCategory(t *testing.T) {
 	ts := setupTestServer(t)
-	token, _ := ts.registerTestUser(t, "seeded-life-event-category-delete@example.com")
-	vault := ts.createTestVault(t, token, "Seeded Life Event Categories Vault")
+	token, _ := ts.registerTestUser(t, "seeded-activity-category-delete@example.com")
+	vault := ts.createTestVault(t, token, "Seeded Activity Categories Vault")
 
-	rec := ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/settings/lifeEventCategories", vault.ID), "", token)
+	rec := ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/settings/activityCategories", vault.ID), "", token)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("list life event categories: expected 200, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("list activity categories: expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 	resp := parseResponse(t, rec)
 	var categories []struct {
@@ -6305,25 +6305,25 @@ func TestVaultSettingsDeleteSeededLifeEventCategory(t *testing.T) {
 		t.Fatalf("parse seeded categories failed: %v", err)
 	}
 	if len(categories) == 0 {
-		t.Fatal("expected seeded life event category")
+		t.Fatal("expected seeded activity category")
 	}
 	targetCategoryID := categories[0].ID
 
-	rec = ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/settings/lifeEventCategories/%d", vault.ID, targetCategoryID), "", token)
+	rec = ts.doRequest(http.MethodDelete, fmt.Sprintf("/api/vaults/%s/settings/activityCategories/%d", vault.ID, targetCategoryID), "", token)
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("delete seeded life event category: expected 204, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("delete seeded activity category: expected 204, got %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var deletedCategoryCount int64
-	if err := ts.db.Model(&models.LifeEventCategory{}).Where("id = ?", targetCategoryID).Count(&deletedCategoryCount).Error; err != nil {
-		t.Fatalf("count deleted seeded life event category failed: %v", err)
+	if err := ts.db.Model(&models.ActivityCategory{}).Where("id = ?", targetCategoryID).Count(&deletedCategoryCount).Error; err != nil {
+		t.Fatalf("count deleted seeded activity category failed: %v", err)
 	}
 	if deletedCategoryCount != 0 {
-		t.Fatalf("expected deleted seeded life event category count 0, got %d", deletedCategoryCount)
+		t.Fatalf("expected deleted seeded activity category count 0, got %d", deletedCategoryCount)
 	}
 
 	var orphanTypeCount int64
-	if err := ts.db.Model(&models.LifeEventType{}).Where("life_event_category_id = ?", targetCategoryID).Count(&orphanTypeCount).Error; err != nil {
+	if err := ts.db.Model(&models.ActivityType{}).Where("activity_category_id = ?", targetCategoryID).Count(&orphanTypeCount).Error; err != nil {
 		t.Fatalf("count seeded category child types failed: %v", err)
 	}
 	if orphanTypeCount != 0 {

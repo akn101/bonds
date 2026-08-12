@@ -29,9 +29,9 @@ Se você está migrando do Monica CRM (versão 4.x), Bonds pode importar seus da
 | Presentes | Presentes |
 | Dívidas | Empréstimos |
 | Relacionamentos | Relacionamentos (correspondidos por nome do tipo) |
-| Eventos da vida | Eventos da Vida + Linha do Tempo |
+| Eventos da vida (campo legado do Monica) | Atividades |
 | Fotos e Documentos | Arquivos (decodificados de base64 e armazenados) |
-| Atividades | Notas (rebaixadas com prefixo de tipo) |
+| Atividades (campo legado do Monica) | Notas (rebaixadas com prefixo de tipo) |
 | Conversas | Notas (registro de chat formatado) |
 
 ### Tratamento Especializado de Importação Monica

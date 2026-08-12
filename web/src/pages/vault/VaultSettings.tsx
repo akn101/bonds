@@ -46,8 +46,8 @@ import type {
   UpdateVaultSettingsRequest,
   VaultUserResponse,
   LabelResponse,
-  LifeEventCategoryResponse,
-  LifeEventCategoryTypeResponse,
+  ActivityCategoryResponse,
+  ActivityCategoryTypeResponse,
   CreateQuickFactTemplateRequest,
   GithubComNaibaBondsInternalDtoCreateImportantDateTypeRequest,
   GithubComNaibaBondsInternalDtoCreateMoodTrackingParameterRequest,
@@ -294,15 +294,15 @@ export default function VaultSettings() {
     }): Promise<void> => {
       const vid = String(vaultId);
       switch (entityType) {
-        case "lifeEventCategories":
-          await api.vaultSettings.settingsLifeEventCategoriesPositionCreate(
+        case "activityCategories":
+          await api.vaultSettings.settingsActivityCategoriesPositionCreate(
             vid,
             id,
             { position },
           );
           break;
-        case "lifeEventTypes":
-          await api.vaultSettings.settingsLifeEventCategoriesLifeEventTypesPositionCreate(
+        case "activityTypes":
+          await api.vaultSettings.settingsActivityCategoriesActivityTypesPositionCreate(
             vid,
             categoryId!,
             id,
@@ -326,11 +326,11 @@ export default function VaultSettings() {
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["vault", vaultId] });
       if (
-        vars.entityType === "lifeEventCategories" ||
-        vars.entityType === "lifeEventTypes"
+        vars.entityType === "activityCategories" ||
+        vars.entityType === "activityTypes"
       ) {
         queryClient.invalidateQueries({
-          queryKey: ["vault", vaultId, "lifeEventCategories"],
+          queryKey: ["vault", vaultId, "activityCategories"],
         });
       } else {
         queryClient.invalidateQueries({
@@ -1583,14 +1583,14 @@ export default function VaultSettings() {
     );
   };
 
-  // Life Event Categories - Nested CRUD
-  const LifeEventsTab = () => {
-    const queryKey = ["vault", vaultId, "lifeEventCategories"];
+  // Activity Categories - Nested CRUD
+  const ActivitiesTab = () => {
+    const queryKey = ["vault", vaultId, "activityCategories"];
     const { data: categories = [] } = useQuery({
       queryKey,
       queryFn: async () =>
         (
-          await api.vaultSettings.settingsLifeEventCategoriesList(
+          await api.vaultSettings.settingsActivityCategoriesList(
             String(vaultId),
           )
         ).data ?? [],
@@ -1598,7 +1598,7 @@ export default function VaultSettings() {
 
     const createCategory = useMutation({
       mutationFn: (data: { label: string }) =>
-        api.vaultSettings.settingsLifeEventCategoriesCreate(
+        api.vaultSettings.settingsActivityCategoriesCreate(
           String(vaultId),
           data,
         ),
@@ -1609,14 +1609,14 @@ export default function VaultSettings() {
     });
     const updateCategory = useMutation({
       mutationFn: ({ id, data }: { id: number; data: { label: string } }) =>
-        api.vaultSettings.settingsLifeEventCategoriesUpdate(
+        api.vaultSettings.settingsActivityCategoriesUpdate(
           String(vaultId),
           id,
           data,
         ),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey });
-        message.success(t("vault_settings.life_event_category_updated"));
+        message.success(t("vault_settings.activity_category_updated"));
         setEditingCatId(null);
         setEditingCatLabel("");
       },
@@ -1624,7 +1624,7 @@ export default function VaultSettings() {
     });
     const deleteCategory = useMutation({
       mutationFn: (id: number) =>
-        api.vaultSettings.settingsLifeEventCategoriesDelete(
+        api.vaultSettings.settingsActivityCategoriesDelete(
           String(vaultId),
           id,
         ),
@@ -1642,7 +1642,7 @@ export default function VaultSettings() {
         catId: number;
         data: { label: string };
       }) =>
-        api.vaultSettings.settingsLifeEventCategoriesTypesCreate(
+        api.vaultSettings.settingsActivityCategoriesTypesCreate(
           String(vaultId),
           catId,
           data,
@@ -1663,7 +1663,7 @@ export default function VaultSettings() {
         typeId: number;
         data: { label: string };
       }) =>
-        api.vaultSettings.settingsLifeEventCategoriesTypesUpdate(
+        api.vaultSettings.settingsActivityCategoriesTypesUpdate(
           String(vaultId),
           catId,
           typeId,
@@ -1671,7 +1671,7 @@ export default function VaultSettings() {
         ),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey });
-        message.success(t("vault_settings.life_event_type_updated"));
+        message.success(t("vault_settings.activity_type_updated"));
         setEditingTypeId(null);
         setEditingTypeLabel("");
       },
@@ -1680,7 +1680,7 @@ export default function VaultSettings() {
 
     const deleteType = useMutation({
       mutationFn: ({ catId, typeId }: { catId: number; typeId: number }) =>
-        api.vaultSettings.settingsLifeEventCategoriesTypesDelete(
+        api.vaultSettings.settingsActivityCategoriesTypesDelete(
           String(vaultId),
           catId,
           typeId,
@@ -1735,10 +1735,10 @@ export default function VaultSettings() {
           </Space>
         </Card>
 
-        <Card title={t("vault_settings.life_events")}>
+        <Card title={t("vault_settings.activities")}>
           <Collapse accordion>
             {categories.map(
-              (cat: LifeEventCategoryResponse, catIndex: number) => (
+              (cat: ActivityCategoryResponse, catIndex: number) => (
                 <Collapse.Panel
                   key={cat.id!}
                   header={
@@ -1797,7 +1797,7 @@ export default function VaultSettings() {
                         onClick={(e) => {
                           e.stopPropagation();
                           positionMutation.mutate({
-                            entityType: "lifeEventCategories",
+                            entityType: "activityCategories",
                             id: cat.id!,
                             position: catIndex - 1,
                           });
@@ -1811,7 +1811,7 @@ export default function VaultSettings() {
                         onClick={(e) => {
                           e.stopPropagation();
                           positionMutation.mutate({
-                            entityType: "lifeEventCategories",
+                            entityType: "activityCategories",
                             id: cat.id!,
                             position: catIndex + 1,
                           });
@@ -1865,7 +1865,7 @@ export default function VaultSettings() {
                       </Space>
                     }
                     renderItem={(
-                      type: LifeEventCategoryTypeResponse,
+                      type: ActivityCategoryTypeResponse,
                       typeIndex: number,
                     ) => (
                       <List.Item
@@ -1879,7 +1879,7 @@ export default function VaultSettings() {
                             disabled={typeIndex === 0}
                             onClick={() =>
                               positionMutation.mutate({
-                                entityType: "lifeEventTypes",
+                                entityType: "activityTypes",
                                 id: type.id!,
                                 position: typeIndex - 1,
                                 categoryId: cat.id!,
@@ -1897,7 +1897,7 @@ export default function VaultSettings() {
                             }
                             onClick={() =>
                               positionMutation.mutate({
-                                entityType: "lifeEventTypes",
+                                entityType: "activityTypes",
                                 id: type.id!,
                                 position: typeIndex + 1,
                                 categoryId: cat.id!,
@@ -2394,7 +2394,7 @@ export default function VaultSettings() {
                     ["reminders", importResult.imported_reminders],
                     ["relationships", importResult.imported_relationships],
                     ["addresses", importResult.imported_addresses],
-                    ["life_events", importResult.imported_life_events],
+                    ["activities", importResult.imported_activities],
                     ["documents", importResult.imported_documents],
                     ["photos", importResult.imported_photos],
                   ] as [string, number | undefined][]
@@ -2535,9 +2535,9 @@ export default function VaultSettings() {
       ),
     },
     {
-      key: "lifeEvents",
-      label: t("vault_settings.life_events"),
-      children: <LifeEventsTab />,
+      key: "activities",
+      label: t("vault_settings.activities"),
+      children: <ActivitiesTab />,
     },
     {
       key: "quickFacts",

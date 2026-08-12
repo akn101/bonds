@@ -398,24 +398,24 @@ func TestMoveManyMovesFullTasksLoansAndStripsMixedPivots(t *testing.T) {
 	assertMoveCount(t, svc, &models.ContactLoan{}, "loan_id = ?", 0, mixedLoan.ID)
 }
 
-func TestMoveManyCleansLifeEventPivotsAndOrphanEvent(t *testing.T) {
+func TestMoveManyCleansActivityPivotsAndOrphanEvent(t *testing.T) {
 	svc, contactID, vault1ID, vault2ID, userID := setupContactMoveTest(t)
-	lifeSvc := NewLifeEventService(svc.db)
-	typeID := getLifeEventTypeIDForMoveVault(t, svc, vault1ID)
+	lifeSvc := NewActivityService(svc.db)
+	typeID := getActivityTypeIDForMoveVault(t, svc, vault1ID)
 	started := time.Now()
-	created, err := lifeSvc.Create(vault1ID, dto.LifeEventUpsertRequest{
-		LifeEventTypeID: typeID, PrimaryContactID: contactID,
+	created, err := lifeSvc.Create(vault1ID, dto.ActivityUpsertRequest{
+		ActivityTypeID: typeID, PrimaryContactID: contactID,
 		StartDate: &started, Title: "Move cleanup",
 	})
 	if err != nil {
-		t.Fatalf("Create life event failed: %v", err)
+		t.Fatalf("Create activity failed: %v", err)
 	}
 
 	if _, err := svc.MoveMany([]string{contactID}, vault1ID, vault2ID, userID); err != nil {
 		t.Fatalf("MoveMany failed: %v", err)
 	}
-	assertMoveCount(t, svc, &models.LifeEventParticipant{}, "contact_id = ?", 0, contactID)
-	assertMoveCount(t, svc, &models.LifeEvent{}, "id = ?", 0, created.ID)
+	assertMoveCount(t, svc, &models.ActivityParticipant{}, "contact_id = ?", 0, contactID)
+	assertMoveCount(t, svc, &models.Activity{}, "id = ?", 0, created.ID)
 }
 
 func TestMoveManyAllowsArchivedContacts(t *testing.T) {
@@ -830,17 +830,17 @@ func assertMoveCount(t *testing.T, svc *ContactMoveService, model interface{}, q
 	}
 }
 
-func getLifeEventTypeIDForMoveVault(t *testing.T, svc *ContactMoveService, vaultID string) uint {
+func getActivityTypeIDForMoveVault(t *testing.T, svc *ContactMoveService, vaultID string) uint {
 	t.Helper()
 	var typeID uint
-	if err := svc.db.Model(&models.LifeEventType{}).
-		Joins("JOIN life_event_categories ON life_event_categories.id = life_event_types.life_event_category_id").
-		Where("life_event_categories.vault_id = ?", vaultID).
-		Select("life_event_types.id").Limit(1).Scan(&typeID).Error; err != nil {
-		t.Fatalf("load life event type failed: %v", err)
+	if err := svc.db.Model(&models.ActivityType{}).
+		Joins("JOIN activity_categories ON activity_categories.id = activity_types.activity_category_id").
+		Where("activity_categories.vault_id = ?", vaultID).
+		Select("activity_types.id").Limit(1).Scan(&typeID).Error; err != nil {
+		t.Fatalf("load activity type failed: %v", err)
 	}
 	if typeID == 0 {
-		t.Fatal("expected seeded life event type")
+		t.Fatal("expected seeded activity type")
 	}
 	return typeID
 }

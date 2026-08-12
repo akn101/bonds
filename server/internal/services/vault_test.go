@@ -66,9 +66,9 @@ func TestCreateVault(t *testing.T) {
 	}
 
 	var catCount int64
-	db.Model(&models.LifeEventCategory{}).Where("vault_id = ?", vault.ID).Count(&catCount)
+	db.Model(&models.ActivityCategory{}).Where("vault_id = ?", vault.ID).Count(&catCount)
 	if catCount != 5 {
-		t.Errorf("expected 5 LifeEventCategories, got %d", catCount)
+		t.Errorf("expected 5 ActivityCategories, got %d", catCount)
 	}
 
 	var qfCount int64
@@ -397,7 +397,7 @@ func TestDeleteVault_CleanupCompleteness(t *testing.T) {
 	vaultTables := []tableCheck{
 		{"ContactImportantDateType", &models.ContactImportantDateType{}},
 		{"MoodTrackingParameter", &models.MoodTrackingParameter{}},
-		{"LifeEventCategory", &models.LifeEventCategory{}},
+		{"ActivityCategory", &models.ActivityCategory{}},
 		{"VaultQuickFactsTemplate", &models.VaultQuickFactsTemplate{}},
 		{"Label", &models.Label{}},
 		{"Company", &models.Company{}},

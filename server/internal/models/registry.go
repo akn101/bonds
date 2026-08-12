@@ -63,10 +63,10 @@ func AllModels() []interface{} {
 		&PostTag{},
 		&SliceOfLife{},
 
-		&LifeEventCategory{},
-		&LifeEventType{},
-		&LifeEvent{},
-		&LifeEventParticipant{},
+		&ActivityCategory{},
+		&ActivityType{},
+		&Activity{},
+		&ActivityParticipant{},
 
 		&PetCategory{},
 		&Pet{},

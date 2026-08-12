@@ -8,7 +8,7 @@ import (
 )
 
 // TestCreateTaskWithLunarDueDate verifies the lunar-create contract for tasks
-// mirrors LifeEvent/Post: original_* persists, DueAt gets re-projected so kanban
+// mirrors Activity/Post: original_* persists, DueAt gets re-projected so kanban
 // position-by-due-date stays consistent across calendars.
 func TestCreateTaskWithLunarDueDate(t *testing.T) {
 	svc, contactID, vaultID, userID := setupTaskTest(t)
@@ -80,7 +80,7 @@ func TestCreateTaskWithoutDueDateIgnoresCalendarType(t *testing.T) {
 }
 
 // TestUpdateTaskSwitchesLunarToGregorianClearsOriginals — same contract as
-// LifeEvent's reverse-transition test; protects against persistent lunar
+// Activity's reverse-transition test; protects against persistent lunar
 // metadata after the user changes their mind.
 func TestUpdateTaskSwitchesLunarToGregorianClearsOriginals(t *testing.T) {
 	svc, contactID, vaultID, userID := setupTaskTest(t)

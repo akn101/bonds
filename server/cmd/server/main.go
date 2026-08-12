@@ -84,17 +84,17 @@ func main() {
 	if err := models.BackfillContactImportantDateTranslationKeys(db); err != nil {
 		log.Printf("WARNING: failed to backfill important date type translation keys: %v", err)
 	}
-	if err := models.BackfillLifeEventTaskPostCalendarTypes(db); err != nil {
-		log.Printf("WARNING: failed to backfill life event/task/post calendar types: %v", err)
+	if err := models.BackfillActivityTaskPostCalendarTypes(db); err != nil {
+		log.Printf("WARNING: failed to backfill activity/task/post calendar types: %v", err)
 	}
 	if err := models.BackfillHowWeMetQuickFactTemplates(db); err != nil {
 		log.Printf("WARNING: failed to backfill how-we-met quick fact templates: %v", err)
 	}
-	if err := models.BackfillLifeEventDefaultDeletability(db); err != nil {
-		log.Printf("WARNING: failed to backfill life event default deletability: %v", err)
+	if err := models.BackfillActivityDefaultDeletability(db); err != nil {
+		log.Printf("WARNING: failed to backfill activity default deletability: %v", err)
 	}
-	if err := models.BackfillInteractionLifeEventTypes(db); err != nil {
-		log.Printf("WARNING: failed to backfill interaction life event types: %v", err)
+	if err := models.BackfillInteractionActivityTypes(db); err != nil {
+		log.Printf("WARNING: failed to backfill interaction activity types: %v", err)
 	}
 	if err := models.BackfillMonicaActivityNotes(db); err != nil {
 		log.Printf("WARNING: failed to migrate Monica activity notes: %v", err)
@@ -105,7 +105,6 @@ func main() {
 	if err := models.BackfillContactTemplateLayout(db); err != nil {
 		log.Printf("WARNING: failed to backfill contact template layout: %v", err)
 	}
-
 	scheduler := cron.NewScheduler(db)
 	scheduler.Start()
 

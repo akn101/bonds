@@ -242,16 +242,16 @@ func (h *VaultFileHandler) ListAvatars(c echo.Context) error {
 	return response.Paginated(c, files, meta)
 }
 
-func (h *VaultHandler) UpdateDefaultTab(c echo.Context) error {
+func (h *VaultHandler) UpdateDefaultDashboardTab(c echo.Context) error {
 	vaultID := c.Param("vault_id")
-	var req dto.UpdateDefaultTabRequest
+	var req dto.UpdateDefaultDashboardTabRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
 	}
 	if err := validateRequest(req); err != nil {
 		return response.ValidationError(c, map[string]string{"validation": err.Error()})
 	}
-	if err := h.vaultService.UpdateDefaultTab(vaultID, req.DefaultActivityTab); err != nil {
+	if err := h.vaultService.UpdateDefaultDashboardTab(vaultID, req.DefaultDashboardTab); err != nil {
 		if errors.Is(err, services.ErrVaultNotFound) {
 			return response.NotFound(c, "err.vault_not_found")
 		}

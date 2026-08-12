@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func setupLifeEventTaskPostDB(t *testing.T) *gorm.DB {
+func setupActivityTaskPostDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
 		Logger:                                   logger.Default.LogMode(logger.Silent),
@@ -18,29 +18,29 @@ func setupLifeEventTaskPostDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&LifeEvent{}, &ContactTask{}, &Post{}); err != nil {
+	if err := db.AutoMigrate(&Activity{}, &ContactTask{}, &Post{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	return db
 }
 
-// TestBackfillLifeEventTaskPostCalendarTypes covers vault databases that
-// pre-date the CalendarType column: legacy LifeEvent / ContactTask / Post rows
+// TestBackfillActivityTaskPostCalendarTypes covers vault databases that
+// pre-date the CalendarType column: legacy Activity / ContactTask / Post rows
 // live with an empty calendar_type after AutoMigrate adds the column. Without
 // the backfill, downstream queries that filter on calendar_type=lunar would
 // quietly skip the empty rows when joining with reminders / list views,
 // because empty != gregorian in raw SQL — masking the difference between
 // "intentionally lunar" and "never set".
-func TestBackfillLifeEventTaskPostCalendarTypes(t *testing.T) {
-	db := setupLifeEventTaskPostDB(t)
+func TestBackfillActivityTaskPostCalendarTypes(t *testing.T) {
+	db := setupActivityTaskPostDB(t)
 
 	now := time.Now()
 	typeID := uint(1)
-	legacyLifeEvent := LifeEvent{VaultID: "v1", LifeEventTypeID: &typeID, StartDate: &now, Title: "Legacy"}
+	legacyActivity := Activity{VaultID: "v1", ActivityTypeID: &typeID, StartDate: &now, Title: "Legacy"}
 	legacyTask := ContactTask{VaultID: "v1", AuthorName: "a", Label: "l", DueAt: &now}
 	legacyPost := Post{JournalID: 1, WrittenAt: now}
-	if err := db.Create(&legacyLifeEvent).Error; err != nil {
-		t.Fatalf("create life event: %v", err)
+	if err := db.Create(&legacyActivity).Error; err != nil {
+		t.Fatalf("create activity: %v", err)
 	}
 	if err := db.Create(&legacyTask).Error; err != nil {
 		t.Fatalf("create task: %v", err)
@@ -56,7 +56,7 @@ func TestBackfillLifeEventTaskPostCalendarTypes(t *testing.T) {
 		table string
 		id    any
 	}{
-		{"life_events", legacyLifeEvent.ID},
+		{"activities", legacyActivity.ID},
 		{"contact_tasks", legacyTask.ID},
 		{"posts", legacyPost.ID},
 	} {
@@ -65,14 +65,14 @@ func TestBackfillLifeEventTaskPostCalendarTypes(t *testing.T) {
 		}
 	}
 
-	if err := BackfillLifeEventTaskPostCalendarTypes(db); err != nil {
+	if err := BackfillActivityTaskPostCalendarTypes(db); err != nil {
 		t.Fatalf("backfill: %v", err)
 	}
 
-	var reloadedEvent LifeEvent
+	var reloadedEvent Activity
 	var reloadedTask ContactTask
 	var reloadedPost Post
-	if err := db.First(&reloadedEvent, legacyLifeEvent.ID).Error; err != nil {
+	if err := db.First(&reloadedEvent, legacyActivity.ID).Error; err != nil {
 		t.Fatalf("reload event: %v", err)
 	}
 	if err := db.First(&reloadedTask, legacyTask.ID).Error; err != nil {
@@ -82,7 +82,7 @@ func TestBackfillLifeEventTaskPostCalendarTypes(t *testing.T) {
 		t.Fatalf("reload post: %v", err)
 	}
 	if reloadedEvent.CalendarType != "gregorian" {
-		t.Errorf("life event calendar_type = %q, want gregorian", reloadedEvent.CalendarType)
+		t.Errorf("activity calendar_type = %q, want gregorian", reloadedEvent.CalendarType)
 	}
 	if reloadedTask.CalendarType != "gregorian" {
 		t.Errorf("task calendar_type = %q, want gregorian", reloadedTask.CalendarType)
@@ -92,7 +92,7 @@ func TestBackfillLifeEventTaskPostCalendarTypes(t *testing.T) {
 	}
 
 	// Second invocation must be a no-op — runs on every server boot.
-	if err := BackfillLifeEventTaskPostCalendarTypes(db); err != nil {
+	if err := BackfillActivityTaskPostCalendarTypes(db); err != nil {
 		t.Fatalf("backfill (second run): %v", err)
 	}
 }
@@ -102,23 +102,23 @@ func TestBackfillLifeEventTaskPostCalendarTypes(t *testing.T) {
 // clause filters on empty/NULL — if that ever regresses to a blanket UPDATE,
 // users would silently lose their lunar anchors on the next boot.
 func TestBackfillPreservesNonGregorianRows(t *testing.T) {
-	db := setupLifeEventTaskPostDB(t)
+	db := setupActivityTaskPostDB(t)
 
 	now := time.Now()
 	d, m, y := 15, 8, 2026
-	lunarEvent := LifeEvent{
-		VaultID: "v1", LifeEventTypeID: func() *uint { value := uint(1); return &value }(), StartDate: &now, Title: "Lunar",
+	lunarEvent := Activity{
+		VaultID: "v1", ActivityTypeID: func() *uint { value := uint(1); return &value }(), StartDate: &now, Title: "Lunar",
 		CalendarType: "lunar", OriginalDay: &d, OriginalMonth: &m, OriginalYear: &y,
 	}
 	if err := db.Create(&lunarEvent).Error; err != nil {
 		t.Fatalf("create lunar event: %v", err)
 	}
 
-	if err := BackfillLifeEventTaskPostCalendarTypes(db); err != nil {
+	if err := BackfillActivityTaskPostCalendarTypes(db); err != nil {
 		t.Fatalf("backfill: %v", err)
 	}
 
-	var reloaded LifeEvent
+	var reloaded Activity
 	if err := db.First(&reloaded, lunarEvent.ID).Error; err != nil {
 		t.Fatalf("reload: %v", err)
 	}

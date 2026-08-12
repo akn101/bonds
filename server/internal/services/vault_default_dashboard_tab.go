@@ -7,8 +7,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// UpdateDefaultTab updates the default activity tab for a vault
-func (s *VaultService) UpdateDefaultTab(vaultID string, tab string) error {
+// UpdateDefaultDashboardTab updates the default dashboard tab for a vault.
+func (s *VaultService) UpdateDefaultDashboardTab(vaultID string, tab string) error {
 	var vault models.Vault
 	if err := s.db.First(&vault, "id = ?", vaultID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -16,5 +16,5 @@ func (s *VaultService) UpdateDefaultTab(vaultID string, tab string) error {
 		}
 		return err
 	}
-	return s.db.Model(&vault).Update("default_activity_tab", tab).Error
+	return s.db.Model(&vault).Update("default_dashboard_tab", tab).Error
 }

@@ -23,7 +23,7 @@ func NewCalendarICSService(db *gorm.DB) *CalendarICSService {
 }
 
 // ExportVault renders every dated item in a vault — important dates, reminders,
-// tasks and life events — into a single read-only iCalendar feed.
+// tasks and activities — into a single read-only iCalendar feed.
 func (s *CalendarICSService) ExportVault(vaultID, userID string) ([]byte, error) {
 	nameOrder, err := GetEffectiveVaultNameOrder(s.db, vaultID, userID)
 	if err != nil {
@@ -75,12 +75,12 @@ func (s *CalendarICSService) ExportVault(vaultID, userID string) ([]byte, error)
 		cal.Children = append(cal.Children, icsTaskToDo(&tasks[i]))
 	}
 
-	lifeEvents, err := s.listVaultLifeEvents(vaultID)
+	activities, err := s.listVaultActivities(vaultID)
 	if err != nil {
 		return nil, err
 	}
-	for i := range lifeEvents {
-		cal.Children = append(cal.Children, icsLifeEventEvent(&lifeEvents[i]))
+	for i := range activities {
+		cal.Children = append(cal.Children, icsActivityEvent(&activities[i]))
 	}
 
 	if len(cal.Children) == 0 {
@@ -120,10 +120,10 @@ func (s *CalendarICSService) listVaultTasks(vaultID string, contactIDs []string)
 	return tasks, nil
 }
 
-func (s *CalendarICSService) listVaultLifeEvents(vaultID string) ([]models.LifeEvent, error) {
-	var events []models.LifeEvent
+func (s *CalendarICSService) listVaultActivities(vaultID string) ([]models.Activity, error) {
+	var events []models.Activity
 	if err := s.db.
-		Where("life_events.vault_id = ?", vaultID).
+		Where("activities.vault_id = ?", vaultID).
 		Find(&events).Error; err != nil {
 		return nil, err
 	}
@@ -214,11 +214,11 @@ func icsTaskToDo(t *models.ContactTask) *ical.Component {
 	return todo
 }
 
-func icsLifeEventEvent(e *models.LifeEvent) *ical.Component {
+func icsActivityEvent(e *models.Activity) *ical.Component {
 	event := ical.NewComponent(ical.CompEvent)
-	event.Props.SetText(ical.PropUID, icsUID(nil, "life-event", e.ID))
+	event.Props.SetText(ical.PropUID, icsUID(nil, "activity", e.ID))
 
-	summary := "Life event"
+	summary := "Activity"
 	if e.Title != "" {
 		summary = e.Title
 	}

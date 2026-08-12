@@ -31,8 +31,7 @@ As páginas de edição de contacto são construídas a partir de **módulos**, 
 | Chamadas | Registos de chamadas telefônicas com anotações |
 | Presentes | Ideias de presentes e rastreamento |
 | Empréstimos | Dinheiro ou itens emprestados e tomados, incluindo quantidade, data do empréstimo, data de vencimento e status de devolução |
-| Atividades | Atividades e eventos compartilhados |
-| Eventos da vida | Marcos importantes (formatura, casamento, etc.), incluindo eventos compartilhados com outros contactos no mesmo cofre |
+| Atividades | Atividades e marcos importantes, incluindo atividades partilhadas com outros contactos no mesmo cofre |
 | Animais de estimação | Animais com nomes e categorias (categorias são geridas no nível da conta) |
 | Grupos | Associação do contacto a grupos |
 | Documentos | Ficheiros carregados (PDF, imagens) |
@@ -48,8 +47,9 @@ Os modelos controlam o layout das páginas de detalhes do contacto. Cada modelo 
 1. **Informações do contacto**: Avatar, nomes, datas importantes, género, etiquetas, empresa, religiões.
 2. **Feed**: Linha do tempo de atividades.
 3. **Social**: Relacionamentos, animais de estimação, grupos, endereços, métodos de contacto.
-4. **Vida e metas**: Eventos da vida, metas.
-5. **Informações**: Documentos, mídia, notas, lembretes, empréstimos, tarefas, chamadas, posts.
+4. **Atividades**: Atividades e marcos importantes.
+5. **Metas**: Metas pessoais e progresso.
+6. **Informações**: Documentos, mídia, notas, lembretes, empréstimos, tarefas, chamadas, posts.
 
 Modelos e atribuições de módulos são personalizáveis através das [definições de personalização](/pt-PT/features/admin#personalizacao).
 

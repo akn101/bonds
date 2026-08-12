@@ -963,7 +963,7 @@ func TestMonicaImportNotes(t *testing.T) {
 		t.Fatalf("Import failed: %v", err)
 	}
 	if resp.ImportedNotes != 3 {
-		t.Errorf("expected 3 imported notes (activity is a life event), got %d", resp.ImportedNotes)
+		t.Errorf("expected 3 imported notes (activity is an activity), got %d", resp.ImportedNotes)
 	}
 
 	var john models.Contact
@@ -1260,7 +1260,7 @@ func TestMonicaImportSkipsDebtsThatWouldCoupleUserToContact(t *testing.T) {
 	}
 }
 
-func TestMonicaImportLifeEvents(t *testing.T) {
+func TestMonicaImportLegacyLifeEventsAsActivities(t *testing.T) {
 	svc, vaultID, userID, _ := setupMonicaImportTest(t)
 	data := readMonicaFixture(t)
 
@@ -1268,27 +1268,27 @@ func TestMonicaImportLifeEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Import failed: %v", err)
 	}
-	if resp.ImportedLifeEvents != 2 {
-		t.Errorf("expected life event and activity, got %d", resp.ImportedLifeEvents)
+	if resp.ImportedActivities != 2 {
+		t.Errorf("expected one legacy life event and one activity, got %d", resp.ImportedActivities)
 	}
 
 	var john models.Contact
 	if err := svc.DB.Where("vault_id = ? AND first_name = ?", vaultID, "John").First(&john).Error; err != nil {
 		t.Fatalf("John not found: %v", err)
 	}
-	var participants []models.LifeEventParticipant
+	var participants []models.ActivityParticipant
 	if err := svc.DB.Where("contact_id = ?", john.ID).Find(&participants).Error; err != nil {
-		t.Fatalf("failed to query life_event_participants: %v", err)
+		t.Fatalf("failed to query activity_participants: %v", err)
 	}
 	if len(participants) != 2 {
-		t.Fatalf("expected life-event and activity participants, got %d", len(participants))
+		t.Fatalf("expected legacy-event and activity participants, got %d", len(participants))
 	}
-	var le models.LifeEvent
+	var le models.Activity
 	if err := svc.DB.Where("title = ?", "Got promoted").First(&le).Error; err != nil {
-		t.Fatalf("life event not found: %v", err)
+		t.Fatalf("activity not found: %v", err)
 	}
 	if le.Title != "Got promoted" {
-		t.Errorf("expected life event title=Got promoted, got %v", le.Title)
+		t.Errorf("expected activity title=Got promoted, got %v", le.Title)
 	}
 }
 
@@ -1458,8 +1458,8 @@ func TestMonicaImportActivities(t *testing.T) {
 		t.Fatalf("John not found: %v", err)
 	}
 
-	var event models.LifeEvent
-	if err := svc.DB.Preload("Participants").Preload("LifeEventType").Where("vault_id = ? AND source_type = ?", vaultID, "monica_activity").First(&event).Error; err != nil {
+	var event models.Activity
+	if err := svc.DB.Preload("Participants").Preload("ActivityType").Where("vault_id = ? AND source_type = ?", vaultID, "monica_activity").First(&event).Error; err != nil {
 		t.Fatalf("imported activity event not found: %v", err)
 	}
 	if event.Title != "Dinner at Italian restaurant" || event.Description == nil || !strings.Contains(*event.Description, "great time") {
@@ -1475,11 +1475,11 @@ func TestMonicaImportActivities(t *testing.T) {
 	if len(event.Participants) != 1 || event.Participants[0].ID != john.ID {
 		t.Fatalf("participants=%v", event.Participants)
 	}
-	if event.LifeEventType == nil || event.LifeEventType.Label == nil || *event.LifeEventType.Label != "Ate together" {
-		t.Fatalf("activity type not preserved: %#v", event.LifeEventType)
+	if event.ActivityType == nil || event.ActivityType.Label == nil || *event.ActivityType.Label != "Ate together" {
+		t.Fatalf("activity type not preserved: %#v", event.ActivityType)
 	}
-	if resp.ImportedLifeEvents == 0 {
-		t.Fatal("expected imported life event count")
+	if resp.ImportedActivities == 0 {
+		t.Fatal("expected imported activity count")
 	}
 }
 

@@ -158,8 +158,7 @@
       "no_consulted": "Aucun contact consulté pour l'instant"
     },
     "dashboard": {
-      "activity_tab": "Activité",
-      "life_events_tab": "Événements de la vie",
+      "activities_tab": "Activités",
       "life_metrics_tab": "Mesures de vie",
       "recent_contacts": "Contacts récents",
       "most_consulted": "Les plus consultés",
@@ -175,7 +174,7 @@
       "events_this_year": "Événements cette année",
       "show_graph": "Afficher le graphique",
       "no_metrics": "Les métriques de vie vous permettent de suivre les métriques qui sont importantes pour vous.",
-      "no_life_events": "Aucun événement de la vie enregistré pour l'instant",
+      "no_activities": "Aucune activité enregistrée pour l'instant",
       "mood_title": "Enregistrez votre humeur",
       "mood_how_are_you": "Comment vas-tu?",
       "mood_record": "Enregistrez votre humeur",
@@ -189,19 +188,15 @@
       "due_tasks": "Tâches dues",
       "no_tasks": "Aucune tâche à accomplir prochainement",
       "view_all": "Voir tout",
-      "add_life_event": "Ajouter un événement de la vie",
       "select_category": "Sélectionnez la catégorie",
       "select_type": "Sélectionnez le type d'événement",
-      "life_event_summary": "Résumé",
-      "life_event_description": "Description",
-      "life_event_added": "Événement de la vie ajouté",
-      "life_event_date": "Date",
       "catch_up_title": "Prendre des nouvelles",
       "no_catch_up": "Personne n'est à relancer",
       "catch_up_due": "{{days}} jours de retard",
       "catch_up_last_talked": "Dernier échange {{date}}",
       "catch_up_mark": "Fait",
-      "catch_up_marked": "Prise de nouvelles enregistrée"
+      "catch_up_marked": "Prise de nouvelles enregistrée",
+      "feed_tab": "Fil"
     },
     "calendar": {
       "title": "Calendrier",
@@ -633,8 +628,9 @@
         "relationships": "Relations",
         "information": "Information",
         "activities": "Activités",
-        "life": "Vie",
-        "photos_docs": "Médias et documents"
+        "photos_docs": "Médias et documents",
+        "operations": "Tâches et suivi",
+        "goals": "Objectifs"
       },
       "first_name": "Prénom",
       "last_name": "Nom de famille",
@@ -973,33 +969,19 @@
       "one_way_only": "aller simple seulement",
       "one_way_hint": "Vous ne disposez pas de l'autorisation de modification sur le coffre-fort de ce contact. Seule une relation à sens unique sera créée."
     },
-    "life_events": {
-      "title": "Événements de la vie",
+    "activities": {
+      "title": "Activités",
       "participants": "Autres participants",
       "participants_placeholder": "Sélectionnez des participants...",
-      "add_activity": "Ajouter une activité",
       "place": "Lieu",
       "duration_minutes": "Durée (minutes)",
       "self_participant": "Vous",
-      "event": "Événement",
-      "delete_event_confirm": "Supprimer?",
-      "event_added": "Événement de la vie ajouté",
-      "event_updated": "Événement de la vie mis à jour",
-      "event_deleted": "Événement de la vie supprimé",
-      "event_modal": "Ajouter un événement de la vie",
-      "edit_event": "Modifier un événement de la vie",
-      "toggle_event": "Activer/désactiver l'événement",
-      "event_toggled": "Événement basculé",
-      "label": "Étiquette",
       "title_label": "Titre",
-      "started_at": "Commencé à",
       "happened_at": "Quand",
-      "add_event": "Ajouter un événement de vie",
-      "add_first_event": "Ajouter le premier événement",
       "empty_description": "Gardez une trace des moments qui ont marqué cette personne.",
       "empty_description_vault": "Conservez les moments importants de ce coffre.",
-      "saved": "Événement enregistré",
-      "type": "Type d’événement",
+      "saved": "Activité enregistrée",
+      "type": "Type d’activité",
       "description": "Description",
       "description_placeholder": "Décrivez ce qui s’est passé. Tapez @ pour mentionner un contact...",
       "related_experience": "Expérience associée (facultatif)",
@@ -1013,7 +995,12 @@
       "end_unknown": "Terminé, date inconnue",
       "precision_day": "Jour",
       "precision_month": "Mois",
-      "precision_year": "Année"
+      "precision_year": "Année",
+      "add": "Ajouter une activité",
+      "edit": "Modifier l’activité",
+      "delete_confirm": "Supprimer cette activité ?",
+      "deleted": "Activité supprimée",
+      "add_first": "Ajouter la première activité"
     },
     "mood_tracking": {
       "title": "Suivi de l'humeur",
@@ -1157,7 +1144,6 @@
       "currencies": "Devises",
       "religions": "Religions",
       "call_reasons": "Raisons de l'appel",
-      "life_event_categories": "Catégories d'événements de la vie",
       "gift_occasions": "Cadeaux",
       "gift_states": "États cadeaux",
       "pages": "Pages",
@@ -1195,7 +1181,8 @@
       "sync_translations": "Synchroniser les traductions",
       "sync_translations_desc": "Mettez à jour les étiquettes par défaut pour qu'elles correspondent à votre langue actuelle. Les étiquettes personnalisées ne seront pas affectées.",
       "sync_success": "Traductions synchronisées",
-      "sync_confirm": "Cela mettra à jour toutes les étiquettes par défaut pour qu'elles correspondent à votre langue actuelle. Les étiquettes personnalisées ne seront pas affectées. Continuer?"
+      "sync_confirm": "Cela mettra à jour toutes les étiquettes par défaut pour qu'elles correspondent à votre langue actuelle. Les étiquettes personnalisées ne seront pas affectées. Continuer?",
+      "activity_categories": "Catégories d’activités"
     },
     "users": {
       "title": "Utilisateurs",
@@ -1375,7 +1362,7 @@
     "tags": "Balises",
     "date_types": "Types de dates importantes",
     "mood_params": "Paramètres d'humeur",
-    "life_events": "Événements de la vie",
+    "activities": "Activités",
     "quick_facts": "Modèles de faits en bref",
     "tabs": "Visibilité des onglets",
     "users": "Utilisateurs",
@@ -1397,8 +1384,6 @@
     "template_updated": "Modèle de coffre-fort mis à jour",
     "template_description": "Les nouveaux contacts utiliseront ce modèle",
     "select_template": "Sélectionnez un modèle",
-    "life_event_category_updated": "Catégorie d'événement de la vie mise à jour",
-    "life_event_type_updated": "Type d'événement de la vie mis à jour",
     "move_up": "Monter",
     "move_down": "Descendre",
     "quick_fact_templates": {
@@ -1482,7 +1467,7 @@
       "reminders": "Rappels",
       "relationships": "Relations",
       "addresses": "Adresses",
-      "life_events": "Événements de la vie",
+      "activities": "Activités",
       "documents": "Documents",
       "photos": "Photos",
       "skipped": "Ignoré",
@@ -1495,7 +1480,9 @@
     "name_order_override": "Utiliser un ordre spécifique à ce coffre",
     "name_order_condition_help": "Les segments facultatifs peuvent utiliser une syntaxe conditionnelle, par exemple {nickname? (%nickname%)}.",
     "name_order_save": "Enregistrer le remplacement",
-    "name_order_clear": "Utiliser la préférence globale"
+    "name_order_clear": "Utiliser la préférence globale",
+    "activity_category_updated": "Catégorie d’activité mise à jour",
+    "activity_type_updated": "Type d’activité mis à jour"
   },
   "backups": {
     "title": "Sauvegardes",

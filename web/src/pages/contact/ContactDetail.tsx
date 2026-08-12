@@ -96,7 +96,7 @@ import LoansModule from "./modules/LoansModule";
 import PetsModule from "./modules/PetsModule";
 import RelationshipsModule from "./modules/RelationshipsModule";
 import GoalsModule from "./modules/GoalsModule";
-import LifeEventsModule from "./modules/LifeEventsModule";
+import ActivitiesModule from "./modules/ActivitiesModule";
 import QuickFactsModule from "./modules/QuickFactsModule";
 import PhotosModule from "./modules/PhotosModule";
 import DocumentsModule from "./modules/DocumentsModule";
@@ -111,12 +111,12 @@ const { Title, Text } = Typography;
 
 const FALLBACK_MODULE_TABS: Record<FeedSourceModule, string> = {
   notes: "overview",
-  reminders: "activities",
-  calls: "activities",
-  tasks: "activities",
+  reminders: "operations",
+  calls: "operations",
+  tasks: "operations",
   addresses: "information",
-  life_events: "life",
-  loans: "activities",
+  activities: "activities",
+  loans: "operations",
   relationships: "relationships",
   photos: "photos",
   documents: "photos",
@@ -239,7 +239,7 @@ const MODULE_COMPONENT_MAP: Record<
   loans: LoansModule,
   gifts: GiftsModule,
   goals: GoalsModule,
-  life_events: LifeEventsModule,
+  activities: ActivitiesModule,
   groups: GroupsModule,
   photos: PhotosModule,
   documents: DocumentsModule,
@@ -987,8 +987,8 @@ export default function ContactDetail() {
       ),
     },
     {
-      key: "activities",
-      label: t("contact.detail.tabs.activities"),
+      key: "operations",
+      label: t("contact.detail.tabs.operations"),
       children: (
         <Space direction="vertical" style={{ width: "100%" }} size={16}>
           <TasksModule
@@ -1009,23 +1009,25 @@ export default function ContactDetail() {
             {...moduleProps}
             target={sourceTarget?.module === "loans" ? sourceTarget : undefined}
           />
-          <GoalsModule {...moduleProps} />
         </Space>
       ),
     },
     {
-      key: "life",
-      label: t("contact.detail.tabs.life"),
+      key: "activities",
+      label: t("contact.detail.tabs.activities"),
       children: (
-        <Space direction="vertical" style={{ width: "100%" }} size={16}>
-          <LifeEventsModule
-            {...moduleProps}
-            target={
-              sourceTarget?.module === "life_events" ? sourceTarget : undefined
-            }
-          />
-        </Space>
+        <ActivitiesModule
+          {...moduleProps}
+          target={
+            sourceTarget?.module === "activities" ? sourceTarget : undefined
+          }
+        />
       ),
+    },
+    {
+      key: "goals",
+      label: t("contact.detail.tabs.goals"),
+      children: <GoalsModule {...moduleProps} />,
     },
     {
       key: "photos",

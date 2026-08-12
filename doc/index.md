@@ -16,10 +16,10 @@ hero:
 features:
   - icon: 👥
     title: Contact Management
-    details: Full lifecycle management — notes, tasks, reminders, gifts, money and item loans, activities, life events, pets, and more.
+    details: Full lifecycle management — notes, tasks, reminders, gifts, money and item loans, activities, goals, pets, and more.
   - icon: 📊
     title: Vault Dashboard
-    details: 3-column dashboard featuring activity feeds, life events, mood recording, and upcoming task trackers.
+    details: 3-column dashboard featuring a feed, activities, mood recording, and upcoming task trackers.
   - icon: 🔒
     title: Multi-Vault Isolation
     details: Organize contacts into separate vaults with role-based access control (Manager / Editor / Viewer).

@@ -50,8 +50,8 @@ func TestTemplatePageList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
-	if len(pages) != 7 {
-		t.Errorf("Expected 7 default pages, got %d", len(pages))
+	if len(pages) != 8 {
+		t.Errorf("Expected 8 default pages, got %d", len(pages))
 	}
 }
 

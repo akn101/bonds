@@ -53,7 +53,7 @@ func Connect(cfg *config.DatabaseConfig, debug bool) (*gorm.DB, error) {
 
 func AutoMigrate(db *gorm.DB) error {
 	existingSQLiteSchema := db.Dialector.Name() == "sqlite" && db.Migrator().HasTable(&models.Account{})
-	if err := migrateLegacyTimelineLifeEvents(db); err != nil {
+	if err := migrateActivitySchema(db); err != nil {
 		return err
 	}
 	if err := migrateLegacyContactTasks(db); err != nil {
@@ -81,7 +81,10 @@ func runPostAutoMigrateBackfills(db *gorm.DB) error {
 	if err := backfillContactFeedEventContext(db); err != nil {
 		return err
 	}
-	return backfillContactReminderAudience(db)
+	if err := backfillContactReminderAudience(db); err != nil {
+		return err
+	}
+	return models.BackfillActivityGoalLayout(db)
 }
 
 type participantPivotMigration struct {
@@ -90,9 +93,9 @@ type participantPivotMigration struct {
 	model        interface{}
 }
 
-func migrateLegacyLifeEventParticipantPivots(db *gorm.DB) error {
+func migrateLegacyActivityParticipantPivots(db *gorm.DB) error {
 	migrations := []participantPivotMigration{
-		{tableName: "life_event_participants", entityColumn: "life_event_id", model: &models.LifeEventParticipant{}},
+		{tableName: "activity_participants", entityColumn: "activity_id", model: &models.ActivityParticipant{}},
 	}
 	for _, migration := range migrations {
 		if !db.Migrator().HasTable(migration.tableName) || hasColumn(db, migration.tableName, "id") {

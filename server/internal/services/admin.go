@@ -338,17 +338,17 @@ func (s *AdminService) deleteVaultData(tx *gorm.DB, vaultID string) error {
 		return fmt.Errorf("delete journal metrics: %w", err)
 	}
 
-	lifeEventSubquery := tx.Model(&models.LifeEvent{}).Select("id").Where("vault_id = ?", vaultID)
-	if err := tx.Where("life_event_id IN (?)", lifeEventSubquery).Delete(&models.LifeEventParticipant{}).Error; err != nil {
-		return fmt.Errorf("delete life event participants: %w", err)
+	activitySubquery := tx.Model(&models.Activity{}).Select("id").Where("vault_id = ?", vaultID)
+	if err := tx.Where("activity_id IN (?)", activitySubquery).Delete(&models.ActivityParticipant{}).Error; err != nil {
+		return fmt.Errorf("delete activity participants: %w", err)
 	}
-	if err := tx.Where("vault_id = ?", vaultID).Delete(&models.LifeEvent{}).Error; err != nil {
-		return fmt.Errorf("delete life events: %w", err)
+	if err := tx.Where("vault_id = ?", vaultID).Delete(&models.Activity{}).Error; err != nil {
+		return fmt.Errorf("delete activities: %w", err)
 	}
 
-	lifeCategorySubquery := tx.Model(&models.LifeEventCategory{}).Select("id").Where("vault_id = ?", vaultID)
-	if err := tx.Where("life_event_category_id IN (?)", lifeCategorySubquery).Delete(&models.LifeEventType{}).Error; err != nil {
-		return fmt.Errorf("delete life event types: %w", err)
+	lifeCategorySubquery := tx.Model(&models.ActivityCategory{}).Select("id").Where("vault_id = ?", vaultID)
+	if err := tx.Where("activity_category_id IN (?)", lifeCategorySubquery).Delete(&models.ActivityType{}).Error; err != nil {
+		return fmt.Errorf("delete activity types: %w", err)
 	}
 
 	abSubquery := tx.Model(&models.AddressBookSubscription{}).Select("id").Where("vault_id = ?", vaultID)
@@ -368,7 +368,7 @@ func (s *AdminService) deleteVaultData(tx *gorm.DB, vaultID string) error {
 		&models.Tag{},
 		&models.ContactImportantDateType{},
 		&models.MoodTrackingParameter{},
-		&models.LifeEventCategory{},
+		&models.ActivityCategory{},
 		&models.VaultQuickFactsTemplate{},
 		&models.Group{},
 		&models.Journal{},

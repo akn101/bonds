@@ -7,7 +7,7 @@ import (
 	"github.com/naiba/bonds/internal/testutil"
 )
 
-func TestUpdateDefaultTab(t *testing.T) {
+func TestUpdateDefaultDashboardTab(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	cfg := testutil.TestJWTConfig()
 	authSvc := NewAuthService(db, cfg)
@@ -25,8 +25,8 @@ func TestUpdateDefaultTab(t *testing.T) {
 		t.Fatalf("CreateVault failed: %v", err)
 	}
 
-	if err := vaultSvc.UpdateDefaultTab(vault.ID, "notes"); err != nil {
-		t.Fatalf("UpdateDefaultTab failed: %v", err)
+	if err := vaultSvc.UpdateDefaultDashboardTab(vault.ID, "activities"); err != nil {
+		t.Fatalf("UpdateDefaultDashboardTab failed: %v", err)
 	}
 
 	got, err := vaultSvc.GetVault(vault.ID, resp.User.ID)
@@ -36,13 +36,16 @@ func TestUpdateDefaultTab(t *testing.T) {
 	if got == nil {
 		t.Fatal("GetVault returned nil")
 	}
+	if got.DefaultDashboardTab != "activities" {
+		t.Fatalf("DefaultDashboardTab = %q, want activities", got.DefaultDashboardTab)
+	}
 }
 
-func TestUpdateDefaultTabNotFound(t *testing.T) {
+func TestUpdateDefaultDashboardTabNotFound(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	vaultSvc := NewVaultService(db)
 
-	err := vaultSvc.UpdateDefaultTab("nonexistent-id", "notes")
+	err := vaultSvc.UpdateDefaultDashboardTab("nonexistent-id", "feed")
 	if err != ErrVaultNotFound {
 		t.Errorf("Expected ErrVaultNotFound, got %v", err)
 	}

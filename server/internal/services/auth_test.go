@@ -156,8 +156,8 @@ func TestRegisterSeedsDefaultData(t *testing.T) {
 	if err := db.Where("template_id = ?", tmpl.ID).Find(&pages).Error; err != nil {
 		t.Fatalf("template pages query failed: %v", err)
 	}
-	if len(pages) != 7 {
-		t.Errorf("expected 7 template pages, got %d", len(pages))
+	if len(pages) != 8 {
+		t.Errorf("expected 8 template pages, got %d", len(pages))
 	}
 
 	var informationPage models.TemplatePage

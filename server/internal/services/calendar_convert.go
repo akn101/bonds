@@ -60,7 +60,7 @@ func applyCalendarFields(
 
 // applyTimeCalendarFields is the time.Time-shaped sibling of
 // applyCalendarFields for models whose date column is a single time.Time
-// (LifeEvent.HappenedAt, ContactTask.DueAt, Post.WrittenAt) rather than a
+// (Activity.HappenedAt, ContactTask.DueAt, Post.WrittenAt) rather than a
 // Day/Month/Year triple. Same contract:
 //   - empty / "gregorian" calendar type ⇒ clear Original* and pin model
 //     calendar type to "gregorian"; the time.Time column is left as supplied
@@ -130,4 +130,3 @@ func applyTimeCalendarFields(
 		modelTime.Location(),
 	)
 }
-

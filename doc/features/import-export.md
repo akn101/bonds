@@ -29,9 +29,9 @@ If you're migrating from Monica CRM (version 4.x), Bonds can import your complet
 | Gifts | Gifts |
 | Debts | Loans |
 | Relationships | Relationships (matched by type name) |
-| Life events | Life Events + Timeline |
+| Life events (legacy Monica field) | Activities |
 | Photos & Documents | Files (base64 decoded and stored) |
-| Activities | Notes (degraded with type prefix) |
+| Activities (legacy Monica field) | Notes (degraded with type prefix) |
 | Conversations | Notes (formatted chat log) |
 
 ### Specialized Monica Import Handling

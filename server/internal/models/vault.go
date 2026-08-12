@@ -8,23 +8,23 @@ import (
 )
 
 type Vault struct {
-	ID                 string    `json:"id" gorm:"primaryKey;type:text"`
-	AccountID          string    `json:"account_id" gorm:"type:text;not null;index"`
-	Type               string    `json:"type" gorm:"not null"`
-	Name               string    `json:"name" gorm:"not null"`
-	Description        *string   `json:"description"`
-	NameOrder          *string   `json:"name_order" gorm:"type:text"`
-	DefaultTemplateID  *uint     `json:"default_template_id" gorm:"index"`
-	DefaultActivityTab string    `json:"default_activity_tab" gorm:"default:'activity'"`
-	ShowGroupTab       bool      `json:"show_group_tab" gorm:"default:true"`
-	ShowTasksTab       bool      `json:"show_tasks_tab" gorm:"default:true"`
-	ShowFilesTab       bool      `json:"show_files_tab" gorm:"default:true"`
-	ShowJournalTab     bool      `json:"show_journal_tab" gorm:"default:true"`
-	ShowCompaniesTab   bool      `json:"show_companies_tab" gorm:"default:true"`
-	ShowReportsTab     bool      `json:"show_reports_tab" gorm:"default:true"`
-	ShowCalendarTab    bool      `json:"show_calendar_tab" gorm:"default:true"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                  string    `json:"id" gorm:"primaryKey;type:text"`
+	AccountID           string    `json:"account_id" gorm:"type:text;not null;index"`
+	Type                string    `json:"type" gorm:"not null"`
+	Name                string    `json:"name" gorm:"not null"`
+	Description         *string   `json:"description"`
+	NameOrder           *string   `json:"name_order" gorm:"type:text"`
+	DefaultTemplateID   *uint     `json:"default_template_id" gorm:"index"`
+	DefaultDashboardTab string    `json:"default_dashboard_tab" gorm:"default:'feed'"`
+	ShowGroupTab        bool      `json:"show_group_tab" gorm:"default:true"`
+	ShowTasksTab        bool      `json:"show_tasks_tab" gorm:"default:true"`
+	ShowFilesTab        bool      `json:"show_files_tab" gorm:"default:true"`
+	ShowJournalTab      bool      `json:"show_journal_tab" gorm:"default:true"`
+	ShowCompaniesTab    bool      `json:"show_companies_tab" gorm:"default:true"`
+	ShowReportsTab      bool      `json:"show_reports_tab" gorm:"default:true"`
+	ShowCalendarTab     bool      `json:"show_calendar_tab" gorm:"default:true"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 
 	Account                   Account                    `json:"account,omitempty" gorm:"foreignKey:AccountID"`
 	Template                  *Template                  `json:"template,omitempty" gorm:"foreignKey:DefaultTemplateID"`
@@ -39,7 +39,7 @@ type Vault struct {
 	Loans                     []Loan                     `json:"loans,omitempty" gorm:"foreignKey:VaultID"`
 	Files                     []File                     `json:"files,omitempty" gorm:"foreignKey:VaultID"`
 	MoodTrackingParameters    []MoodTrackingParameter    `json:"mood_tracking_parameters,omitempty" gorm:"foreignKey:VaultID"`
-	LifeEventCategories       []LifeEventCategory        `json:"life_event_categories,omitempty" gorm:"foreignKey:VaultID"`
+	ActivityCategories        []ActivityCategory         `json:"activity_categories,omitempty" gorm:"foreignKey:VaultID"`
 	Addresses                 []Address                  `json:"addresses,omitempty" gorm:"foreignKey:VaultID"`
 	QuickFactsTemplateEntries []VaultQuickFactsTemplate  `json:"quick_facts_template_entries,omitempty" gorm:"foreignKey:VaultID"`
 	LifeMetrics               []LifeMetric               `json:"life_metrics,omitempty" gorm:"foreignKey:VaultID"`

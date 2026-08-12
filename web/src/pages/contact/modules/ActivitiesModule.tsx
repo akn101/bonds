@@ -22,8 +22,8 @@ import { api } from "@/api";
 import type {
   APIError,
   ContactSearchItem,
-  LifeEvent,
-  LifeEventCategoryResponse,
+  Activity,
+  ActivityCategoryResponse,
   PaginationMeta,
   UserPreferences,
 } from "@/api";
@@ -39,7 +39,7 @@ const { Text } = Typography;
 type Precision = "day" | "month" | "year";
 type EndStatus = "none" | "known" | "ongoing" | "unknown";
 type FormValues = {
-  life_event_type_id: number;
+  activity_type_id: number;
   title: string;
   description: string;
   start_calendar: CalendarDatePickerValue;
@@ -52,17 +52,15 @@ type FormValues = {
   place?: string;
 };
 
-export default function LifeEventsModule({
+export default function ActivitiesModule({
   vaultId,
   contactId,
   initiallyOpen = false,
-  initialCreateKind = "life_event",
   onModalClose,
 }: {
   vaultId: string | number;
   contactId?: string | number;
   initiallyOpen?: boolean;
-  initialCreateKind?: "activity" | "life_event";
   onModalClose?: () => void;
   target?: unknown;
 }) {
@@ -72,18 +70,17 @@ export default function LifeEventsModule({
   const dateFormats = useDateFormat();
   const [form] = Form.useForm<FormValues>();
   const [open, setOpen] = useState(initiallyOpen);
-  const [createKind, setCreateKind] = useState(initialCreateKind);
-  const [editing, setEditing] = useState<LifeEvent | null>(null);
+  const [editing, setEditing] = useState<Activity | null>(null);
   const [description, setDescription] = useState("");
   const [page, setPage] = useState(1);
-  const [items, setItems] = useState<LifeEvent[]>([]);
+  const [items, setItems] = useState<Activity[]>([]);
   const [hasMore, setHasMore] = useState(false);
-  const queryKey = ["vaults", vaultId, "lifeEvents", contactId] as const;
+  const queryKey = ["vaults", vaultId, "activities", contactId] as const;
 
   const { isLoading, isFetching } = useQuery({
     queryKey: [...queryKey, page],
     queryFn: async () => {
-      const response = await api.lifeEvents.lifeEventsList(String(vaultId), {
+      const response = await api.activities.activitiesList(String(vaultId), {
         contact_id: contactId == null ? undefined : String(contactId),
         page,
         per_page: 15,
@@ -97,7 +94,7 @@ export default function LifeEventsModule({
   });
 
   const { data: contacts = [] } = useQuery<ContactSearchItem[]>({
-    queryKey: ["vaults", vaultId, "contacts", "life-event-picker"],
+    queryKey: ["vaults", vaultId, "contacts", "activity-picker"],
     queryFn: async () =>
       (await api.contacts.contactsSelectableList(String(vaultId), {})).data ??
       [],
@@ -113,12 +110,12 @@ export default function LifeEventsModule({
     }));
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["vault", vaultId, "lifeEventCategories"],
+    queryKey: ["vault", vaultId, "activityCategories"],
     queryFn: async () => {
-      const response = await api.vaultSettings.settingsLifeEventCategoriesList(
+      const response = await api.vaultSettings.settingsActivityCategoriesList(
         String(vaultId),
       );
-      return (response.data ?? []) as LifeEventCategoryResponse[];
+      return (response.data ?? []) as ActivityCategoryResponse[];
     },
   });
 
@@ -176,7 +173,7 @@ export default function LifeEventsModule({
         primary_contact_id: contactId == null ? "" : String(contactId),
         participant_ids: values.participant_ids,
         parent_id: values.parent_id,
-        life_event_type_id: values.life_event_type_id,
+        activity_type_id: values.activity_type_id,
         title: values.title,
         description,
         start_date: gregorianStart
@@ -209,8 +206,8 @@ export default function LifeEventsModule({
         place: values.place,
       };
       return editing?.id
-        ? api.lifeEvents.lifeEventsUpdate(String(vaultId), editing.id, payload)
-        : api.lifeEvents.lifeEventsCreate(String(vaultId), payload);
+        ? api.activities.activitiesUpdate(String(vaultId), editing.id, payload)
+        : api.activities.activitiesCreate(String(vaultId), payload);
     },
     onSuccess: async () => {
       await resetList();
@@ -219,24 +216,23 @@ export default function LifeEventsModule({
       setEditing(null);
       setDescription("");
       form.resetFields();
-      message.success(t("modules.life_events.saved"));
+      message.success(t("modules.activities.saved"));
     },
     onError: (error: APIError) => message.error(error.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      api.lifeEvents.lifeEventsDelete(String(vaultId), id),
+      api.activities.activitiesDelete(String(vaultId), id),
     onSuccess: async () => {
       await resetList();
-      message.success(t("modules.life_events.event_deleted"));
+      message.success(t("modules.activities.deleted"));
     },
     onError: (error: APIError) => message.error(error.message),
   });
 
   const startCreate = () => {
     setEditing(null);
-    setCreateKind("life_event");
     setDescription("");
     form.setFieldsValue({
       start_calendar: {
@@ -251,84 +247,84 @@ export default function LifeEventsModule({
     });
     setOpen(true);
   };
-  const startEdit = (event: LifeEvent) => {
-    setEditing(event);
-    setCreateKind("life_event");
-    setDescription(event.description ?? "");
+  const startEdit = (activity: Activity) => {
+    setEditing(activity);
+    setDescription(activity.description ?? "");
     form.setFieldsValue({
-      life_event_type_id: event.life_event_type_id,
-      title: event.title,
-      description: event.description,
-      parent_id: event.parent_id,
+      activity_type_id: activity.activity_type_id,
+      title: activity.title,
+      description: activity.description,
+      parent_id: activity.parent_id,
       start_calendar: {
-        calendarType: event.calendar_type === "lunar" ? "lunar" : "gregorian",
+        calendarType:
+          activity.calendar_type === "lunar" ? "lunar" : "gregorian",
         year:
-          event.calendar_type !== "gregorian" && event.original_year
-            ? event.original_year
-            : event.start_date
-              ? dayjs(event.start_date).year()
+          activity.calendar_type !== "gregorian" && activity.original_year
+            ? activity.original_year
+            : activity.start_date
+              ? dayjs(activity.start_date).year()
               : null,
         month:
-          event.calendar_type !== "gregorian" && event.original_month
-            ? event.original_month
-            : event.start_date
-              ? dayjs(event.start_date).month() + 1
+          activity.calendar_type !== "gregorian" && activity.original_month
+            ? activity.original_month
+            : activity.start_date
+              ? dayjs(activity.start_date).month() + 1
               : null,
         day:
-          event.calendar_type !== "gregorian" && event.original_day
-            ? event.original_day
-            : event.start_date
-              ? dayjs(event.start_date).date()
+          activity.calendar_type !== "gregorian" && activity.original_day
+            ? activity.original_day
+            : activity.start_date
+              ? dayjs(activity.start_date).date()
               : null,
         datePrecision:
-          event.start_precision === "year"
+          activity.start_precision === "year"
             ? "year"
-            : event.start_precision === "month"
+            : activity.start_precision === "month"
               ? "month"
               : "full",
       },
-      end_status: (event.end_status as EndStatus) || "none",
-      end_precision: (event.end_precision as Precision) || "day",
-      end_date: event.end_date ? dayjs(event.end_date) : undefined,
-      participant_ids: (event.participants ?? []).flatMap((contact) =>
+      end_status: (activity.end_status as EndStatus) || "none",
+      end_precision: (activity.end_precision as Precision) || "day",
+      end_date: activity.end_date ? dayjs(activity.end_date) : undefined,
+      participant_ids: (activity.participants ?? []).flatMap((contact) =>
         contact.id && String(contact.id) !== String(contactId ?? "")
           ? [contact.id]
           : [],
       ),
-      duration_in_minutes: event.duration_in_minutes,
-      place: event.place,
+      duration_in_minutes: activity.duration_in_minutes,
+      place: activity.place,
     });
     setOpen(true);
   };
 
   const endStatus = Form.useWatch("end_status", form) ?? "none";
   const endPrecision = Form.useWatch("end_precision", form) ?? "day";
-  const formatEventTime = (event: LifeEvent) => {
-    if (!event.start_date) return t("modules.life_events.date_unknown");
+  const formatActivityTime = (activity: Activity) => {
+    if (!activity.start_date) return t("modules.activities.date_unknown");
     const start =
-      event.start_precision === "year"
-        ? dayjs(event.start_date).year().toString()
-        : event.start_precision === "month"
-          ? formatMonthYear(event.start_date, dateFormats)
-          : formatDate(event.start_date, dateFormats);
-    if (event.end_status === "ongoing")
-      return `${start} – ${t("modules.life_events.present")}`;
-    if (event.end_status === "unknown")
-      return `${start} – ${t("modules.life_events.end_unknown")}`;
-    if (event.end_status !== "known" || !event.end_date) return start;
+      activity.start_precision === "year"
+        ? dayjs(activity.start_date).year().toString()
+        : activity.start_precision === "month"
+          ? formatMonthYear(activity.start_date, dateFormats)
+          : formatDate(activity.start_date, dateFormats);
+    if (activity.end_status === "ongoing")
+      return `${start} – ${t("modules.activities.present")}`;
+    if (activity.end_status === "unknown")
+      return `${start} – ${t("modules.activities.end_unknown")}`;
+    if (activity.end_status !== "known" || !activity.end_date) return start;
     const end =
-      event.end_precision === "year"
-        ? dayjs(event.end_date).year().toString()
-        : event.end_precision === "month"
-          ? formatMonthYear(event.end_date, dateFormats)
-          : formatDate(event.end_date, dateFormats);
+      activity.end_precision === "year"
+        ? dayjs(activity.end_date).year().toString()
+        : activity.end_precision === "month"
+          ? formatMonthYear(activity.end_date, dateFormats)
+          : formatDate(activity.end_date, dateFormats);
     return `${start} – ${end}`;
   };
-  const descriptionContacts = (event: LifeEvent) => {
+  const descriptionContacts = (activity: Activity) => {
     const byId = new Map(
       [
-        ...(event.participants ?? []),
-        ...(event.mentioned_contacts ?? []),
+        ...(activity.participants ?? []),
+        ...(activity.mentioned_contacts ?? []),
       ].flatMap((contact) =>
         contact.id ? [[contact.id, contact] as const] : [],
       ),
@@ -338,10 +334,10 @@ export default function LifeEventsModule({
 
   return (
     <Card
-      title={t("modules.life_events.title")}
+      title={t("modules.activities.title")}
       extra={
         <Button type="primary" icon={<PlusOutlined />} onClick={startCreate}>
-          {t("modules.life_events.add_event")}
+          {t("modules.activities.add")}
         </Button>
       }
       loading={isLoading && items.length === 0}
@@ -350,37 +346,37 @@ export default function LifeEventsModule({
         <Empty
           description={t(
             contactId == null
-              ? "modules.life_events.empty_description_vault"
-              : "modules.life_events.empty_description",
+              ? "modules.activities.empty_description_vault"
+              : "modules.activities.empty_description",
           )}
         >
           <Button type="primary" onClick={startCreate}>
-            {t("modules.life_events.add_first_event")}
+            {t("modules.activities.add_first")}
           </Button>
         </Empty>
       ) : (
         <Timeline
-          items={items.map((event) => ({
+          items={items.map((activity) => ({
             children: (
               <div>
                 <Space
                   style={{ width: "100%", justifyContent: "space-between" }}
                 >
                   <div>
-                    <Text strong>{event.title}</Text>
+                    <Text strong>{activity.title}</Text>
                     <Text type="secondary" style={{ display: "block" }}>
-                      {formatEventTime(event)}
+                      {formatActivityTime(activity)}
                     </Text>
-                    {event.life_event_type?.label && (
+                    {activity.activity_type?.label && (
                       <Text type="secondary">
-                        {event.life_event_type.label}
+                        {activity.activity_type.label}
                       </Text>
                     )}
-                    {event.subject_user_id && (
+                    {activity.subject_user_id && (
                       <Text type="secondary" style={{ display: "block" }}>
-                        {event.subject_is_current_user
-                          ? t("modules.life_events.self_participant")
-                          : event.subject_user_name}
+                        {activity.subject_is_current_user
+                          ? t("modules.activities.self_participant")
+                          : activity.subject_user_name}
                       </Text>
                     )}
                   </div>
@@ -388,25 +384,25 @@ export default function LifeEventsModule({
                     <Button
                       type="text"
                       icon={<EditOutlined />}
-                      onClick={() => startEdit(event)}
+                      onClick={() => startEdit(activity)}
                     />
                     <Popconfirm
-                      title={t("modules.life_events.delete_event_confirm")}
+                      title={t("modules.activities.delete_confirm")}
                       onConfirm={() =>
-                        event.id && deleteMutation.mutate(event.id)
+                        activity.id && deleteMutation.mutate(activity.id)
                       }
                     >
                       <Button type="text" danger icon={<DeleteOutlined />} />
                     </Popconfirm>
                   </Space>
                 </Space>
-                {event.description && (
+                {activity.description && (
                   <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
                     <ContactMentionText
                       vaultId={String(vaultId)}
-                      contacts={descriptionContacts(event)}
+                      contacts={descriptionContacts(activity)}
                     >
-                      {event.description}
+                      {activity.description}
                     </ContactMentionText>
                   </div>
                 )}
@@ -428,13 +424,7 @@ export default function LifeEventsModule({
 
       <Modal
         title={
-          editing
-            ? t("modules.life_events.edit_event")
-            : t(
-                createKind === "activity"
-                  ? "modules.life_events.add_activity"
-                  : "modules.life_events.add_event",
-              )
+          editing ? t("modules.activities.edit") : t("modules.activities.add")
         }
         open={open}
         onCancel={() => {
@@ -462,34 +452,34 @@ export default function LifeEventsModule({
           onFinish={(values) => saveMutation.mutate(values)}
         >
           <Form.Item
-            name="life_event_type_id"
-            label={t("modules.life_events.type")}
+            name="activity_type_id"
+            label={t("modules.activities.type")}
             rules={[{ required: true }]}
           >
             <Select showSearch options={typeOptions} optionFilterProp="label" />
           </Form.Item>
           <Form.Item
             name="participant_ids"
-            label={t("modules.life_events.participants")}
+            label={t("modules.activities.participants")}
           >
             <Select
               mode="multiple"
               showSearch
               options={contactOptions}
-              placeholder={t("modules.life_events.participants_placeholder")}
+              placeholder={t("modules.activities.participants_placeholder")}
               optionFilterProp="label"
             />
           </Form.Item>
           <Form.Item
             name="title"
-            label={t("modules.life_events.title_label")}
+            label={t("modules.activities.title_label")}
             rules={[{ required: true }]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             name="start_calendar"
-            label={t("modules.life_events.happened_at")}
+            label={t("modules.activities.happened_at")}
             rules={[{ required: true }]}
           >
             <CalendarDatePicker
@@ -498,18 +488,18 @@ export default function LifeEventsModule({
               allowedDatePrecisions={["full", "month", "year"]}
             />
           </Form.Item>
-          <Form.Item name="end_status" label={t("modules.life_events.until")}>
+          <Form.Item name="end_status" label={t("modules.activities.until")}>
             <Select
               options={(
                 ["none", "ongoing", "known", "unknown"] as EndStatus[]
               ).map((value) => ({
                 value,
-                label: t(`modules.life_events.end_${value}`),
+                label: t(`modules.activities.end_${value}`),
               }))}
             />
           </Form.Item>
           {endStatus === "known" && (
-            <Form.Item label={t("modules.life_events.end_date")} required>
+            <Form.Item label={t("modules.activities.end_date")} required>
               <Space.Compact style={{ width: "100%" }}>
                 <Form.Item name="end_precision" noStyle initialValue="day">
                   <Select
@@ -517,7 +507,7 @@ export default function LifeEventsModule({
                     options={(["day", "month", "year"] as Precision[]).map(
                       (value) => ({
                         value,
-                        label: t(`modules.life_events.precision_${value}`),
+                        label: t(`modules.activities.precision_${value}`),
                       }),
                     )}
                   />
@@ -531,29 +521,29 @@ export default function LifeEventsModule({
               </Space.Compact>
             </Form.Item>
           )}
-          <Form.Item label={t("modules.life_events.description")}>
+          <Form.Item label={t("modules.activities.description")}>
             <ContactMentionEditor
               vaultId={String(vaultId)}
               value={description}
               onChange={setDescription}
-              ariaLabel={t("modules.life_events.description")}
-              placeholder={t("modules.life_events.description_placeholder")}
+              ariaLabel={t("modules.activities.description")}
+              placeholder={t("modules.activities.description_placeholder")}
               rows={4}
               showHint
             />
           </Form.Item>
-          <Form.Item name="place" label={t("modules.life_events.place")}>
+          <Form.Item name="place" label={t("modules.activities.place")}>
             <Input />
           </Form.Item>
           <Form.Item
             name="duration_in_minutes"
-            label={t("modules.life_events.duration_minutes")}
+            label={t("modules.activities.duration_minutes")}
           >
             <Input type="number" min={0} />
           </Form.Item>
           <Form.Item
             name="parent_id"
-            label={t("modules.life_events.related_experience")}
+            label={t("modules.activities.related_experience")}
           >
             <Select allowClear options={parentOptions} />
           </Form.Item>

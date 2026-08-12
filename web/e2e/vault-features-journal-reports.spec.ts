@@ -584,25 +584,25 @@ test.describe("Vault - Feed, Calendar, Journal and Settings", () => {
     });
   });
 
-  test("Dashboard life events - add a life event", async ({ page }) => {
+  test("Dashboard activities - add an activity", async ({ page }) => {
     await registerAndCreateVault(page, "vlifeevent");
 
-    // Click the "Life Events" tab in the center Segmented control
+    // Click the "Activities" tab in the center Segmented control
     await page
       .locator(".ant-segmented-item")
-      .filter({ hasText: "Life Events" })
+      .filter({ hasText: "Activities" })
       .click();
 
-    // Dashboard reuses the same Life Event module as contact detail.
-    const addBtn = page.getByRole("button", { name: "Add life event" });
+    // Dashboard reuses the same Activities module as contact detail.
+    const addBtn = page.getByRole("button", { name: "Add activity" });
     await expect(addBtn).toBeVisible({ timeout: 10000 });
 
-    // Click "Add a life event" — opens the modal
+    // Click "Add an activity" — opens the modal
     await addBtn.click();
     const modal = page.locator(".ant-modal:visible");
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    // Select a grouped Life Event type.
+    // Select a grouped activity type.
     await modal.locator(".ant-select").first().click();
     await page
       .locator(".ant-select-dropdown:visible .ant-select-item-option")
@@ -612,16 +612,16 @@ test.describe("Vault - Feed, Calendar, Journal and Settings", () => {
     await modal.getByRole("textbox", { name: "Title" }).fill("Graduated from university");
     await modal.locator("textarea").fill("Got my degree");
 
-    const dashboardLifeEventResp = page.waitForResponse(
+    const dashboardActivityResp = page.waitForResponse(
       (resp) =>
-        resp.url().includes("/lifeEvents") &&
+        resp.url().includes("/activities") &&
         resp.request().method() === "POST" &&
         resp.status() < 400,
     );
 
     // Click OK button
     await modal.getByRole("button", { name: "OK" }).click();
-    await dashboardLifeEventResp;
+    await dashboardActivityResp;
 
     await expect(modal).not.toBeVisible({ timeout: 15000 });
     await expect(

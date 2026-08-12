@@ -158,8 +158,7 @@
       "no_consulted": "No se han consultado contactos aún"
     },
     "dashboard": {
-      "activity_tab": "Actividad",
-      "life_events_tab": "Eventos de vida",
+      "activities_tab": "Actividades",
       "life_metrics_tab": "Métricas de vida",
       "recent_contacts": "Contactos recientes",
       "most_consulted": "Más consultados",
@@ -175,7 +174,7 @@
       "events_this_year": "Eventos este año",
       "show_graph": "Ver gráfico",
       "no_metrics": "Las métricas de vida te permiten registrar lo que es importante para ti.",
-      "no_life_events": "Aún no se han registrado eventos de vida",
+      "no_activities": "Aún no se han registrado actividades",
       "mood_title": "Registra tu estado de ánimo",
       "mood_how_are_you": "¿Cómo estás?",
       "mood_record": "Registra tu estado de ánimo",
@@ -189,19 +188,15 @@
       "due_tasks": "Tareas pendientes",
       "no_tasks": "No hay tareas próximas",
       "view_all": "Ver todo",
-      "add_life_event": "Añadir un evento de vida",
       "select_category": "Selecciona la categoría",
       "select_type": "Selecciona el tipo de evento",
-      "life_event_summary": "Resumen",
-      "life_event_description": "Descripción",
-      "life_event_added": "Evento de vida añadido",
-      "life_event_date": "Fecha",
       "catch_up_title": "Ponerse al día",
       "no_catch_up": "Nadie necesita ponerse al día",
       "catch_up_due": "{{days}} días de retraso",
       "catch_up_last_talked": "Última charla {{date}}",
       "catch_up_mark": "Hecho",
-      "catch_up_marked": "Puesta al día registrada"
+      "catch_up_marked": "Puesta al día registrada",
+      "feed_tab": "Feed"
     },
     "calendar": {
       "title": "Calendario",
@@ -633,8 +628,9 @@
         "relationships": "Relaciones",
         "information": "Información",
         "activities": "Actividades",
-        "life": "Vida",
-        "photos_docs": "Medios y documentos"
+        "photos_docs": "Medios y documentos",
+        "operations": "Tareas y seguimiento",
+        "goals": "Objetivos"
       },
       "first_name": "Nombre",
       "last_name": "Apellidos",
@@ -973,33 +969,19 @@
       "one_way_only": "solo en un sentido",
       "one_way_hint": "No tienes permiso de edición sobre el espacio de este contacto. Solo se creará una relación unidireccional."
     },
-    "life_events": {
-      "title": "Eventos de vida",
+    "activities": {
+      "title": "Actividades",
       "participants": "Otros participantes",
       "participants_placeholder": "Seleccionar participantes...",
-      "add_activity": "Añadir actividad",
       "place": "Lugar",
       "duration_minutes": "Duración (minutos)",
       "self_participant": "Tú",
-      "event": "Evento",
-      "delete_event_confirm": "¿Eliminar?",
-      "event_added": "Evento de vida añadido",
-      "event_updated": "Evento de vida actualizado",
-      "event_deleted": "Evento de vida eliminado",
-      "event_modal": "Añadir evento de vida",
-      "edit_event": "Editar evento de vida",
-      "toggle_event": "Cambiar evento",
-      "event_toggled": "Evento cambiado",
-      "label": "Etiqueta",
       "title_label": "Título",
-      "started_at": "Empezó el",
       "happened_at": "Cuándo",
-      "add_event": "Añadir acontecimiento vital",
-      "add_first_event": "Añadir el primer acontecimiento",
       "empty_description": "Recuerda los momentos que marcaron la vida de esta persona.",
       "empty_description_vault": "Recuerda los momentos importantes de esta bóveda.",
-      "saved": "Acontecimiento guardado",
-      "type": "Tipo de acontecimiento",
+      "saved": "Actividad guardada",
+      "type": "Tipo de actividad",
       "description": "Descripción",
       "description_placeholder": "Escribe lo ocurrido. Escribe @ para mencionar un contacto...",
       "related_experience": "Experiencia relacionada (opcional)",
@@ -1013,7 +995,12 @@
       "end_unknown": "Terminó, fecha desconocida",
       "precision_day": "Día",
       "precision_month": "Mes",
-      "precision_year": "Año"
+      "precision_year": "Año",
+      "add": "Añadir actividad",
+      "edit": "Editar actividad",
+      "delete_confirm": "¿Eliminar esta actividad?",
+      "deleted": "Actividad eliminada",
+      "add_first": "Añadir la primera actividad"
     },
     "mood_tracking": {
       "title": "Seguimiento de ánimo",
@@ -1157,7 +1144,6 @@
       "currencies": "Monedas",
       "religions": "Religiones",
       "call_reasons": "Motivos de llamada",
-      "life_event_categories": "Categorías de eventos de vida",
       "gift_occasions": "Ocasiones de regalo",
       "gift_states": "Estados de regalo",
       "pages": "Páginas",
@@ -1195,7 +1181,8 @@
       "sync_translations": "Sincronizar traducciones",
       "sync_translations_desc": "Actualizar las etiquetas predeterminadas para que coincidan con tu idioma actual. Las etiquetas personalizadas no se verán afectadas.",
       "sync_success": "Traducciones sincronizadas",
-      "sync_confirm": "Esto actualizará todas las etiquetas predeterminadas para que coincidan con tu idioma actual. Las etiquetas personalizadas no se verán afectadas. ¿Continuar?"
+      "sync_confirm": "Esto actualizará todas las etiquetas predeterminadas para que coincidan con tu idioma actual. Las etiquetas personalizadas no se verán afectadas. ¿Continuar?",
+      "activity_categories": "Categorías de actividades"
     },
     "users": {
       "title": "Usuarios",
@@ -1375,7 +1362,7 @@
     "tags": "Etiquetas",
     "date_types": "Tipos de fechas importantes",
     "mood_params": "Parámetros de ánimo",
-    "life_events": "Eventos de vida",
+    "activities": "Actividades",
     "quick_facts": "Plantillas de datos rápidos",
     "tabs": "Visibilidad de pestañas",
     "users": "Usuarios",
@@ -1397,8 +1384,6 @@
     "template_updated": "Plantilla de la bóveda actualizada",
     "template_description": "Los nuevos contactos usarán esta plantilla",
     "select_template": "Selecciona una plantilla",
-    "life_event_category_updated": "Categoría de evento de vida actualizada",
-    "life_event_type_updated": "Tipo de evento de vida actualizado",
     "move_up": "Subir",
     "move_down": "Bajar",
     "quick_fact_templates": {
@@ -1482,7 +1467,7 @@
       "reminders": "Recordatorios",
       "relationships": "Relaciones",
       "addresses": "Direcciones",
-      "life_events": "Eventos de vida",
+      "activities": "Actividades",
       "documents": "Documentos",
       "photos": "Fotos",
       "skipped": "Omitidos",
@@ -1495,7 +1480,9 @@
     "name_order_override": "Usar un orden específico de esta bóveda",
     "name_order_condition_help": "Los segmentos opcionales pueden usar sintaxis condicional, por ejemplo {nickname? (%nickname%)}.",
     "name_order_save": "Guardar sobrescritura",
-    "name_order_clear": "Usar preferencia global"
+    "name_order_clear": "Usar preferencia global",
+    "activity_category_updated": "Categoría de actividad actualizada",
+    "activity_type_updated": "Tipo de actividad actualizado"
   },
   "backups": {
     "title": "Copias de seguridad",

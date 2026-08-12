@@ -449,8 +449,8 @@ vi.mock("@/pages/contact/modules/RelationshipsModule", () => ({
 vi.mock("@/pages/contact/modules/GoalsModule", () => ({
   default: () => <div>GoalsModule</div>,
 }));
-vi.mock("@/pages/contact/modules/LifeEventsModule", () => ({
-  default: () => <div>LifeEventsModule</div>,
+vi.mock("@/pages/contact/modules/ActivitiesModule", () => ({
+  default: () => <div>ActivitiesModule</div>,
 }));
 vi.mock("@/pages/contact/modules/QuickFactsModule", () => ({
   default: ({ readOnly }: { readOnly?: boolean }) => (
@@ -988,23 +988,30 @@ describe("ContactDetail", () => {
         },
         {
           id: 2,
-          name: "Life & goals",
-          slug: "life-goals",
-          modules: [{ id: 11, name: "Life events", type: "life_events" }],
+          name: "Activities",
+          slug: "activities",
+          modules: [{ id: 11, name: "Activities", type: "activities" }],
+        },
+        {
+          id: 3,
+          name: "Goals",
+          slug: "goals",
+          modules: [{ id: 12, name: "Goals", type: "goals" }],
         },
       ],
     };
     window.localStorage.setItem(
       "bonds:contact-template:42:last-tab",
-      "life-goals",
+      "activities",
     );
 
     renderContactDetail();
 
-    expect(screen.getByRole("tab", { name: "Life & goals" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Activities" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
+    expect(screen.getByRole("tab", { name: "Goals" })).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Summary" }));
     expect(window.localStorage.getItem("bonds:contact-template:42:last-tab")).toBe(
       "summary",
@@ -1027,14 +1034,16 @@ describe("ContactDetail", () => {
     expect(screen.getByText("NotesModule:edit")).toBeInTheDocument();
   });
 
-  it("forces fallback reminder links into the activities tab", () => {
+  it("forces fallback reminder links into the operations tab", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
 
     renderContactDetail(
       "/vaults/1/contacts/2?focus=reminders&source=ContactReminder:17",
     );
 
-    expect(screen.getByRole("tab", { name: "Activities" })).toHaveAttribute(
+    expect(
+      screen.getByRole("tab", { name: "Tasks & follow-ups" }),
+    ).toHaveAttribute(
       "aria-selected",
       "true",
     );

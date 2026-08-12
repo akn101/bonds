@@ -10,7 +10,7 @@ import (
 
 // migrateLegacyShadowContacts removes the former UserVault-to-Contact bridge.
 // It preserves the two pieces of user-owned data that used that bridge:
-// moods become vault/user rows, and dashboard life events get a user subject
+// moods become vault/user rows, and dashboard activities get a user subject
 // snapshot. Mood rows that belonged to an ordinary contact are retained as
 // anonymous vault history.
 func migrateLegacyShadowContacts(db *gorm.DB) error {
@@ -47,7 +47,7 @@ func migrateLegacyShadowContacts(db *gorm.DB) error {
 		shadowIDs := make([]string, 0, len(mappings))
 		for _, mapping := range mappings {
 			shadowIDs = append(shadowIDs, mapping.ContactID)
-			if err := migrateShadowLifeEvents(tx, mapping); err != nil {
+			if err := migrateShadowActivities(tx, mapping); err != nil {
 				return err
 			}
 			if tx.Migrator().HasTable("mood_tracking_events") && hasColumn(tx, "mood_tracking_events", "contact_id") {
@@ -101,8 +101,8 @@ func addShadowReplacementColumns(db *gorm.DB) error {
 		model interface{}
 		name  string
 	}{
-		{&models.LifeEvent{}, "SubjectUserID"},
-		{&models.LifeEvent{}, "SubjectUserName"},
+		{&models.Activity{}, "SubjectUserID"},
+		{&models.Activity{}, "SubjectUserName"},
 		{&models.MoodTrackingEvent{}, "VaultID"},
 		{&models.MoodTrackingEvent{}, "UserID"},
 	}
@@ -117,7 +117,7 @@ func addShadowReplacementColumns(db *gorm.DB) error {
 	return nil
 }
 
-func migrateShadowLifeEvents(tx *gorm.DB, mapping struct {
+func migrateShadowActivities(tx *gorm.DB, mapping struct {
 	UserVaultID uint
 	VaultID     string
 	UserID      string
@@ -126,12 +126,12 @@ func migrateShadowLifeEvents(tx *gorm.DB, mapping struct {
 	LastName    string
 	Email       string
 }) error {
-	if !tx.Migrator().HasTable("life_events") || !tx.Migrator().HasTable("life_event_participants") {
+	if !tx.Migrator().HasTable("activities") || !tx.Migrator().HasTable("activity_participants") {
 		return nil
 	}
 	var eventIDs []uint
-	if err := tx.Table("life_event_participants").Where("contact_id = ?", mapping.ContactID).Pluck("life_event_id", &eventIDs).Error; err != nil {
-		return fmt.Errorf("migrate shadow contacts: load life events: %w", err)
+	if err := tx.Table("activity_participants").Where("contact_id = ?", mapping.ContactID).Pluck("activity_id", &eventIDs).Error; err != nil {
+		return fmt.Errorf("migrate shadow contacts: load activities: %w", err)
 	}
 	if len(eventIDs) == 0 {
 		return nil
@@ -140,10 +140,10 @@ func migrateShadowLifeEvents(tx *gorm.DB, mapping struct {
 	if name == "" {
 		name = mapping.Email
 	}
-	if err := tx.Table("life_events").
+	if err := tx.Table("activities").
 		Where("id IN ? AND vault_id = ? AND subject_user_id IS NULL", eventIDs, mapping.VaultID).
 		Updates(map[string]interface{}{"subject_user_id": mapping.UserID, "subject_user_name": name}).Error; err != nil {
-		return fmt.Errorf("migrate shadow contacts: map life event subjects: %w", err)
+		return fmt.Errorf("migrate shadow contacts: map activity subjects: %w", err)
 	}
 	return nil
 }
@@ -180,7 +180,7 @@ func deleteLegacyShadowContactData(tx *gorm.DB, contactIDs []string) error {
 	if err := updateColumnIfPresent(tx, "contacts", "first_met_through_contact_id", contactIDs, nil); err != nil {
 		return err
 	}
-	if err := updateColumnIfPresent(tx, "life_events", "paid_by_contact_id", contactIDs, nil); err != nil {
+	if err := updateColumnIfPresent(tx, "activities", "paid_by_contact_id", contactIDs, nil); err != nil {
 		return err
 	}
 	if err := updateColumnIfPresent(tx, "dav_sync_logs", "contact_id", contactIDs, nil); err != nil {
@@ -196,7 +196,7 @@ func deleteLegacyShadowContactData(tx *gorm.DB, contactIDs []string) error {
 		"contact_vault_user", "contact_feed_items", "task_contacts", "contact_subscription_states",
 		"contact_information", "contact_important_dates", "contact_reminders", "calls", "contact_address", "gifts", "pets",
 		"goals", "quick_facts", "notes", "contact_post", "contact_life_metric", "contact_group",
-		"contact_label", "contact_companies", "life_event_participants",
+		"contact_label", "contact_companies", "activity_participants",
 	}
 	for _, table := range directTables {
 		if err := deleteRowsIfColumn(tx, table, "contact_id", contactIDs); err != nil {

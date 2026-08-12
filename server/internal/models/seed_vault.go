@@ -9,8 +9,8 @@ func SeedVaultDefaults(tx *gorm.DB, vaultID, locale string) error {
 	seeders := []func(*gorm.DB, string, string) error{
 		seedContactImportantDateTypes,
 		seedMoodTrackingParameters,
-		seedLifeEventCategoriesAndTypes,
-		seedInteractionLifeEventTypes,
+		seedActivityCategoriesAndTypes,
+		seedInteractionActivityTypes,
 		seedVaultQuickFactsTemplates,
 	}
 	for _, fn := range seeders {
@@ -86,7 +86,7 @@ func seedMoodTrackingParameters(tx *gorm.DB, vaultID, locale string) error {
 	return tx.Create(&items).Error
 }
 
-func seedLifeEventCategoriesAndTypes(tx *gorm.DB, vaultID, locale string) error {
+func seedActivityCategoriesAndTypes(tx *gorm.DB, vaultID, locale string) error {
 	type categoryDef struct {
 		key      string
 		position int
@@ -94,42 +94,42 @@ func seedLifeEventCategoriesAndTypes(tx *gorm.DB, vaultID, locale string) error 
 	}
 
 	categories := []categoryDef{
-		{"seed.life_event_categories.transportation", 1, []string{
-			"seed.life_event_types.rode_a_bike",
-			"seed.life_event_types.drove",
-			"seed.life_event_types.walked",
-			"seed.life_event_types.took_the_bus",
-			"seed.life_event_types.took_the_metro",
+		{"seed.activity_categories.transportation", 1, []string{
+			"seed.activity_types.rode_a_bike",
+			"seed.activity_types.drove",
+			"seed.activity_types.walked",
+			"seed.activity_types.took_the_bus",
+			"seed.activity_types.took_the_metro",
 		}},
-		{"seed.life_event_categories.social", 2, []string{
-			"seed.life_event_types.ate",
-			"seed.life_event_types.drank",
-			"seed.life_event_types.went_to_a_bar",
-			"seed.life_event_types.watched_a_movie",
-			"seed.life_event_types.watched_tv",
-			"seed.life_event_types.watched_a_tv_show",
+		{"seed.activity_categories.social", 2, []string{
+			"seed.activity_types.ate",
+			"seed.activity_types.drank",
+			"seed.activity_types.went_to_a_bar",
+			"seed.activity_types.watched_a_movie",
+			"seed.activity_types.watched_tv",
+			"seed.activity_types.watched_a_tv_show",
 		}},
-		{"seed.life_event_categories.sport", 3, []string{
-			"seed.life_event_types.ran",
-			"seed.life_event_types.played_soccer",
-			"seed.life_event_types.played_basketball",
-			"seed.life_event_types.played_golf",
-			"seed.life_event_types.played_tennis",
+		{"seed.activity_categories.sport", 3, []string{
+			"seed.activity_types.ran",
+			"seed.activity_types.played_soccer",
+			"seed.activity_types.played_basketball",
+			"seed.activity_types.played_golf",
+			"seed.activity_types.played_tennis",
 		}},
-		{"seed.life_event_categories.work", 4, []string{
-			"seed.life_event_types.took_a_new_job",
-			"seed.life_event_types.quit_job",
-			"seed.life_event_types.got_fired",
-			"seed.life_event_types.had_a_promotion",
+		{"seed.activity_categories.work", 4, []string{
+			"seed.activity_types.took_a_new_job",
+			"seed.activity_types.quit_job",
+			"seed.activity_types.got_fired",
+			"seed.activity_types.had_a_promotion",
 		}},
 	}
 
 	for _, cat := range categories {
 		pos := cat.position
-		// Life event seed defaults are editable in Settings, so persist them as
+		// Activity seed defaults are editable in Settings, so persist them as
 		// deletable here. Older vaults seeded before this flag was set are
-		// repaired by BackfillLifeEventDefaultDeletability on boot.
-		category := LifeEventCategory{
+		// repaired by BackfillActivityDefaultDeletability on boot.
+		category := ActivityCategory{
 			VaultID:             vaultID,
 			Label:               strPtr(i18n.T(locale, cat.key)),
 			LabelTranslationKey: strPtr(cat.key),
@@ -141,14 +141,14 @@ func seedLifeEventCategoriesAndTypes(tx *gorm.DB, vaultID, locale string) error 
 		}
 		for idx, typeKey := range cat.types {
 			typePos := idx + 1
-			lifeEventType := LifeEventType{
-				LifeEventCategoryID: category.ID,
+			activityType := ActivityType{
+				ActivityCategoryID:  category.ID,
 				Label:               strPtr(i18n.T(locale, typeKey)),
 				LabelTranslationKey: strPtr(typeKey),
 				Position:            &typePos,
 				CanBeDeleted:        true,
 			}
-			if err := tx.Create(&lifeEventType).Error; err != nil {
+			if err := tx.Create(&activityType).Error; err != nil {
 				return err
 			}
 		}
@@ -156,23 +156,23 @@ func seedLifeEventCategoriesAndTypes(tx *gorm.DB, vaultID, locale string) error 
 	return nil
 }
 
-type interactionLifeEventTypeDef struct {
+type interactionActivityTypeDef struct {
 	key        string
 	systemKind string
 	icon       string
 	color      string
 }
 
-var interactionLifeEventTypeDefs = []interactionLifeEventTypeDef{
-	{"seed.life_event_types.phone_call", "phone_call", "phone", "#1677ff"},
-	{"seed.life_event_types.video_call", "video_call", "video-camera", "#722ed1"},
-	{"seed.life_event_types.in_person_meeting", "in_person_meeting", "team", "#52c41a"},
+var interactionActivityTypeDefs = []interactionActivityTypeDef{
+	{"seed.activity_types.phone_call", "phone_call", "phone", "#1677ff"},
+	{"seed.activity_types.video_call", "video_call", "video-camera", "#722ed1"},
+	{"seed.activity_types.in_person_meeting", "in_person_meeting", "team", "#52c41a"},
 }
 
-func seedInteractionLifeEventTypes(tx *gorm.DB, vaultID, locale string) error {
-	categoryKey := "seed.life_event_categories.interactions"
+func seedInteractionActivityTypes(tx *gorm.DB, vaultID, locale string) error {
+	categoryKey := "seed.activity_categories.interactions"
 	position := 5
-	category := LifeEventCategory{
+	category := ActivityCategory{
 		VaultID:             vaultID,
 		Label:               strPtr(i18n.T(locale, categoryKey)),
 		LabelTranslationKey: &categoryKey,
@@ -182,11 +182,11 @@ func seedInteractionLifeEventTypes(tx *gorm.DB, vaultID, locale string) error {
 	if err := tx.Create(&category).Error; err != nil {
 		return err
 	}
-	for idx, def := range interactionLifeEventTypeDefs {
+	for idx, def := range interactionActivityTypeDefs {
 		position := idx + 1
 		def := def
-		typeModel := LifeEventType{
-			LifeEventCategoryID: category.ID,
+		typeModel := ActivityType{
+			ActivityCategoryID:  category.ID,
 			Label:               strPtr(i18n.T(locale, def.key)),
 			LabelTranslationKey: strPtr(def.key),
 			Position:            &position,

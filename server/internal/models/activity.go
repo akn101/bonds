@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-type LifeEventCategory struct {
+type ActivityCategory struct {
 	ID                  uint      `json:"id" gorm:"primaryKey;autoIncrement"`
 	VaultID             string    `json:"vault_id" gorm:"type:text;not null;index"`
 	Position            *int      `json:"position"`
@@ -12,13 +12,13 @@ type LifeEventCategory struct {
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
 
-	Vault          Vault           `json:"vault,omitempty" gorm:"foreignKey:VaultID"`
-	LifeEventTypes []LifeEventType `json:"life_event_types,omitempty" gorm:"foreignKey:LifeEventCategoryID"`
+	Vault         Vault          `json:"vault,omitempty" gorm:"foreignKey:VaultID"`
+	ActivityTypes []ActivityType `json:"activity_types,omitempty" gorm:"foreignKey:ActivityCategoryID"`
 }
 
-type LifeEventType struct {
+type ActivityType struct {
 	ID                  uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	LifeEventCategoryID uint      `json:"life_event_category_id" gorm:"not null;index"`
+	ActivityCategoryID  uint      `json:"activity_category_id" gorm:"not null;index"`
 	Label               *string   `json:"label"`
 	LabelTranslationKey *string   `json:"label_translation_key"`
 	CanBeDeleted        bool      `json:"can_be_deleted" gorm:"default:false"`
@@ -30,15 +30,15 @@ type LifeEventType struct {
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
 
-	LifeEventCategory LifeEventCategory `json:"life_event_category,omitempty" gorm:"foreignKey:LifeEventCategoryID"`
-	LifeEvents        []LifeEvent       `json:"life_events,omitempty" gorm:"foreignKey:LifeEventTypeID"`
+	ActivityCategory ActivityCategory `json:"activity_category,omitempty" gorm:"foreignKey:ActivityCategoryID"`
+	Activities       []Activity       `json:"activities,omitempty" gorm:"foreignKey:ActivityTypeID"`
 }
 
-type LifeEvent struct {
+type Activity struct {
 	ID              uint       `json:"id" gorm:"primaryKey;autoIncrement"`
-	VaultID         string     `json:"vault_id" gorm:"type:text;not null;index;uniqueIndex:idx_life_event_source"`
+	VaultID         string     `json:"vault_id" gorm:"type:text;not null;index;uniqueIndex:idx_activity_source"`
 	ParentID        *uint      `json:"parent_id" gorm:"index"`
-	LifeEventTypeID *uint      `json:"life_event_type_id" gorm:"index"`
+	ActivityTypeID  *uint      `json:"activity_type_id" gorm:"index"`
 	SubjectUserID   *string    `json:"subject_user_id" gorm:"type:text;index"`
 	SubjectUserName *string    `json:"subject_user_name" gorm:"type:text"`
 	EmotionID       *uint      `json:"emotion_id" gorm:"index"`
@@ -48,7 +48,7 @@ type LifeEvent struct {
 	EndPrecision    string     `json:"end_precision" gorm:"size:16"`
 	EndStatus       string     `json:"end_status" gorm:"size:16;not null;default:'none'"`
 	// CalendarType / OriginalDay / OriginalMonth / OriginalYear preserve the
-	// user's input when they record a life event in a non-Gregorian calendar
+	// user's input when they record an activity in a non-Gregorian calendar
 	// (e.g. lunar). StartDate stores the Gregorian projection used for queries
 	// and sorting;
 	// the Original* triple lets the UI render the lunar string and lets edits
@@ -71,29 +71,29 @@ type LifeEvent struct {
 	FromPlace         *string   `json:"from_place"`
 	ToPlace           *string   `json:"to_place"`
 	Place             *string   `json:"place"`
-	SourceType        *string   `json:"source_type" gorm:"size:64;uniqueIndex:idx_life_event_source"`
-	SourceUUID        *string   `json:"source_uuid" gorm:"size:191;uniqueIndex:idx_life_event_source"`
+	SourceType        *string   `json:"source_type" gorm:"size:64;uniqueIndex:idx_activity_source"`
+	SourceUUID        *string   `json:"source_uuid" gorm:"size:191;uniqueIndex:idx_activity_source"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 
-	Vault         Vault          `json:"vault,omitempty" gorm:"foreignKey:VaultID"`
-	Parent        *LifeEvent     `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
-	Milestones    []LifeEvent    `json:"milestones,omitempty" gorm:"foreignKey:ParentID"`
-	LifeEventType *LifeEventType `json:"life_event_type,omitempty" gorm:"foreignKey:LifeEventTypeID"`
-	Currency      *Currency      `json:"currency,omitempty" gorm:"foreignKey:CurrencyID"`
-	Emotion       *Emotion       `json:"emotion,omitempty" gorm:"foreignKey:EmotionID"`
-	PaidBy        *Contact       `json:"paid_by,omitempty" gorm:"foreignKey:PaidByContactID"`
-	Participants  []Contact      `json:"participants,omitempty" gorm:"many2many:life_event_participants"`
+	Vault        Vault         `json:"vault,omitempty" gorm:"foreignKey:VaultID"`
+	Parent       *Activity     `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
+	Milestones   []Activity    `json:"milestones,omitempty" gorm:"foreignKey:ParentID"`
+	ActivityType *ActivityType `json:"activity_type,omitempty" gorm:"foreignKey:ActivityTypeID"`
+	Currency     *Currency     `json:"currency,omitempty" gorm:"foreignKey:CurrencyID"`
+	Emotion      *Emotion      `json:"emotion,omitempty" gorm:"foreignKey:EmotionID"`
+	PaidBy       *Contact      `json:"paid_by,omitempty" gorm:"foreignKey:PaidByContactID"`
+	Participants []Contact     `json:"participants,omitempty" gorm:"many2many:activity_participants"`
 }
 
-type LifeEventParticipant struct {
-	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	ContactID   string    `json:"contact_id" gorm:"type:text;not null;uniqueIndex:idx_life_event_participant_unique"`
-	LifeEventID uint      `json:"life_event_id" gorm:"not null;uniqueIndex:idx_life_event_participant_unique;index"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+type ActivityParticipant struct {
+	ID         uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	ContactID  string    `json:"contact_id" gorm:"type:text;not null;uniqueIndex:idx_activity_participant_unique"`
+	ActivityID uint      `json:"activity_id" gorm:"not null;uniqueIndex:idx_activity_participant_unique;index"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
-func (LifeEventParticipant) TableName() string {
-	return "life_event_participants"
+func (ActivityParticipant) TableName() string {
+	return "activity_participants"
 }

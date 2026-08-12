@@ -8,29 +8,29 @@ import (
 	"gorm.io/gorm"
 )
 
-type VaultLifeEventService struct {
+type VaultActivityService struct {
 	db *gorm.DB
 }
 
-func NewVaultLifeEventService(db *gorm.DB) *VaultLifeEventService {
-	return &VaultLifeEventService{db: db}
+func NewVaultActivityService(db *gorm.DB) *VaultActivityService {
+	return &VaultActivityService{db: db}
 }
 
-func (s *VaultLifeEventService) ListCategories(vaultID string) ([]dto.LifeEventCategoryResponse, error) {
-	var cats []models.LifeEventCategory
-	if err := s.db.Where("vault_id = ?", vaultID).Preload("LifeEventTypes").Order("position ASC").Find(&cats).Error; err != nil {
+func (s *VaultActivityService) ListCategories(vaultID string) ([]dto.ActivityCategoryResponse, error) {
+	var cats []models.ActivityCategory
+	if err := s.db.Where("vault_id = ?", vaultID).Preload("ActivityTypes").Order("position ASC").Find(&cats).Error; err != nil {
 		return nil, err
 	}
-	result := make([]dto.LifeEventCategoryResponse, len(cats))
+	result := make([]dto.ActivityCategoryResponse, len(cats))
 	for i, c := range cats {
-		result[i] = toLifeEventCategoryResponse(&c)
+		result[i] = toActivityCategoryResponse(&c)
 	}
 	return result, nil
 }
 
-func (s *VaultLifeEventService) CreateCategory(vaultID string, req dto.CreateLifeEventCategoryRequest) (*dto.LifeEventCategoryResponse, error) {
+func (s *VaultActivityService) CreateCategory(vaultID string, req dto.CreateActivityCategoryRequest) (*dto.ActivityCategoryResponse, error) {
 	label := req.Label
-	cat := models.LifeEventCategory{
+	cat := models.ActivityCategory{
 		VaultID:      vaultID,
 		Label:        &label,
 		Position:     req.Position,
@@ -39,12 +39,12 @@ func (s *VaultLifeEventService) CreateCategory(vaultID string, req dto.CreateLif
 	if err := s.db.Create(&cat).Error; err != nil {
 		return nil, err
 	}
-	resp := toLifeEventCategoryResponse(&cat)
+	resp := toActivityCategoryResponse(&cat)
 	return &resp, nil
 }
 
-func (s *VaultLifeEventService) UpdateCategory(id uint, vaultID string, req dto.UpdateLifeEventCategoryRequest) (*dto.LifeEventCategoryResponse, error) {
-	var cat models.LifeEventCategory
+func (s *VaultActivityService) UpdateCategory(id uint, vaultID string, req dto.UpdateActivityCategoryRequest) (*dto.ActivityCategoryResponse, error) {
+	var cat models.ActivityCategory
 	if err := s.db.Where("id = ? AND vault_id = ?", id, vaultID).First(&cat).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLifeCategoryNotFound
@@ -57,15 +57,15 @@ func (s *VaultLifeEventService) UpdateCategory(id uint, vaultID string, req dto.
 	if err := s.db.Save(&cat).Error; err != nil {
 		return nil, err
 	}
-	if err := s.db.Preload("LifeEventTypes").First(&cat, "id = ?", cat.ID).Error; err != nil {
+	if err := s.db.Preload("ActivityTypes").First(&cat, "id = ?", cat.ID).Error; err != nil {
 		return nil, err
 	}
-	resp := toLifeEventCategoryResponse(&cat)
+	resp := toActivityCategoryResponse(&cat)
 	return &resp, nil
 }
 
-func (s *VaultLifeEventService) UpdateCategoryPosition(id uint, vaultID string, position int) (*dto.LifeEventCategoryResponse, error) {
-	var cat models.LifeEventCategory
+func (s *VaultActivityService) UpdateCategoryPosition(id uint, vaultID string, position int) (*dto.ActivityCategoryResponse, error) {
+	var cat models.ActivityCategory
 	if err := s.db.Where("id = ? AND vault_id = ?", id, vaultID).First(&cat).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLifeCategoryNotFound
@@ -76,12 +76,12 @@ func (s *VaultLifeEventService) UpdateCategoryPosition(id uint, vaultID string, 
 	if err := s.db.Save(&cat).Error; err != nil {
 		return nil, err
 	}
-	resp := toLifeEventCategoryResponse(&cat)
+	resp := toActivityCategoryResponse(&cat)
 	return &resp, nil
 }
 
-func (s *VaultLifeEventService) DeleteCategory(id uint, vaultID string) error {
-	var cat models.LifeEventCategory
+func (s *VaultActivityService) DeleteCategory(id uint, vaultID string) error {
+	var cat models.ActivityCategory
 	if err := s.db.Where("id = ? AND vault_id = ?", id, vaultID).First(&cat).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrLifeCategoryNotFound
@@ -92,15 +92,15 @@ func (s *VaultLifeEventService) DeleteCategory(id uint, vaultID string) error {
 		return ErrCannotDeleteDefault
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("life_event_category_id = ?", id).Delete(&models.LifeEventType{}).Error; err != nil {
+		if err := tx.Where("activity_category_id = ?", id).Delete(&models.ActivityType{}).Error; err != nil {
 			return err
 		}
 		return tx.Delete(&cat).Error
 	})
 }
 
-func (s *VaultLifeEventService) CreateType(categoryID uint, vaultID string, req dto.CreateLifeEventTypeRequest) (*dto.LifeEventTypeResponse, error) {
-	var cat models.LifeEventCategory
+func (s *VaultActivityService) CreateType(categoryID uint, vaultID string, req dto.CreateActivityTypeRequest) (*dto.ActivityTypeResponse, error) {
+	var cat models.ActivityCategory
 	if err := s.db.Where("id = ? AND vault_id = ?", categoryID, vaultID).First(&cat).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLifeCategoryNotFound
@@ -108,8 +108,8 @@ func (s *VaultLifeEventService) CreateType(categoryID uint, vaultID string, req 
 		return nil, err
 	}
 	label := req.Label
-	lt := models.LifeEventType{
-		LifeEventCategoryID: categoryID,
+	lt := models.ActivityType{
+		ActivityCategoryID:  categoryID,
 		Label:               &label,
 		Position:            req.Position,
 		CanBeDeleted:        true,
@@ -120,20 +120,20 @@ func (s *VaultLifeEventService) CreateType(categoryID uint, vaultID string, req 
 	if err := s.db.Create(&lt).Error; err != nil {
 		return nil, err
 	}
-	resp := toLifeEventTypeResponse(&lt)
+	resp := toActivityTypeResponse(&lt)
 	return &resp, nil
 }
 
-func (s *VaultLifeEventService) UpdateType(typeID, categoryID uint, vaultID string, req dto.UpdateLifeEventTypeRequest) (*dto.LifeEventTypeResponse, error) {
-	var cat models.LifeEventCategory
+func (s *VaultActivityService) UpdateType(typeID, categoryID uint, vaultID string, req dto.UpdateActivityTypeRequest) (*dto.ActivityTypeResponse, error) {
+	var cat models.ActivityCategory
 	if err := s.db.Where("id = ? AND vault_id = ?", categoryID, vaultID).First(&cat).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLifeCategoryNotFound
 		}
 		return nil, err
 	}
-	var lt models.LifeEventType
-	if err := s.db.Where("id = ? AND life_event_category_id = ?", typeID, categoryID).First(&lt).Error; err != nil {
+	var lt models.ActivityType
+	if err := s.db.Where("id = ? AND activity_category_id = ?", typeID, categoryID).First(&lt).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLifeTypeNotFound
 		}
@@ -148,20 +148,20 @@ func (s *VaultLifeEventService) UpdateType(typeID, categoryID uint, vaultID stri
 	if err := s.db.Save(&lt).Error; err != nil {
 		return nil, err
 	}
-	resp := toLifeEventTypeResponse(&lt)
+	resp := toActivityTypeResponse(&lt)
 	return &resp, nil
 }
 
-func (s *VaultLifeEventService) UpdateTypePosition(typeID, categoryID uint, vaultID string, position int) (*dto.LifeEventTypeResponse, error) {
-	var cat models.LifeEventCategory
+func (s *VaultActivityService) UpdateTypePosition(typeID, categoryID uint, vaultID string, position int) (*dto.ActivityTypeResponse, error) {
+	var cat models.ActivityCategory
 	if err := s.db.Where("id = ? AND vault_id = ?", categoryID, vaultID).First(&cat).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLifeCategoryNotFound
 		}
 		return nil, err
 	}
-	var lt models.LifeEventType
-	if err := s.db.Where("id = ? AND life_event_category_id = ?", typeID, categoryID).First(&lt).Error; err != nil {
+	var lt models.ActivityType
+	if err := s.db.Where("id = ? AND activity_category_id = ?", typeID, categoryID).First(&lt).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLifeTypeNotFound
 		}
@@ -171,20 +171,20 @@ func (s *VaultLifeEventService) UpdateTypePosition(typeID, categoryID uint, vaul
 	if err := s.db.Save(&lt).Error; err != nil {
 		return nil, err
 	}
-	resp := toLifeEventTypeResponse(&lt)
+	resp := toActivityTypeResponse(&lt)
 	return &resp, nil
 }
 
-func (s *VaultLifeEventService) DeleteType(typeID, categoryID uint, vaultID string) error {
-	var cat models.LifeEventCategory
+func (s *VaultActivityService) DeleteType(typeID, categoryID uint, vaultID string) error {
+	var cat models.ActivityCategory
 	if err := s.db.Where("id = ? AND vault_id = ?", categoryID, vaultID).First(&cat).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrLifeCategoryNotFound
 		}
 		return err
 	}
-	var lt models.LifeEventType
-	if err := s.db.Where("id = ? AND life_event_category_id = ?", typeID, categoryID).First(&lt).Error; err != nil {
+	var lt models.ActivityType
+	if err := s.db.Where("id = ? AND activity_category_id = ?", typeID, categoryID).First(&lt).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrLifeTypeNotFound
 		}
@@ -196,12 +196,12 @@ func (s *VaultLifeEventService) DeleteType(typeID, categoryID uint, vaultID stri
 	return s.db.Delete(&lt).Error
 }
 
-func toLifeEventCategoryResponse(c *models.LifeEventCategory) dto.LifeEventCategoryResponse {
-	types := make([]dto.LifeEventTypeResponse, len(c.LifeEventTypes))
-	for i, t := range c.LifeEventTypes {
-		types[i] = toLifeEventTypeResponse(&t)
+func toActivityCategoryResponse(c *models.ActivityCategory) dto.ActivityCategoryResponse {
+	types := make([]dto.ActivityTypeResponse, len(c.ActivityTypes))
+	for i, t := range c.ActivityTypes {
+		types[i] = toActivityTypeResponse(&t)
 	}
-	return dto.LifeEventCategoryResponse{
+	return dto.ActivityCategoryResponse{
 		ID:           c.ID,
 		Label:        ptrToStr(c.Label),
 		CanBeDeleted: c.CanBeDeleted,
@@ -212,10 +212,10 @@ func toLifeEventCategoryResponse(c *models.LifeEventCategory) dto.LifeEventCateg
 	}
 }
 
-func toLifeEventTypeResponse(t *models.LifeEventType) dto.LifeEventTypeResponse {
-	return dto.LifeEventTypeResponse{
+func toActivityTypeResponse(t *models.ActivityType) dto.ActivityTypeResponse {
+	return dto.ActivityTypeResponse{
 		ID:                  t.ID,
-		CategoryID:          t.LifeEventCategoryID,
+		CategoryID:          t.ActivityCategoryID,
 		Label:               ptrToStr(t.Label),
 		CanBeDeleted:        t.CanBeDeleted,
 		Position:            t.Position,

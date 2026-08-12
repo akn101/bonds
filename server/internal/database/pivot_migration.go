@@ -6,7 +6,7 @@ import (
 )
 
 func migrateLegacyPivots(db *gorm.DB) error {
-	if err := migrateLegacyLifeEventParticipantPivots(db); err != nil {
+	if err := migrateLegacyActivityParticipantPivots(db); err != nil {
 		return err
 	}
 	if err := migrateLegacyContactGroupPivots(db); err != nil {

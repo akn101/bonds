@@ -43,7 +43,7 @@ const sectionI18nMap: Record<string, string> = {
   "currencies": "settings.personalize.currencies",
   "religions": "settings.personalize.religions",
   "call-reasons": "settings.personalize.call_reasons",
-  "life-event-categories": "settings.personalize.life_event_categories",
+  "activity-categories": "settings.personalize.activity_categories",
   "gift-occasions": "settings.personalize.gift_occasions",
   "gift-states": "settings.personalize.gift_states",
   "post-templates": "settings.personalize.post_templates",

@@ -16,10 +16,10 @@ hero:
 features:
   - icon: 👥
     title: Gestão de Contactos
-    details: Gestão completa do ciclo de vida — notas, tarefas, lembretes, presentes, empréstimos de dinheiro e itens, atividades, eventos da vida, animais de estimação e muito mais.
+    details: Gestão completa do ciclo de vida — notas, tarefas, lembretes, presentes, empréstimos de dinheiro e itens, atividades, metas, animais de estimação e muito mais.
   - icon: 📊
     title: Painel do Cofre
-    details: Painel de 3 colunas com feed de atividades, eventos da vida, registo de humor e rastreadores de tarefas futuras.
+    details: Painel de 3 colunas com feed, atividades, registo de humor e rastreadores de tarefas futuras.
   - icon: 🔒
     title: Isolamento de Múltiplos Cofres
     details: Organize contactos em cofres separados com controlo de acesso baseado em funções (Gestor / Editor / Leitor).

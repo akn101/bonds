@@ -36,7 +36,7 @@ import {
   CheckCircleOutlined,
 } from "@ant-design/icons";
 import ContactAvatar from "@/components/ContactAvatar";
-import LifeEventsModule from "@/pages/contact/modules/LifeEventsModule";
+import ActivitiesModule from "@/pages/contact/modules/ActivitiesModule";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, httpClient } from "@/api";
 import type {
@@ -59,7 +59,7 @@ dayjs.extend(relativeTime);
 
 const { Title, Text } = Typography;
 
-type DashboardTab = "activity" | "life_events" | "life_metrics";
+type DashboardTab = "feed" | "activities" | "life_metrics";
 
 type VaultReminderItem = Reminder & {
   contact_first_name?: string | null;
@@ -140,18 +140,18 @@ export default function VaultDetail() {
   });
 
   // ─── Tab State — persisted to backend ─────────────────────────
-  const defaultTab =
-    (vault?.default_activity_tab as DashboardTab) || "activity";
+  const defaultDashboardTab =
+    (vault?.default_dashboard_tab as DashboardTab) || "feed";
   const [activeTab, setActiveTab] = useState<DashboardTab | null>(null);
   const [activityCreateSignal, setActivityCreateSignal] = useState(0);
-  const currentTab = activeTab ?? defaultTab;
+  const currentTab = activeTab ?? defaultDashboardTab;
 
   const handleTabChange = useCallback(
     (tab: DashboardTab) => {
       setActiveTab(tab);
       // Fire-and-forget: persist the tab preference
       httpClient.instance
-        .put(`/vaults/${vaultId}/defaultTab`, { default_activity_tab: tab })
+        .put(`/vaults/${vaultId}/default-dashboard-tab`, { default_dashboard_tab: tab })
         .catch(() => {
           /* silent — non-critical */
         });
@@ -216,10 +216,10 @@ export default function VaultDetail() {
   ];
 
   const segmentedOptions = [
-    { label: t("vault.dashboard.activity_tab"), value: "activity" as const },
+    { label: t("vault.dashboard.feed_tab"), value: "feed" as const },
     {
-      label: t("vault.dashboard.life_events_tab"),
-      value: "life_events" as const,
+      label: t("vault.dashboard.activities_tab"),
+      value: "activities" as const,
     },
     {
       label: t("vault.dashboard.life_metrics_tab"),
@@ -250,11 +250,11 @@ export default function VaultDetail() {
           <Button
             icon={<PlusOutlined />}
             onClick={() => {
-              handleTabChange("life_events");
+              handleTabChange("activities");
               setActivityCreateSignal((value) => value + 1);
             }}
           >
-            {t("modules.life_events.add_activity")}
+            {t("modules.activities.add")}
           </Button>
           <Button
             type="primary"
@@ -399,9 +399,9 @@ export default function VaultDetail() {
               minHeight: 200,
             }}
           >
-            {currentTab === "activity" && <ActivityTab vaultId={vaultId} />}
-            {currentTab === "life_events" && (
-              <LifeEventsTab
+            {currentTab === "feed" && <FeedTab vaultId={vaultId} />}
+            {currentTab === "activities" && (
+              <ActivitiesTab
                 vaultId={vaultId}
                 createSignal={activityCreateSignal}
                 onCreateClosed={() => setActivityCreateSignal(0)}
@@ -520,8 +520,8 @@ function SidebarSection({
   );
 }
 
-// ─── Activity Tab ────────────────────────────────────────────────
-function ActivityTab({ vaultId }: { vaultId: string }) {
+// ─── Feed Tab ────────────────────────────────────────────────────
+function FeedTab({ vaultId }: { vaultId: string }) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const navigate = useNavigate();
@@ -662,8 +662,8 @@ function ActivityTab({ vaultId }: { vaultId: string }) {
   );
 }
 
-// ─── Life Events Tab ─────────────────────────────────────────────
-function LifeEventsTab({
+// ─── Activities Tab ─────────────────────────────────────────────
+function ActivitiesTab({
   vaultId,
   createSignal,
   onCreateClosed,
@@ -673,11 +673,10 @@ function LifeEventsTab({
   onCreateClosed: () => void;
 }) {
   return (
-    <LifeEventsModule
+    <ActivitiesModule
       key={createSignal}
       vaultId={vaultId}
       initiallyOpen={createSignal > 0}
-      initialCreateKind="activity"
       onModalClose={onCreateClosed}
     />
   );

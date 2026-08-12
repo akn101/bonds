@@ -70,11 +70,11 @@ func TestExportVaultICS(t *testing.T) {
 	}
 
 	start := time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)
-	if err := db.Create(&models.LifeEvent{
+	if err := db.Create(&models.Activity{
 		VaultID: vault.ID, StartDate: &start, StartPrecision: "day",
 		EndStatus: "none", Title: "Graduation",
 	}).Error; err != nil {
-		t.Fatalf("create life event failed: %v", err)
+		t.Fatalf("create activity failed: %v", err)
 	}
 
 	svc := NewCalendarICSService(db)

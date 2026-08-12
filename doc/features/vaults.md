@@ -28,7 +28,7 @@ Each vault has its own set of defaults, seeded on creation:
 
 - **Important date types**: Birthdate, deceased date (built-in), plus custom types.
 - **Mood tracking parameters**: 5-level mood scale with emoji and colors.
-- **Life event categories**: 4 categories with 20 event types.
+- **Activity categories**: 4 categories with 20 activity types.
 - **Quick facts templates**: How we met, hobbies, food preferences.
 
 ## System Users and Contacts
@@ -36,7 +36,7 @@ Each vault has its own set of defaults, seeded on creation:
 Vault members and contacts are independent concepts. Joining or creating a vault never creates a contact for the system user.
 - **Membership and permissions**: `UserVault` only links a system user to a vault and stores their role.
 - **Mood recording**: Mood entries belong directly to the current system user within the vault.
-- **Life events**: Events created from the dashboard store the system user as their subject. Optional participants are ordinary contacts and are the only events shown on contact timelines.
+- **Activities**: Activities created from the dashboard store the system user as their subject. Optional participants are ordinary contacts and are the only activities shown on contact timelines.
 
 ## Vault Dashboard
 
@@ -46,9 +46,9 @@ The main workspace in a vault is a responsive three-column dashboard:
 Displays your **Recent Contacts** and **Most Consulted** contacts for quick access. This column is hidden on small tablet screens.
 
 ### Center Column
-Features a Segmented control to switch between three dynamic tabs. Your selected tab is persisted to the server using the `defaultTab` setting, loading your preferred tab automatically on next visit.
-1. **Activity**: A feed showing recent changes and actions taken by users in this vault.
-2. **Life Events**: An overview of all life events in the vault. Dashboard-created events identify the creating system user as their subject and can include optional contact participants; those events also appear on each participant's contact timeline.
+Features a Segmented control to switch between three dynamic tabs. Your selected tab is persisted through `default-dashboard-tab`, loading your preferred tab automatically on next visit.
+1. **Feed**: Recent changes and actions taken by users in this vault.
+2. **Activities**: An overview of all activities in the vault. Dashboard-created activities identify the creating system user as their subject and can include optional contact participants; those activities also appear on each participant's contact timeline.
 3. **Life Metrics**: Simple event logs tracking custom metrics. Click "+1" to log an occurrence. Click details to view a monthly bar chart of recorded events.
 
 ### Right Column

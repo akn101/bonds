@@ -10,15 +10,15 @@ import (
 func TestMonicaImportIssue213_PreservesMetadata(t *testing.T) {
 	svc, vaultID, userID, _ := setupMonicaImportTest(t)
 
-	// Given a Monica 4.1.2 export that contains distinct life-event types,
+	// Given a Monica 4.1.2 export that contains distinct legacy activity types,
 	// a reminder description, duplicate arbitrary emotion input, and source timestamps.
 	// When importing the export.
 	resp, err := svc.Import(vaultID, userID, monicaIssue213MetadataFixture())
 	if err != nil {
 		t.Fatalf("import Monica 4.1.2 metadata fixture: %v", err)
 	}
-	if resp.ImportedLifeEvents != 2 {
-		t.Fatalf("imported life events: want 2, got %d", resp.ImportedLifeEvents)
+	if resp.ImportedActivities != 2 {
+		t.Fatalf("imported activities: want 2, got %d", resp.ImportedActivities)
 	}
 	if resp.ImportedNotes != 1 {
 		t.Fatalf("imported fallback notes: want 1, got %d", resp.ImportedNotes)
@@ -29,63 +29,63 @@ func TestMonicaImportIssue213_PreservesMetadata(t *testing.T) {
 		t.Fatalf("load imported contact: %v", err)
 	}
 
-	// Then life events retain their source type and timestamps.
-	t.Run("life event types and timestamps", func(t *testing.T) {
-		var marriage models.LifeEvent
+	// Then activities retain their source type and timestamps.
+	t.Run("activity types and timestamps", func(t *testing.T) {
+		var marriage models.Activity
 		if err := svc.DB.
-			Joins("JOIN life_event_participants ON life_event_participants.life_event_id = life_events.id").
-			Where("life_event_participants.contact_id = ? AND life_events.title = ?", contact.ID, "Marriage celebration").
-			Preload("LifeEventType").
+			Joins("JOIN activity_participants ON activity_participants.activity_id = activities.id").
+			Where("activity_participants.contact_id = ? AND activities.title = ?", contact.ID, "Marriage celebration").
+			Preload("ActivityType").
 			First(&marriage).Error; err != nil {
-			t.Fatalf("load imported marriage life event: %v", err)
+			t.Fatalf("load imported marriage activity: %v", err)
 		}
 		marriageGotLabel := ""
-		if marriage.LifeEventType.Label != nil {
-			marriageGotLabel = *marriage.LifeEventType.Label
+		if marriage.ActivityType.Label != nil {
+			marriageGotLabel = *marriage.ActivityType.Label
 		}
 		if marriageGotLabel != "Marriage" {
-			t.Errorf("marriage life event type label: want %q, got %q", "Marriage", marriageGotLabel)
+			t.Errorf("marriage activity type label: want %q, got %q", "Marriage", marriageGotLabel)
 		}
-		if !marriage.LifeEventType.CanBeDeleted {
-			t.Error("custom marriage life event type must be deletable")
+		if !marriage.ActivityType.CanBeDeleted {
+			t.Error("custom marriage activity type must be deletable")
 		}
 		wantMarriageCreatedAt := time.Date(2016, time.April, 5, 8, 30, 0, 0, time.UTC)
 		wantMarriageUpdatedAt := time.Date(2017, time.May, 6, 9, 45, 0, 0, time.UTC)
 		if !marriage.CreatedAt.Equal(wantMarriageCreatedAt) {
-			t.Errorf("marriage life event created_at: want %v, got %v", wantMarriageCreatedAt, marriage.CreatedAt)
+			t.Errorf("marriage activity created_at: want %v, got %v", wantMarriageCreatedAt, marriage.CreatedAt)
 		}
 		if !marriage.UpdatedAt.Equal(wantMarriageUpdatedAt) {
-			t.Errorf("marriage life event updated_at: want %v, got %v", wantMarriageUpdatedAt, marriage.UpdatedAt)
+			t.Errorf("marriage activity updated_at: want %v, got %v", wantMarriageUpdatedAt, marriage.UpdatedAt)
 		}
 
-		var moved models.LifeEvent
+		var moved models.Activity
 		if err := svc.DB.
-			Joins("JOIN life_event_participants ON life_event_participants.life_event_id = life_events.id").
-			Where("life_event_participants.contact_id = ? AND life_events.title = ?", contact.ID, "Moved to Lisbon").
-			Preload("LifeEventType").
+			Joins("JOIN activity_participants ON activity_participants.activity_id = activities.id").
+			Where("activity_participants.contact_id = ? AND activities.title = ?", contact.ID, "Moved to Lisbon").
+			Preload("ActivityType").
 			First(&moved).Error; err != nil {
-			t.Fatalf("load imported moved life event: %v", err)
+			t.Fatalf("load imported moved activity: %v", err)
 		}
 		movedGotLabel := ""
-		if moved.LifeEventType.Label != nil {
-			movedGotLabel = *moved.LifeEventType.Label
+		if moved.ActivityType.Label != nil {
+			movedGotLabel = *moved.ActivityType.Label
 		}
 		if movedGotLabel != "Moved" {
-			t.Errorf("moved life event type label: want %q, got %q", "Moved", movedGotLabel)
+			t.Errorf("moved activity type label: want %q, got %q", "Moved", movedGotLabel)
 		}
-		if !moved.LifeEventType.CanBeDeleted {
-			t.Error("custom moved life event type must be deletable")
+		if !moved.ActivityType.CanBeDeleted {
+			t.Error("custom moved activity type must be deletable")
 		}
-		if marriage.LifeEventTypeID == nil || moved.LifeEventTypeID == nil || *marriage.LifeEventTypeID == *moved.LifeEventTypeID {
-			t.Errorf("distinct source types must map to distinct types, got IDs %v and %v", marriage.LifeEventTypeID, moved.LifeEventTypeID)
+		if marriage.ActivityTypeID == nil || moved.ActivityTypeID == nil || *marriage.ActivityTypeID == *moved.ActivityTypeID {
+			t.Errorf("distinct source types must map to distinct types, got IDs %v and %v", marriage.ActivityTypeID, moved.ActivityTypeID)
 		}
 		wantMovedCreatedAt := time.Date(2015, time.February, 3, 7, 20, 0, 0, time.UTC)
 		wantMovedUpdatedAt := time.Date(2015, time.March, 4, 8, 25, 0, 0, time.UTC)
 		if !moved.CreatedAt.Equal(wantMovedCreatedAt) {
-			t.Errorf("moved life event created_at: want %v, got %v", wantMovedCreatedAt, moved.CreatedAt)
+			t.Errorf("moved activity created_at: want %v, got %v", wantMovedCreatedAt, moved.CreatedAt)
 		}
 		if !moved.UpdatedAt.Equal(wantMovedUpdatedAt) {
-			t.Errorf("moved life event updated_at: want %v, got %v", wantMovedUpdatedAt, moved.UpdatedAt)
+			t.Errorf("moved activity updated_at: want %v, got %v", wantMovedUpdatedAt, moved.UpdatedAt)
 		}
 	})
 

@@ -401,7 +401,7 @@ test.describe('Contact Modules - Goals', () => {
     await goToContacts(page);
     await createContact(page, 'GoalTest', 'User');
 
-    await navigateToTab(page, 'Life & goals');
+    await navigateToTab(page, 'Goals');
 
     const goalsCard = page.locator('.ant-card').filter({ hasText: /^Goals/ });
     await expect(goalsCard).toBeVisible({ timeout: 10000 });

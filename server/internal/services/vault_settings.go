@@ -17,8 +17,8 @@ var (
 	ErrDateTypeNotFound     = errors.New("important date type not found")
 	ErrCannotDeleteDefault  = errors.New("cannot delete default item")
 	ErrMoodParamNotFound    = errors.New("mood tracking parameter not found")
-	ErrLifeCategoryNotFound = errors.New("life event category not found")
-	ErrLifeTypeNotFound     = errors.New("life event type not found")
+	ErrLifeCategoryNotFound = errors.New("activity category not found")
+	ErrLifeTypeNotFound     = errors.New("activity type not found")
 	ErrQuickFactTplNotFound = errors.New("quick fact template not found")
 )
 

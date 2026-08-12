@@ -11,7 +11,7 @@ type ApiResponse<T> = {
   data: T;
 };
 
-type LifeEventCategory = {
+type ActivityCategory = {
   types?: Array<{ id?: number }>;
 };
 
@@ -22,7 +22,7 @@ type ContactResponse = {
 async function setupVault(page: import("@playwright/test").Page) {
   const email = uniqueEmail("levt");
   await page.goto("/register");
-  await page.getByPlaceholder("First name").fill("LifeEvent");
+  await page.getByPlaceholder("First name").fill("Activity");
   await page.getByPlaceholder("Last name").fill("Tester");
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder(/password/i).fill("password123");
@@ -40,7 +40,7 @@ async function setupVault(page: import("@playwright/test").Page) {
   await page.getByPlaceholder(/e\.g\. family/i).fill("LE Vault");
   await page
     .getByPlaceholder(/what is this vault/i)
-    .fill("For life event testing");
+    .fill("For activity testing");
   const createVaultResp = page.waitForResponse(
     (resp) =>
       resp.url().includes("/vaults") &&
@@ -90,27 +90,27 @@ async function createContactViaAPI(
   return body.data.id;
 }
 
-async function getLifeEventTypeId(
+async function getActivityTypeId(
   page: import("@playwright/test").Page,
   vaultId: string,
   token: string,
 ): Promise<number> {
   const resp = await page.request.get(
-    apiUrl(`/vaults/${vaultId}/settings/lifeEventCategories`),
+    apiUrl(`/vaults/${vaultId}/settings/activityCategories`),
     {
       headers: { Authorization: `Bearer ${token}` },
     },
   );
   expect(resp.ok()).toBeTruthy();
-  const body = (await resp.json()) as ApiResponse<LifeEventCategory[]>;
+  const body = (await resp.json()) as ApiResponse<ActivityCategory[]>;
   const typeId = body.data
     .flatMap((category) => category.types ?? [])
     .find((type) => type.id)?.id;
-  if (!typeId) throw new Error("No seeded life event type found");
+  if (!typeId) throw new Error("No seeded activity type found");
   return typeId;
 }
 
-async function createParticipantLifeEventViaAPI(
+async function createParticipantActivityViaAPI(
   page: import("@playwright/test").Page,
   vaultId: string,
   token: string,
@@ -118,12 +118,12 @@ async function createParticipantLifeEventViaAPI(
   participantId: string,
   typeId: number,
 ) {
-  const lifeEventResp = await page.request.post(
-    apiUrl(`/vaults/${vaultId}/lifeEvents`),
+  const activityResp = await page.request.post(
+    apiUrl(`/vaults/${vaultId}/activities`),
     {
       headers: { Authorization: `Bearer ${token}` },
       data: {
-        life_event_type_id: typeId,
+        activity_type_id: typeId,
         primary_contact_id: contactId,
         title: "Shared Summer Trip",
         start_date: "2026-06-20T00:00:00Z",
@@ -134,36 +134,36 @@ async function createParticipantLifeEventViaAPI(
       },
     },
   );
-  expect(lifeEventResp.ok()).toBeTruthy();
+  expect(activityResp.ok()).toBeTruthy();
 }
 
-async function navigateToContactLifeGoals(
+async function navigateToContactActivities(
   page: import("@playwright/test").Page,
   vaultId: string,
   contactId: string,
 ) {
   await page.goto(`/vaults/${vaultId}/contacts/${contactId}`);
   await page.waitForLoadState("networkidle");
-  const lifeGoalsTab = page.getByRole("tab", { name: "Life & goals" });
-  await expect(lifeGoalsTab).toBeVisible({ timeout: 30000 });
-  await lifeGoalsTab.click();
+  const activitiesTab = page.getByRole("tab", { name: "Activities" });
+  await expect(activitiesTab).toBeVisible({ timeout: 30000 });
+  await activitiesTab.click();
   await page.waitForLoadState("networkidle");
 }
 
-async function expectParticipantLifeEventVisible(
+async function expectParticipantActivityVisible(
   page: import("@playwright/test").Page,
   participantName: string,
 ) {
-  const lifeEventsCard = page
+  const activitiesCard = page
     .locator(".ant-card")
-    .filter({ hasText: "Life Events" });
+    .filter({ hasText: "Activities" });
   await expect(
-    lifeEventsCard.getByText("Shared Summer Trip", { exact: true }),
+    activitiesCard.getByText("Shared Summer Trip", { exact: true }),
   ).toBeVisible({ timeout: 30000 });
   await expect(
-    lifeEventsCard.getByRole("link", { name: participantName }),
+    activitiesCard.getByRole("link", { name: participantName }),
   ).toBeVisible({ timeout: 30000 });
-  await expect(lifeEventsCard.getByText(/Shared festival memory/)).toBeVisible({
+  await expect(activitiesCard.getByText(/Shared festival memory/)).toBeVisible({
     timeout: 30000,
   });
 }
@@ -172,21 +172,21 @@ function getVaultUrl(page: import("@playwright/test").Page): string {
   return page.url();
 }
 
-async function navigateToLifeEventsTab(page: import("@playwright/test").Page) {
+async function navigateToActivitiesTab(page: import("@playwright/test").Page) {
   const vaultUrl = getVaultUrl(page);
   await page.goto(vaultUrl + "/settings");
   await page.waitForLoadState("networkidle");
   await expect(page.locator(".ant-tabs")).toBeVisible({ timeout: 30000 });
-  await page.getByRole("tab", { name: /life events/i }).click();
+  await page.getByRole("tab", { name: /activities/i }).click();
   await page.waitForLoadState("networkidle");
 }
 
-test.describe("Vault Settings - Life Events", () => {
-  test("should navigate to vault settings life events tab", async ({
+test.describe("Vault Settings - Activities", () => {
+  test("should navigate to vault settings activities tab", async ({
     page,
   }) => {
     await setupVault(page);
-    await navigateToLifeEventsTab(page);
+    await navigateToActivitiesTab(page);
     await expect(page.getByText("Add Category")).toBeVisible({
       timeout: 30000,
     });
@@ -194,7 +194,7 @@ test.describe("Vault Settings - Life Events", () => {
 
   test("should show add category input and button", async ({ page }) => {
     await setupVault(page);
-    await navigateToLifeEventsTab(page);
+    await navigateToActivitiesTab(page);
 
     const addCard = page
       .locator(".ant-card")
@@ -208,11 +208,11 @@ test.describe("Vault Settings - Life Events", () => {
     });
   });
 
-  test("should reorder life event categories via arrow buttons", async ({
+  test("should reorder activity categories via arrow buttons", async ({
     page,
   }) => {
     await setupVault(page);
-    await navigateToLifeEventsTab(page);
+    await navigateToActivitiesTab(page);
 
     // Wait for collapse panels (categories) to load
     await expect(page.locator(".ant-collapse-item").first()).toBeVisible({
@@ -233,7 +233,7 @@ test.describe("Vault Settings - Life Events", () => {
     const [posResp] = await Promise.all([
       page.waitForResponse(
         (resp) =>
-          resp.url().includes("/lifeEventCategories") &&
+          resp.url().includes("/activityCategories") &&
           resp.url().includes("/position") &&
           resp.request().method() === "POST" &&
           resp.status() < 400,
@@ -247,7 +247,7 @@ test.describe("Vault Settings - Life Events", () => {
     await page
       .waitForResponse(
         (resp) =>
-          resp.url().includes("/lifeEventCategories") &&
+          resp.url().includes("/activityCategories") &&
           resp.request().method() === "GET" &&
           resp.status() < 400,
         { timeout: 30000 },
@@ -264,16 +264,16 @@ test.describe("Vault Settings - Life Events", () => {
     await expect(firstPanelUpArrow).toBeDisabled({ timeout: 5000 });
   });
 
-  test("should reorder life event types within a category via arrow buttons", async ({
+  test("should reorder activity types within a category via arrow buttons", async ({
     page,
   }) => {
     await setupVault(page);
-    await navigateToLifeEventsTab(page);
-    const lifeEventsCard = page
+    await navigateToActivitiesTab(page);
+    const activitiesCard = page
       .locator(".ant-card")
-      .filter({ hasText: "Life Events" });
-    await expect(lifeEventsCard).toBeVisible({ timeout: 30000 });
-    const collapseItems = lifeEventsCard.locator(".ant-collapse-item");
+      .filter({ hasText: "Activities" });
+    await expect(activitiesCard).toBeVisible({ timeout: 30000 });
+    const collapseItems = activitiesCard.locator(".ant-collapse-item");
     await expect(collapseItems.first()).toBeVisible({ timeout: 30000 });
     const firstPanel = collapseItems.first();
     await firstPanel.locator(".ant-collapse-header").click();
@@ -300,7 +300,7 @@ test.describe("Vault Settings - Life Events", () => {
     await page
       .waitForResponse(
         (resp) =>
-          resp.url().includes("/lifeEventCategories") &&
+          resp.url().includes("/activityCategories") &&
           resp.request().method() === "GET" &&
           resp.status() < 400,
         { timeout: 30000 },
@@ -325,17 +325,17 @@ test.describe("Vault Settings - Life Events", () => {
     await expect(firstTypeUpArrow).toBeDisabled({ timeout: 5000 });
   });
 
-  test("should delete a seeded life event type from settings", async ({
+  test("should delete a seeded activity type from settings", async ({
     page,
   }) => {
     await setupVault(page);
-    await navigateToLifeEventsTab(page);
+    await navigateToActivitiesTab(page);
 
-    const lifeEventsCard = page
+    const activitiesCard = page
       .locator(".ant-card")
-      .filter({ hasText: "Life Events" });
-    await expect(lifeEventsCard).toBeVisible({ timeout: 30000 });
-    const firstPanel = lifeEventsCard.locator(".ant-collapse-item").first();
+      .filter({ hasText: "Activities" });
+    await expect(activitiesCard).toBeVisible({ timeout: 30000 });
+    const firstPanel = activitiesCard.locator(".ant-collapse-item").first();
     await expect(firstPanel).toBeVisible({ timeout: 30000 });
     await firstPanel.locator(".ant-collapse-header").click();
 
@@ -346,7 +346,7 @@ test.describe("Vault Settings - Life Events", () => {
 
     const deleteResp = page.waitForResponse(
       (resp) =>
-        resp.url().includes("/settings/lifeEventCategories/") &&
+        resp.url().includes("/settings/activityCategories/") &&
         resp.url().includes("/types/") &&
         resp.request().method() === "DELETE" &&
         resp.status() < 400,
@@ -368,11 +368,11 @@ test.describe("Vault Settings - Life Events", () => {
     );
   });
 
-  test("should delete a seeded life event category from settings", async ({
+  test("should delete a seeded activity category from settings", async ({
     page,
   }) => {
     await setupVault(page);
-    await navigateToLifeEventsTab(page);
+    await navigateToActivitiesTab(page);
 
     const categoryPanels = page.locator(".ant-collapse-item");
     await expect(categoryPanels.first()).toBeVisible({ timeout: 30000 });
@@ -381,7 +381,7 @@ test.describe("Vault Settings - Life Events", () => {
 
     const deleteResp = page.waitForResponse(
       (resp) =>
-        resp.url().includes("/settings/lifeEventCategories/") &&
+        resp.url().includes("/settings/activityCategories/") &&
         !resp.url().includes("/types/") &&
         resp.request().method() === "DELETE" &&
         resp.status() < 400,
@@ -399,7 +399,7 @@ test.describe("Vault Settings - Life Events", () => {
     );
   });
 
-  test("should show a mentioned life event on each associated contact", async ({
+  test("should show a mentioned activity on each associated contact", async ({
     page,
   }) => {
     await setupVault(page);
@@ -419,9 +419,9 @@ test.describe("Vault Settings - Life Events", () => {
       "BobLife",
       "Participant",
     );
-    const typeId = await getLifeEventTypeId(page, vaultId, token);
+    const typeId = await getActivityTypeId(page, vaultId, token);
 
-    await createParticipantLifeEventViaAPI(
+    await createParticipantActivityViaAPI(
       page,
       vaultId,
       token,
@@ -430,8 +430,8 @@ test.describe("Vault Settings - Life Events", () => {
       typeId,
     );
 
-    await navigateToContactLifeGoals(page, vaultId, contactAId);
-    await expectParticipantLifeEventVisible(page, "BobLife Participant");
+    await navigateToContactActivities(page, vaultId, contactAId);
+    await expectParticipantActivityVisible(page, "BobLife Participant");
     await page
       .getByRole("link", { name: "BobLife Participant" })
       .first()
@@ -441,8 +441,8 @@ test.describe("Vault Settings - Life Events", () => {
       { timeout: 10000 },
     );
 
-    await navigateToContactLifeGoals(page, vaultId, contactBId);
-    await expectParticipantLifeEventVisible(page, "AliceLife Host");
+    await navigateToContactActivities(page, vaultId, contactBId);
+    await expectParticipantActivityVisible(page, "AliceLife Host");
   });
 });
 
