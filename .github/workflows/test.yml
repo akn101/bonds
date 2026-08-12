@@ -104,7 +104,7 @@ jobs:
             -p 55432:5432 \
             postgres:18
 
-          until docker exec bonds-postgres-18 pg_isready -U postgres -d bonds; do
+          until docker exec bonds-postgres-18 psql -U postgres -d bonds -c 'SELECT 1' >/dev/null 2>&1; do
             sleep 1
           done
 
