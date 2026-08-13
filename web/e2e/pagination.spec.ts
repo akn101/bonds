@@ -79,9 +79,11 @@ async function navigateToContactTab(
   tabName: string,
   exact = false,
 ) {
-  const tab = page.getByRole("tab", { name: tabName, exact });
-  await expect(tab).toBeVisible({ timeout: 10000 });
-  await tab.click();
+  const section = page
+    .getByRole("navigation", { name: "Contact sections" })
+    .getByRole("button", { name: tabName, exact });
+  await expect(section).toBeVisible({ timeout: 10000 });
+  await section.click();
   await page.waitForLoadState("networkidle");
 }
 
@@ -356,7 +358,7 @@ test.describe("Notes Module Pagination", () => {
     await page.waitForLoadState("networkidle");
 
     // Go to "Information" tab (exact match to avoid "Contact information")
-    await navigateToContactTab(page, "Information", true);
+    await navigateToContactTab(page, "Notes and records", true);
 
     // Find the Notes card by its header title to avoid matching cards containing "NotesTest"
     const notesCard = page.locator(".ant-card").filter({
@@ -442,8 +444,10 @@ test.describe("Notes Module Pagination", () => {
     );
 
     await expect(
-      page.getByRole("tab", { name: "Information", exact: true }),
-    ).toHaveAttribute("aria-selected", "true");
+      page
+        .getByRole("navigation", { name: "Contact sections" })
+        .getByRole("button", { name: "Notes and records", exact: true }),
+    ).toHaveAttribute("aria-current", "location");
 
     const targetRecord = page.locator(
       `[data-source-record="Note:${targetNoteId}"]`,
@@ -520,7 +524,7 @@ test.describe("Calls Module Pagination", () => {
     await page.waitForLoadState("networkidle");
 
     // Go to "Information" tab (exact match)
-    await navigateToContactTab(page, "Information", true);
+    await navigateToContactTab(page, "Notes and records", true);
 
     // Find the Calls card by its header title to avoid matching cards containing "CallsTest"
     const callsCard = page.locator(".ant-card").filter({

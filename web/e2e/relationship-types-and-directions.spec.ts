@@ -12,7 +12,7 @@ function uniqueEmail(prefix: string): string {
 }
 
 function escapeRegExp(value: string): string {
-	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 async function setupVault(page: import('@playwright/test').Page, prefix: string) {
@@ -31,7 +31,9 @@ async function setupVault(page: import('@playwright/test').Page, prefix: string)
   await page.getByRole('button', { name: /create vault/i }).click();
   await expect(page).toHaveURL(/\/vaults\/[a-f0-9-]{36}$/, { timeout: 20000 });
   await page.waitForLoadState('networkidle');
-  await expect(page.getByRole('heading', { name: 'Rel Vault' })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('heading', { name: 'Rel Vault' })).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 async function goToContacts(page: import('@playwright/test').Page) {
@@ -45,14 +47,18 @@ async function createContact(page: import('@playwright/test').Page, firstName: s
   await page.getByPlaceholder('First name').fill(firstName);
   await page.getByPlaceholder('Last name').fill(lastName);
   await page.getByRole('button', { name: /create contact/i }).click();
-  await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+(?:\?.*)?$/, { timeout: 10000 });
-  await expect(page.getByText(`${firstName} ${lastName}`).first()).toBeVisible({ timeout: 10000 });
+  await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+(?:\?.*)?$/, {
+    timeout: 10000,
+  });
+  await expect(page.getByText(`${firstName} ${lastName}`).first()).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 async function navigateToTab(page: import('@playwright/test').Page, tabName: string, exact = false) {
-  const tab = page.getByRole('tab', { name: tabName, exact });
-  await expect(tab).toBeVisible({ timeout: 10000 });
-  await tab.click();
+  const section = page.getByRole('navigation', { name: 'Contact sections' }).getByRole('button', { name: tabName, exact });
+  await expect(section).toBeVisible({ timeout: 10000 });
+  await section.click();
   await page.waitForLoadState('networkidle');
 }
 
@@ -65,7 +71,9 @@ async function goBackToContacts(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: /back/i }).first().click();
   await expect(page).toHaveURL(/\/contacts(?:\?.*)?$/, { timeout: 5000 });
   // Wait for the contact table to render at least one row
-  await expect(page.locator('.ant-table-row').first()).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('.ant-table-row').first()).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 /**
@@ -75,7 +83,9 @@ async function goBackToContacts(page: import('@playwright/test').Page) {
 async function clickContactInTable(page: import('@playwright/test').Page, contactName: string) {
   const row = page.locator('.ant-table-row').filter({ hasText: contactName });
   await row.first().click();
-  await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+(?:\?.*)?$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+(?:\?.*)?$/, {
+    timeout: 10000,
+  });
 }
 
 /**
@@ -94,11 +104,7 @@ async function openRelationshipModal(page: import('@playwright/test').Page) {
  * Ant Design portals Select popups to the page, so bind each option lookup to
  * the listbox owned by the specific combobox instead of a globally visible popup.
  */
-async function selectRelType(
-  page: import('@playwright/test').Page,
-  modal: import('@playwright/test').Locator,
-  typeName: string,
-) {
+async function selectRelType(page: import('@playwright/test').Page, modal: import('@playwright/test').Locator, typeName: string) {
   const typeLabel = modal.locator('label').filter({ hasText: /^Relationship Type$/i });
   await expect(typeLabel).toHaveCount(1);
   const typeComboboxId = await typeLabel.getAttribute('for');
@@ -106,9 +112,7 @@ async function selectRelType(
     throw new Error('Relationship Type label did not identify its combobox');
   }
   const typeCombobox = modal.locator(`[id="${typeComboboxId}"][role="combobox"]`);
-  const typeSelect = typeCombobox.locator(
-    'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " ant-select ")][1]',
-  );
+  const typeSelect = typeCombobox.locator('xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " ant-select ")][1]');
   await expect(typeCombobox).toBeVisible({ timeout: 5000 });
   await typeCombobox.click();
   await expect(typeCombobox).toHaveAttribute('aria-expanded', 'true');
@@ -132,18 +136,12 @@ async function selectRelType(
   await option.hover();
   await expect(option).toHaveClass(/ant-select-item-option-active/);
   await typeCombobox.press('Enter');
-  await expect(
-    typeSelect.locator('.ant-select-content.ant-select-content-has-value'),
-  ).toHaveText(exactTypeName, { timeout: 5000 });
+  await expect(typeSelect.locator('.ant-select-content.ant-select-content-has-value')).toHaveText(exactTypeName, { timeout: 5000 });
   await expect(typeCombobox).toHaveAttribute('aria-expanded', 'false');
   await expect(popup).toBeHidden({ timeout: 5000 });
 }
 
-async function selectRelationshipContact(
-  page: import('@playwright/test').Page,
-  modal: import('@playwright/test').Locator,
-  contactName: string,
-) {
+async function selectRelationshipContact(page: import('@playwright/test').Page, modal: import('@playwright/test').Locator, contactName: string) {
   const contactLabel = modal.locator('label').filter({ hasText: /^Contact$/i });
   await expect(contactLabel).toHaveCount(1);
   const contactComboboxId = await contactLabel.getAttribute('for');
@@ -151,9 +149,7 @@ async function selectRelationshipContact(
     throw new Error('Contact label did not identify its combobox');
   }
   const contactCombobox = modal.locator(`[id="${contactComboboxId}"][role="combobox"]`);
-  const contactSelect = contactCombobox.locator(
-    'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " ant-select ")][1]',
-  );
+  const contactSelect = contactCombobox.locator('xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " ant-select ")][1]');
   await expect(contactCombobox).toBeVisible({ timeout: 5000 });
   await contactCombobox.click();
   await expect(contactCombobox).toHaveAttribute('aria-expanded', 'true');
@@ -176,9 +172,7 @@ async function selectRelationshipContact(
   await option.hover();
   await expect(option).toHaveClass(/ant-select-item-option-active/);
   await contactCombobox.press('Enter');
-  await expect(
-    contactSelect.locator('.ant-select-content.ant-select-content-has-value'),
-  ).toHaveText(exactContactName, { timeout: 5000 });
+  await expect(contactSelect.locator('.ant-select-content.ant-select-content-has-value')).toHaveText(exactContactName, { timeout: 5000 });
   await expect(contactCombobox).toHaveAttribute('aria-expanded', 'false');
   await expect(popup).toBeHidden({ timeout: 5000 });
 }
@@ -187,19 +181,12 @@ async function selectRelationshipContact(
  * Fill the relationship modal: select a contact and a relationship type, then submit.
  * Seed data uses lowercase names: "parent", "child", "brother/sister", "friend", etc.
  */
-async function addRelationship(
-  page: import('@playwright/test').Page,
-  modal: import('@playwright/test').Locator,
-  contactName: string,
-  typeName: string,
-) {
+async function addRelationship(page: import('@playwright/test').Page, modal: import('@playwright/test').Locator, contactName: string, typeName: string) {
   await selectRelationshipContact(page, modal, contactName);
   await selectRelType(page, modal, typeName);
 
   // Submit
-  const responsePromise = page.waitForResponse(
-    (resp) => resp.url().includes('/relationships') && resp.request().method() === 'POST'
-  );
+  const responsePromise = page.waitForResponse((resp) => resp.url().includes('/relationships') && resp.request().method() === 'POST');
   await modal.getByRole('button', { name: /ok/i }).click();
   const resp = await responsePromise;
   expect(resp.status()).toBeLessThan(400);
@@ -250,16 +237,26 @@ test.describe('Relationship type selection shows both directions', () => {
     await addRelationship(page, modal, 'Mommy Doe', 'parent');
 
     // Kiddo's relationship list should show Mommy
-    const relCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
-    await expect(relCard.getByText('Mommy Doe').first()).toBeVisible({ timeout: 10000 });
+    const relCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
+    await expect(relCard.getByText('Mommy Doe').first()).toBeVisible({
+      timeout: 10000,
+    });
 
     // Navigate to Mommy's page — should show Kiddo with reverse type "child"
     await goBackToContacts(page);
     await clickContactInTable(page, 'Mommy Doe');
     await navigateToTab(page, 'Social');
 
-    const mommyRelCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
-    await expect(mommyRelCard.getByText('Kiddo Doe').first()).toBeVisible({ timeout: 10000 });
+    const mommyRelCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
+    await expect(mommyRelCard.getByText('Kiddo Doe').first()).toBeVisible({
+      timeout: 10000,
+    });
     // The reverse relationship should display "child" (not "parent")
     await expect(mommyRelCard.locator('.ant-tag').filter({ hasText: /child/i }).first()).toBeVisible({ timeout: 5000 });
   });
@@ -285,22 +282,27 @@ test.describe('Reverse relationship edit and delete', () => {
     await clickContactInTable(page, 'Alpha Rev');
     await navigateToTab(page, 'Social');
 
-    const relCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
-    await expect(relCard.getByText('Beta Rev').first()).toBeVisible({ timeout: 10000 });
+    const relCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
+    await expect(relCard.getByText('Beta Rev').first()).toBeVisible({
+      timeout: 10000,
+    });
 
     // Try to delete the relationship from Alpha's page
     const listItem = relCard.locator('.ant-list-item').filter({ hasText: 'Beta Rev' });
     await listItem.locator('.anticon-delete').click();
 
-    const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/relationships/') && resp.request().method() === 'DELETE'
-    );
+    const deleteResp = page.waitForResponse((resp) => resp.url().includes('/relationships/') && resp.request().method() === 'DELETE');
     await page.getByRole('button', { name: /ok|yes/i }).click();
     const resp = await deleteResp;
     // This should succeed (< 400), not return 404
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(relCard.getByText('Beta Rev')).not.toBeVisible({ timeout: 5000 });
+    await expect(relCard.getByText('Beta Rev')).not.toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('should edit a relationship from the reverse contact page', async ({ page }) => {
@@ -321,8 +323,13 @@ test.describe('Reverse relationship edit and delete', () => {
     await clickContactInTable(page, 'Gamma Rev');
     await navigateToTab(page, 'Social');
 
-    const relCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
-    await expect(relCard.getByText('Delta Rev').first()).toBeVisible({ timeout: 10000 });
+    const relCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
+    await expect(relCard.getByText('Delta Rev').first()).toBeVisible({
+      timeout: 10000,
+    });
 
     // Try to edit the relationship from Gamma's page
     const listItem = relCard.locator('.ant-list-item').filter({ hasText: 'Delta Rev' });
@@ -334,9 +341,7 @@ test.describe('Reverse relationship edit and delete', () => {
     // Change type to best friend via search
     await selectRelType(page, editModal, 'best friend');
 
-    const editResp = page.waitForResponse(
-      (resp) => resp.url().includes('/relationships/') && resp.request().method() === 'PUT'
-    );
+    const editResp = page.waitForResponse((resp) => resp.url().includes('/relationships/') && resp.request().method() === 'PUT');
     await editModal.getByRole('button', { name: /ok/i }).click();
     const resp = await editResp;
     expect(resp.status()).toBeLessThan(400);
@@ -362,7 +367,10 @@ test.describe('Symmetric relationship deduplication', () => {
     await addRelationship(page, modal, 'LilyX Sib', 'brother/sister');
 
     // JacobX's page should show LilyX ONCE, not twice
-    const relCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
+    const relCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
     const lilyEntries = relCard.locator('.ant-list-item').filter({ hasText: 'LilyX Sib' });
     await expect(lilyEntries.first()).toBeVisible({ timeout: 10000 });
     await expect(lilyEntries).toHaveCount(1);
@@ -372,7 +380,10 @@ test.describe('Symmetric relationship deduplication', () => {
     await clickContactInTable(page, 'LilyX Sib');
     await navigateToTab(page, 'Social');
 
-    const lilyRelCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
+    const lilyRelCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
     const jacobEntries = lilyRelCard.locator('.ant-list-item').filter({ hasText: 'JacobX Sib' });
     await expect(jacobEntries.first()).toBeVisible({ timeout: 10000 });
     await expect(jacobEntries).toHaveCount(1);
@@ -392,18 +403,29 @@ test.describe('Symmetric relationship deduplication', () => {
     await addRelationship(page, modal, 'Padre Smith', 'parent');
 
     // Hijo's page: should show Padre with "parent" tag, exactly once
-    const hijoRelCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
+    const hijoRelCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
     const padreEntries = hijoRelCard.locator('.ant-list-item').filter({ hasText: 'Padre Smith' });
     await expect(padreEntries.first()).toBeVisible({ timeout: 10000 });
     await expect(padreEntries).toHaveCount(1);
-    await expect(padreEntries.first().locator('.ant-tag').filter({ hasText: /parent/i })).toBeVisible();
+    await expect(
+      padreEntries
+        .first()
+        .locator('.ant-tag')
+        .filter({ hasText: /parent/i }),
+    ).toBeVisible();
 
     // Padre's page: should show Hijo with "child" tag, exactly once
     await goBackToContacts(page);
     await clickContactInTable(page, 'Padre Smith');
     await navigateToTab(page, 'Social');
 
-    const padreRelCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
+    const padreRelCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
     const hijoEntries = padreRelCard.locator('.ant-list-item').filter({ hasText: 'Hijo Smith' });
     await expect(hijoEntries.first()).toBeVisible({ timeout: 10000 });
     await expect(hijoEntries).toHaveCount(1);
@@ -431,11 +453,16 @@ test.describe('Custom relationship type reverse linking', () => {
     // Expand the "Relationship Group Types" section
     const relSection = page.locator('.ant-collapse-item').filter({ hasText: /Relationship/i });
     await relSection.locator('.ant-collapse-header').click();
-    await expect(relSection.locator('.ant-list-item').first()).toBeVisible({ timeout: 5000 });
+    await expect(relSection.locator('.ant-list-item').first()).toBeVisible({
+      timeout: 5000,
+    });
 
     // Expand the first group (Love) to see its sub-items
     const firstGroup = relSection.locator('.ant-list-item').first();
-    await firstGroup.locator('button').filter({ has: page.locator('.anticon-right, .anticon-down') }).click();
+    await firstGroup
+      .locator('button')
+      .filter({ has: page.locator('.anticon-right, .anticon-down') })
+      .click();
 
     // Click "Add Type" button to create a new custom type
     const subPanel = relSection.locator('[style*="border-left"]').first();
@@ -448,17 +475,19 @@ test.describe('Custom relationship type reverse linking', () => {
     await inputs.nth(1).fill('student');
 
     // Submit and wait for API response
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/relationship-types/') && resp.request().method() === 'POST'
-    );
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/relationship-types/') && resp.request().method() === 'POST');
     await subPanel.getByRole('button', { name: /^Add$/i }).click();
     const resp = await createResp;
     expect(resp.status()).toBeLessThan(400);
 
     // The list should now show both "teacher ↔ student" AND "student ↔ teacher"
     // (auto-created reverse)
-    await expect(subPanel.getByText('teacher ↔ student')).toBeVisible({ timeout: 5000 });
-    await expect(subPanel.getByText('student ↔ teacher')).toBeVisible({ timeout: 5000 });
+    await expect(subPanel.getByText('teacher ↔ student')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(subPanel.getByText('student ↔ teacher')).toBeVisible({
+      timeout: 5000,
+    });
 
     // Now go back and test that the custom types work for creating relationships
     await page.goto('/');
@@ -475,18 +504,38 @@ test.describe('Custom relationship type reverse linking', () => {
     await addRelationship(page, modal, 'Deshi Yamada', 'teacher');
 
     // Sensei's page should show Deshi with "teacher" tag
-    const senseiRelCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
-    await expect(senseiRelCard.getByText('Deshi Yamada').first()).toBeVisible({ timeout: 10000 });
-    await expect(senseiRelCard.locator('.ant-tag').filter({ hasText: /teacher/i }).first()).toBeVisible();
+    const senseiRelCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
+    await expect(senseiRelCard.getByText('Deshi Yamada').first()).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      senseiRelCard
+        .locator('.ant-tag')
+        .filter({ hasText: /teacher/i })
+        .first(),
+    ).toBeVisible();
 
     // Go to Deshi's page — should show Sensei with reverse "student" tag
     await goBackToContacts(page);
     await clickContactInTable(page, 'Deshi Yamada');
     await navigateToTab(page, 'Social');
 
-    const deshiRelCard = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
-    await expect(deshiRelCard.getByText('Sensei Tanaka').first()).toBeVisible({ timeout: 10000 });
-    await expect(deshiRelCard.locator('.ant-tag').filter({ hasText: /student/i }).first()).toBeVisible();
+    const deshiRelCard = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
+    await expect(deshiRelCard.getByText('Sensei Tanaka').first()).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      deshiRelCard
+        .locator('.ant-tag')
+        .filter({ hasText: /student/i })
+        .first(),
+    ).toBeVisible();
   });
 
   test('symmetric custom type points to self and works correctly', async ({ page }) => {
@@ -503,10 +552,15 @@ test.describe('Custom relationship type reverse linking', () => {
 
     const relSection = page.locator('.ant-collapse-item').filter({ hasText: /Relationship/i });
     await relSection.locator('.ant-collapse-header').click();
-    await expect(relSection.locator('.ant-list-item').first()).toBeVisible({ timeout: 5000 });
+    await expect(relSection.locator('.ant-list-item').first()).toBeVisible({
+      timeout: 5000,
+    });
 
     const firstGroup = relSection.locator('.ant-list-item').first();
-    await firstGroup.locator('button').filter({ has: page.locator('.anticon-right, .anticon-down') }).click();
+    await firstGroup
+      .locator('button')
+      .filter({ has: page.locator('.anticon-right, .anticon-down') })
+      .click();
 
     const subPanel = relSection.locator('[style*="border-left"]').first();
     await expect(subPanel).toBeVisible({ timeout: 5000 });
@@ -516,9 +570,7 @@ test.describe('Custom relationship type reverse linking', () => {
     await inputs.nth(0).fill('roommate');
     await inputs.nth(1).fill('roommate');
 
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/relationship-types/') && resp.request().method() === 'POST'
-    );
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/relationship-types/') && resp.request().method() === 'POST');
     await subPanel.getByRole('button', { name: /^Add$/i }).click();
     const resp = await createResp;
     expect(resp.status()).toBeLessThan(400);
@@ -541,7 +593,10 @@ test.describe('Custom relationship type reverse linking', () => {
     await addRelationship(page, modal, 'Ally Two', 'roommate');
 
     // Ally One should see Ally Two with "roommate" tag, once
-    const relCard1 = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
+    const relCard1 = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
     const entries1 = relCard1.locator('.ant-list-item').filter({ hasText: 'Ally Two' });
     await expect(entries1.first()).toBeVisible({ timeout: 10000 });
     await expect(entries1).toHaveCount(1);
@@ -551,7 +606,10 @@ test.describe('Custom relationship type reverse linking', () => {
     await clickContactInTable(page, 'Ally Two');
     await navigateToTab(page, 'Social');
 
-    const relCard2 = page.locator('.ant-card').filter({ hasText: /Relationships/ }).first();
+    const relCard2 = page
+      .locator('.ant-card')
+      .filter({ hasText: /Relationships/ })
+      .first();
     const entries2 = relCard2.locator('.ant-list-item').filter({ hasText: 'Ally One' });
     await expect(entries2.first()).toBeVisible({ timeout: 10000 });
     await expect(entries2).toHaveCount(1);

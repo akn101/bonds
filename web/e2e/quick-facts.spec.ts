@@ -22,7 +22,9 @@ async function setupVault(page: import('@playwright/test').Page, prefix: string)
   await page.getByRole('button', { name: /create vault/i }).click();
   await expect(page).toHaveURL(/\/vaults\/[a-f0-9-]{36}$/, { timeout: 20000 });
   await page.waitForLoadState('networkidle');
-  await expect(page.getByRole('heading', { name: 'QFact Vault' })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('heading', { name: 'QFact Vault' })).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 async function goToContacts(page: import('@playwright/test').Page) {
@@ -37,13 +39,15 @@ async function createContact(page: import('@playwright/test').Page, firstName: s
   await page.getByPlaceholder('Last name').fill(lastName);
   await page.getByRole('button', { name: /create contact/i }).click();
   await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+$/, { timeout: 10000 });
-  await expect(page.getByText(`${firstName} ${lastName}`).first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(`${firstName} ${lastName}`).first()).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 async function navigateToTab(page: import('@playwright/test').Page, tabName: string, exact = false) {
-  const tab = page.getByRole('tab', { name: tabName, exact });
-  await expect(tab).toBeVisible({ timeout: 10000 });
-  await tab.click();
+  const section = page.getByRole('navigation', { name: 'Contact sections' }).getByRole('button', { name: tabName, exact });
+  await expect(section).toBeVisible({ timeout: 10000 });
+  await section.click();
   await page.waitForLoadState('networkidle');
 }
 
@@ -56,7 +60,7 @@ test.describe('Contact Modules - Quick Facts', () => {
     await createContact(page, 'QFactTest', 'User');
 
     // Navigate to "Contact information" tab (name from seed data)
-    await navigateToTab(page, 'Contact information');
+    await navigateToTab(page, 'Profile and contact');
 
     // Quick Facts card should be visible (this verifies the seed data fix)
     const qfCard = page.locator('.ant-card').filter({ hasText: 'Quick Facts' });
@@ -69,15 +73,17 @@ test.describe('Contact Modules - Quick Facts', () => {
     await expect(input).toBeVisible({ timeout: 5000 });
     await input.fill('Loves hiking');
 
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/quickFacts') && resp.request().method() === 'POST'
-    );
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/quickFacts') && resp.request().method() === 'POST');
     await qfCard.getByRole('button', { name: /save/i }).click();
     const resp = await createResp;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(qfCard.getByText('Loves hiking')).toBeVisible({ timeout: 10000 });
-    await expect(qfCard.getByText('How we met')).toBeVisible({ timeout: 10000 });
+    await expect(qfCard.getByText('Loves hiking')).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(qfCard.getByText('How we met')).toBeVisible({
+      timeout: 10000,
+    });
 
     // --- UPDATE: Edit the quick fact ---
     await qfCard.getByRole('button', { name: /edit/i }).first().click();
@@ -87,26 +93,34 @@ test.describe('Contact Modules - Quick Facts', () => {
     await editInput.clear();
     await editInput.fill('Loves mountain hiking');
 
-    const updateResp = page.waitForResponse(
-      (resp) => resp.url().includes('/quickFacts') && resp.request().method() === 'PUT'
-    );
+    const updateResp = page.waitForResponse((resp) => resp.url().includes('/quickFacts') && resp.request().method() === 'PUT');
     await qfCard.getByRole('button', { name: /update/i }).click();
     const uResp = await updateResp;
     expect(uResp.status()).toBeLessThan(400);
 
-    await expect(qfCard.getByText('Loves mountain hiking')).toBeVisible({ timeout: 10000 });
+    await expect(qfCard.getByText('Loves mountain hiking')).toBeVisible({
+      timeout: 10000,
+    });
 
     // --- DELETE: Remove the quick fact ---
-    await qfCard.getByRole('button', { name: /delete/i }).first().click();
-    await expect(page.locator('.ant-popconfirm')).toBeVisible({ timeout: 5000 });
+    await qfCard
+      .getByRole('button', { name: /delete/i })
+      .first()
+      .click();
+    await expect(page.locator('.ant-popconfirm')).toBeVisible({
+      timeout: 5000,
+    });
     const [deleteResp] = await Promise.all([
-      page.waitForResponse(
-        (resp) => resp.url().includes('/quickFacts') && resp.request().method() === 'DELETE' && resp.status() < 400
-      ),
-      page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click(),
+      page.waitForResponse((resp) => resp.url().includes('/quickFacts') && resp.request().method() === 'DELETE' && resp.status() < 400),
+      page
+        .locator('.ant-popconfirm')
+        .getByRole('button', { name: /ok|yes/i })
+        .click(),
     ]);
     expect(deleteResp.status()).toBeLessThan(400);
 
-    await expect(qfCard.getByText('Loves mountain hiking')).not.toBeVisible({ timeout: 10000 });
+    await expect(qfCard.getByText('Loves mountain hiking')).not.toBeVisible({
+      timeout: 10000,
+    });
   });
 });

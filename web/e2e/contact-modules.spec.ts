@@ -37,13 +37,15 @@ async function createContact(page: import('@playwright/test').Page, firstName: s
   await page.getByPlaceholder('Last name').fill(lastName);
   await page.getByRole('button', { name: /create contact/i }).click();
   await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+$/, { timeout: 10000 });
-  await expect(page.getByText(`${firstName} ${lastName}`).first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(`${firstName} ${lastName}`).first()).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 async function navigateToTab(page: import('@playwright/test').Page, tabName: string, exact = false) {
-  const tab = page.getByRole('tab', { name: tabName, exact });
-  await expect(tab).toBeVisible({ timeout: 10000 });
-  await tab.click();
+  const section = page.getByRole('navigation', { name: 'Contact sections' }).getByRole('button', { name: tabName, exact });
+  await expect(section).toBeVisible({ timeout: 10000 });
+  await section.click();
   await page.waitForLoadState('networkidle');
 }
 
@@ -53,7 +55,7 @@ test.describe('Contact Modules - Notes', () => {
     await goToContacts(page);
     await createContact(page, 'NoteTest', 'User');
 
-    await navigateToTab(page, 'Information', true);
+    await navigateToTab(page, 'Notes and records', true);
 
     const notesCard = page.locator('.ant-card').filter({ hasText: /^Notes/ });
     await expect(notesCard).toBeVisible({ timeout: 10000 });
@@ -62,14 +64,14 @@ test.describe('Contact Modules - Notes', () => {
     await notesCard.getByPlaceholder(/title/i).fill('Test Note Title');
     await notesCard.locator('textarea').fill('This is a test note body');
 
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/notes') && resp.request().method() === 'POST'
-    );
+    const responsePromise = page.waitForResponse((resp) => resp.url().includes('/notes') && resp.request().method() === 'POST');
     await notesCard.getByRole('button', { name: /save/i }).click();
     const resp = await responsePromise;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(notesCard.getByText('Test Note Title')).toBeVisible({ timeout: 10000 });
+    await expect(notesCard.getByText('Test Note Title')).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('should delete a note', async ({ page }) => {
@@ -77,7 +79,7 @@ test.describe('Contact Modules - Notes', () => {
     await goToContacts(page);
     await createContact(page, 'NoteDelTest', 'User');
 
-    await navigateToTab(page, 'Information', true);
+    await navigateToTab(page, 'Notes and records', true);
 
     const notesCard = page.locator('.ant-card').filter({ hasText: /^Notes/ });
     await expect(notesCard).toBeVisible({ timeout: 10000 });
@@ -86,18 +88,26 @@ test.describe('Contact Modules - Notes', () => {
     await notesCard.getByPlaceholder(/title/i).fill('Delete Me');
     await notesCard.locator('textarea').fill('Note to delete');
 
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/notes') && resp.request().method() === 'POST'
-    );
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/notes') && resp.request().method() === 'POST');
     await notesCard.getByRole('button', { name: /save/i }).click();
     await createResp;
 
-    await expect(notesCard.getByText('Delete Me')).toBeVisible({ timeout: 10000 });
+    await expect(notesCard.getByText('Delete Me')).toBeVisible({
+      timeout: 10000,
+    });
 
-    await notesCard.getByRole('button', { name: /delete/i }).first().click();
-    await page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click();
+    await notesCard
+      .getByRole('button', { name: /delete/i })
+      .first()
+      .click();
+    await page
+      .locator('.ant-popconfirm')
+      .getByRole('button', { name: /ok|yes/i })
+      .click();
 
-    await expect(notesCard.getByText('Delete Me')).not.toBeVisible({ timeout: 10000 });
+    await expect(notesCard.getByText('Delete Me')).not.toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -107,7 +117,7 @@ test.describe('Contact Modules - Tasks', () => {
     await goToContacts(page);
     await createContact(page, 'TaskTest', 'User');
 
-    await navigateToTab(page, 'Information', true);
+    await navigateToTab(page, 'Notes and records', true);
 
     const tasksCard = page.locator('.ant-card').filter({ hasText: /^Tasks/ });
     await expect(tasksCard).toBeVisible({ timeout: 10000 });
@@ -118,18 +128,19 @@ test.describe('Contact Modules - Tasks', () => {
     await expect(input).toBeVisible({ timeout: 5000 });
     await input.fill('Buy groceries');
 
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/tasks') && resp.request().method() === 'POST'
-    );
-    await tasksCard.getByRole('button', { name: /save|add|ok/i }).first().click();
+    const responsePromise = page.waitForResponse((resp) => resp.url().includes('/tasks') && resp.request().method() === 'POST');
+    await tasksCard
+      .getByRole('button', { name: /save|add|ok/i })
+      .first()
+      .click();
     const resp = await responsePromise;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(tasksCard.getByText('Buy groceries')).toBeVisible({ timeout: 10000 });
+    await expect(tasksCard.getByText('Buy groceries')).toBeVisible({
+      timeout: 10000,
+    });
 
-    const toggleResp = page.waitForResponse(
-      (resp) => resp.url().includes('/toggle') && resp.request().method() === 'PUT'
-    );
+    const toggleResp = page.waitForResponse((resp) => resp.url().includes('/toggle') && resp.request().method() === 'PUT');
     await tasksCard.locator('.ant-checkbox').first().click();
     await toggleResp;
   });
@@ -141,7 +152,7 @@ test.describe('Contact Modules - Reminders', () => {
     await goToContacts(page);
     await createContact(page, 'ReminderTest', 'User');
 
-    await navigateToTab(page, 'Information', true);
+    await navigateToTab(page, 'Notes and records', true);
 
     const remindersCard = page.locator('.ant-card').filter({ hasText: /Reminders/ });
     await expect(remindersCard).toBeVisible({ timeout: 10000 });
@@ -167,17 +178,22 @@ test.describe('Contact Modules - Reminders', () => {
 
     const freqFormItem = modal.locator('.ant-form-item').filter({ hasText: /frequency/i });
     await freqFormItem.locator('.ant-select').click();
-    await page.locator('.ant-select-dropdown').last().locator('.ant-select-item-option').filter({ hasText: /yearly/i }).click();
+    await page
+      .locator('.ant-select-dropdown')
+      .last()
+      .locator('.ant-select-item-option')
+      .filter({ hasText: /yearly/i })
+      .click();
     await modal.locator('.ant-modal-header').click();
 
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/reminders') && resp.request().method() === 'POST'
-    );
+    const responsePromise = page.waitForResponse((resp) => resp.url().includes('/reminders') && resp.request().method() === 'POST');
     await page.locator('.ant-modal-footer .ant-btn-primary').click();
     const resp = await responsePromise;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(remindersCard.getByText('Birthday reminder')).toBeVisible({ timeout: 10000 });
+    await expect(remindersCard.getByText('Birthday reminder')).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -186,7 +202,7 @@ test.describe('Contact Modules - Addresses', () => {
     await setupVault(page, 'address');
     await goToContacts(page);
     await createContact(page, 'AddressTest', 'User');
-    await navigateToTab(page, 'Contact information');
+    await navigateToTab(page, 'Profile and contact');
 
     const addressCard = page.locator('.ant-card').filter({ hasText: /Addresses/ });
     await expect(addressCard).toBeVisible({ timeout: 10000 });
@@ -197,9 +213,7 @@ test.describe('Contact Modules - Addresses', () => {
     await modal.getByLabel(/address line 1/i).fill('123 Main St');
     await modal.getByLabel(/city/i).fill('San Francisco');
     await modal.getByLabel(/country/i).fill('USA');
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/addresses') && resp.request().method() === 'POST'
-    );
+    const responsePromise = page.waitForResponse((resp) => resp.url().includes('/addresses') && resp.request().method() === 'POST');
     await modal.getByRole('button', { name: /ok/i }).click();
     const resp = await responsePromise;
     expect(resp.status()).toBeLessThan(400);
@@ -210,7 +224,7 @@ test.describe('Contact Modules - Addresses', () => {
     await goToContacts(page);
     await createContact(page, 'AddrDelTest', 'User');
 
-    await navigateToTab(page, 'Contact information');
+    await navigateToTab(page, 'Profile and contact');
 
     const addressCard = page.locator('.ant-card').filter({ hasText: /Addresses/ });
     await expect(addressCard).toBeVisible({ timeout: 10000 });
@@ -223,20 +237,21 @@ test.describe('Contact Modules - Addresses', () => {
     await modal.getByLabel(/city/i).fill('Springfield');
     await modal.getByLabel(/country/i).fill('USA');
 
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/addresses') && resp.request().method() === 'POST'
-    );
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/addresses') && resp.request().method() === 'POST');
     await modal.getByRole('button', { name: /ok/i }).click();
     await createResp;
 
-    await expect(addressCard.getByText('742 Evergreen Terrace')).toBeVisible({ timeout: 10000 });
+    await expect(addressCard.getByText('742 Evergreen Terrace')).toBeVisible({
+      timeout: 10000,
+    });
 
     const addressItem = addressCard.locator('.ant-list-item').filter({ hasText: '742 Evergreen Terrace' });
     await addressItem.locator('[aria-label="delete"]').click();
-    const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/addresses') && resp.request().method() === 'DELETE'
-    );
-    await page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click();
+    const deleteResp = page.waitForResponse((resp) => resp.url().includes('/addresses') && resp.request().method() === 'DELETE');
+    await page
+      .locator('.ant-popconfirm')
+      .getByRole('button', { name: /ok|yes/i })
+      .click();
     await deleteResp;
 
     await expect(addressCard.getByText('742 Evergreen Terrace')).not.toBeVisible({ timeout: 10000 });
@@ -259,9 +274,7 @@ test.describe('Contact Modules - Pets', () => {
     await petsCard.locator('.ant-select:visible').click();
     await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: 'Dog' }).click();
 
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/pets') && resp.request().method() === 'POST'
-    );
+    const responsePromise = page.waitForResponse((resp) => resp.url().includes('/pets') && resp.request().method() === 'POST');
     await petsCard.getByRole('button', { name: /save/i }).click();
     const resp = await responsePromise;
     expect(resp.status()).toBeLessThan(400);
@@ -277,7 +290,7 @@ test.describe('Contact Modules - Calls', () => {
     await goToContacts(page);
     await createContact(page, 'CallTest', 'User');
 
-    await navigateToTab(page, 'Information', true);
+    await navigateToTab(page, 'Notes and records', true);
 
     const callsCard = page.locator('.ant-card').filter({ hasText: /^Calls/ });
     await expect(callsCard).toBeVisible({ timeout: 10000 });
@@ -295,18 +308,21 @@ test.describe('Contact Modules - Calls', () => {
     }
 
     await modal.locator('.ant-select').click();
-    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: /outgoing/i }).click();
+    await page
+      .locator('.ant-select-dropdown:visible .ant-select-item-option')
+      .filter({ hasText: /outgoing/i })
+      .click();
 
     await modal.locator('.ant-input-number-input').fill('15');
 
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/calls') && resp.request().method() === 'POST'
-    );
+    const responsePromise = page.waitForResponse((resp) => resp.url().includes('/calls') && resp.request().method() === 'POST');
     await page.locator('.ant-modal-footer .ant-btn-primary').click();
     const resp = await responsePromise;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(callsCard.getByText('outgoing')).toBeVisible({ timeout: 10000 });
+    await expect(callsCard.getByText('outgoing')).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -316,7 +332,7 @@ test.describe('Contact Modules - Loans', () => {
     await goToContacts(page);
     await createContact(page, 'LoanTest', 'User');
 
-    await navigateToTab(page, 'Information', true);
+    await navigateToTab(page, 'Notes and records', true);
 
     const loansCard = page.locator('.ant-card').filter({ hasText: /^Loans/ });
     await expect(loansCard).toBeVisible({ timeout: 10000 });
@@ -329,23 +345,23 @@ test.describe('Contact Modules - Loans', () => {
 
     await modal.locator('.ant-input-number-input').fill('50');
 
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/loans') && resp.request().method() === 'POST'
-    );
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/loans') && resp.request().method() === 'POST');
     await page.locator('.ant-modal-footer .ant-btn-primary').click();
     const resp = await createResp;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(loansCard.getByText('Dinner money')).toBeVisible({ timeout: 10000 });
+    await expect(loansCard.getByText('Dinner money')).toBeVisible({
+      timeout: 10000,
+    });
 
-    const toggleResp = page.waitForResponse(
-      (resp) => resp.url().includes('/toggle') && resp.request().method() === 'PUT'
-    );
+    const toggleResp = page.waitForResponse((resp) => resp.url().includes('/toggle') && resp.request().method() === 'PUT');
     await loansCard.getByRole('button', { name: /settle/i }).click();
     const toggleResult = await toggleResp;
     expect(toggleResult.status()).toBeLessThan(400);
 
-    await expect(loansCard.getByText('Settled', { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(loansCard.getByText('Settled', { exact: true })).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('should create an item loan with quantity and due date', async ({ page }) => {
@@ -353,7 +369,7 @@ test.describe('Contact Modules - Loans', () => {
     await goToContacts(page);
     await createContact(page, 'ItemLoanTest', 'User');
 
-    await navigateToTab(page, 'Information', true);
+    await navigateToTab(page, 'Notes and records', true);
 
     const loansCard = page.locator('.ant-card').filter({ hasText: /^Loans/ });
     await expect(loansCard).toBeVisible({ timeout: 10000 });
@@ -362,36 +378,52 @@ test.describe('Contact Modules - Loans', () => {
     const modal = page.locator('.ant-modal').filter({ hasText: /add loan/i });
     await expect(modal).toBeVisible({ timeout: 5000 });
 
-    await modal.locator('.ant-form-item').filter({ hasText: /category/i }).locator('.ant-select').click();
+    await modal
+      .locator('.ant-form-item')
+      .filter({ hasText: /category/i })
+      .locator('.ant-select')
+      .click();
     await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: 'Item' }).click();
 
     await modal.locator('.ant-form-item').filter({ hasText: /name/i }).first().locator('input').fill('Camera kit');
-    await modal.locator('.ant-form-item').filter({ hasText: /item name/i }).locator('input').fill('Sony Camera');
-    await modal.locator('.ant-form-item').filter({ hasText: /quantity/i }).locator('.ant-input-number-input').fill('2');
+    await modal
+      .locator('.ant-form-item')
+      .filter({ hasText: /item name/i })
+      .locator('input')
+      .fill('Sony Camera');
+    await modal
+      .locator('.ant-form-item')
+      .filter({ hasText: /quantity/i })
+      .locator('.ant-input-number-input')
+      .fill('2');
     await modal.locator('.ant-picker').click();
     await page.locator('.ant-picker-dropdown:visible .ant-picker-cell:not(.ant-picker-cell-disabled):not(.ant-picker-cell-today)').first().click();
 
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/loans') && resp.request().method() === 'POST'
-    );
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/loans') && resp.request().method() === 'POST');
     await page.locator('.ant-modal-footer .ant-btn-primary').click();
     const resp = await createResp;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(loansCard.getByText('Camera kit')).toBeVisible({ timeout: 10000 });
-    await expect(loansCard.getByText('Item', { exact: true })).toBeVisible({ timeout: 10000 });
-    await expect(loansCard.getByText('Sony Camera')).toBeVisible({ timeout: 10000 });
+    await expect(loansCard.getByText('Camera kit')).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(loansCard.getByText('Item', { exact: true })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(loansCard.getByText('Sony Camera')).toBeVisible({
+      timeout: 10000,
+    });
     await expect(loansCard.getByText('Qty: 2')).toBeVisible({ timeout: 10000 });
     await expect(loansCard.getByText(/Due [A-Z][a-z]{2} \d{1,2}, \d{4}/)).toBeVisible({ timeout: 10000 });
 
-    const toggleResp = page.waitForResponse(
-      (response) => response.url().includes('/toggle') && response.request().method() === 'PUT'
-    );
+    const toggleResp = page.waitForResponse((response) => response.url().includes('/toggle') && response.request().method() === 'PUT');
     await loansCard.getByRole('button', { name: /mark returned/i }).click();
     const toggleResult = await toggleResp;
     expect(toggleResult.status()).toBeLessThan(400);
 
-    await expect(loansCard.getByText('Returned', { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(loansCard.getByText('Returned', { exact: true })).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -411,14 +443,14 @@ test.describe('Contact Modules - Goals', () => {
     await expect(input).toBeVisible({ timeout: 5000 });
     await input.fill('Learn Spanish');
 
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/goals') && resp.request().method() === 'POST'
-    );
+    const responsePromise = page.waitForResponse((resp) => resp.url().includes('/goals') && resp.request().method() === 'POST');
     await goalsCard.getByRole('button', { name: /^add$/i }).click();
     const resp = await responsePromise;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(goalsCard.getByText('Learn Spanish')).toBeVisible({ timeout: 10000 });
+    await expect(goalsCard.getByText('Learn Spanish')).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -428,7 +460,7 @@ test.describe('Contact Modules - Contact Information', () => {
     await goToContacts(page);
     await createContact(page, 'CInfoTest', 'User');
 
-    await navigateToTab(page, 'Contact information');
+    await navigateToTab(page, 'Profile and contact');
 
     const infoCard = page.locator('.ant-card').filter({ hasText: 'Contact Information' });
     await expect(infoCard).toBeVisible({ timeout: 10000 });
@@ -441,14 +473,14 @@ test.describe('Contact Modules - Contact Information', () => {
     await expect(valueInput).toBeVisible({ timeout: 5000 });
     await valueInput.fill('test@example.com');
 
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/contactInformation') && resp.request().method() === 'POST'
-    );
+    const responsePromise = page.waitForResponse((resp) => resp.url().includes('/contactInformation') && resp.request().method() === 'POST');
     await infoCard.getByRole('button', { name: /save/i }).click();
     const resp = await responsePromise;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(infoCard.getByText('test@example.com')).toBeVisible({ timeout: 10000 });
+    await expect(infoCard.getByText('test@example.com')).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -458,7 +490,7 @@ test.describe('Contact Modules - Contact Information Delete', () => {
     await goToContacts(page);
     await createContact(page, 'CInfoDelTest', 'User');
 
-    await navigateToTab(page, 'Contact information');
+    await navigateToTab(page, 'Profile and contact');
 
     const infoCard = page.locator('.ant-card').filter({ hasText: 'Contact Information' });
     await expect(infoCard).toBeVisible({ timeout: 10000 });
@@ -471,23 +503,26 @@ test.describe('Contact Modules - Contact Information Delete', () => {
     await expect(valueInput).toBeVisible({ timeout: 5000 });
     await valueInput.fill('+1-555-0199');
 
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/contactInformation') && resp.request().method() === 'POST'
-    );
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/contactInformation') && resp.request().method() === 'POST');
     await infoCard.getByRole('button', { name: /save/i }).click();
     await createResp;
 
-    await expect(infoCard.getByText('+1-555-0199')).toBeVisible({ timeout: 10000 });
+    await expect(infoCard.getByText('+1-555-0199')).toBeVisible({
+      timeout: 10000,
+    });
 
     const infoItem = infoCard.locator('.ant-list-item').filter({ hasText: '+1-555-0199' });
     await infoItem.locator('[aria-label="delete"]').click();
-    const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/contactInformation') && resp.request().method() === 'DELETE'
-    );
-    await page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click();
+    const deleteResp = page.waitForResponse((resp) => resp.url().includes('/contactInformation') && resp.request().method() === 'DELETE');
+    await page
+      .locator('.ant-popconfirm')
+      .getByRole('button', { name: /ok|yes/i })
+      .click();
     await deleteResp;
 
-    await expect(infoCard.getByText('+1-555-0199')).not.toBeVisible({ timeout: 10000 });
+    await expect(infoCard.getByText('+1-555-0199')).not.toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -497,11 +532,13 @@ test.describe('Contact Modules - Tasks Toggle', () => {
     await goToContacts(page);
     await createContact(page, 'TaskToggle', 'User');
 
-    await navigateToTab(page, 'Information', true);
+    await navigateToTab(page, 'Notes and records', true);
 
     const tasksCard = page.locator('.ant-card').filter({ hasText: /^Tasks/ });
     await expect(tasksCard).toBeVisible({ timeout: 10000 });
-    await expect(tasksCard.getByText(/show completed/i)).toBeVisible({ timeout: 10000 });
+    await expect(tasksCard.getByText(/show completed/i)).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('should create task, toggle it, and see it in completed section', async ({ page }) => {
@@ -509,7 +546,7 @@ test.describe('Contact Modules - Tasks Toggle', () => {
     await goToContacts(page);
     await createContact(page, 'TaskComplete', 'User');
 
-    await navigateToTab(page, 'Information', true);
+    await navigateToTab(page, 'Notes and records', true);
 
     const tasksCard = page.locator('.ant-card').filter({ hasText: /^Tasks/ });
     await expect(tasksCard).toBeVisible({ timeout: 10000 });
@@ -519,22 +556,27 @@ test.describe('Contact Modules - Tasks Toggle', () => {
     await expect(input).toBeVisible({ timeout: 5000 });
     await input.fill('Complete me');
 
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/tasks') && resp.request().method() === 'POST'
-    );
-    await tasksCard.getByRole('button', { name: /save|add|ok/i }).first().click();
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/tasks') && resp.request().method() === 'POST');
+    await tasksCard
+      .getByRole('button', { name: /save|add|ok/i })
+      .first()
+      .click();
     await createResp;
-    await expect(tasksCard.getByText('Complete me')).toBeVisible({ timeout: 10000 });
+    await expect(tasksCard.getByText('Complete me')).toBeVisible({
+      timeout: 10000,
+    });
 
-    const toggleResp = page.waitForResponse(
-      (resp) => resp.url().includes('/toggle') && resp.request().method() === 'PUT'
-    );
+    const toggleResp = page.waitForResponse((resp) => resp.url().includes('/toggle') && resp.request().method() === 'PUT');
     await tasksCard.locator('.ant-checkbox').first().click();
     await toggleResp;
 
     await tasksCard.getByText(/show completed/i).click();
-    await expect(tasksCard.getByText(/hide completed/i)).toBeVisible({ timeout: 10000 });
-    await expect(tasksCard.getByText('Complete me').first()).toBeVisible({ timeout: 10000 });
+    await expect(tasksCard.getByText(/hide completed/i)).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(tasksCard.getByText('Complete me').first()).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -553,13 +595,13 @@ test.describe('Contact Modules - Labels', () => {
     await expect(nameInput).toBeVisible({ timeout: 10000 });
     await nameInput.fill('e2e-test-label');
 
-    const labelResponse = page.waitForResponse(
-      (resp) => resp.url().includes('/labels') && resp.request().method() === 'POST'
-    );
+    const labelResponse = page.waitForResponse((resp) => resp.url().includes('/labels') && resp.request().method() === 'POST');
     await page.getByRole('button', { name: 'Add' }).click();
     await labelResponse;
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('e2e-test-label')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('e2e-test-label')).toBeVisible({
+      timeout: 10000,
+    });
 
     // Now create a contact and add the label
     await page.goto(vaultUrl);
@@ -567,7 +609,7 @@ test.describe('Contact Modules - Labels', () => {
     await goToContacts(page);
     await createContact(page, 'LabelTest', 'User');
 
-    await navigateToTab(page, 'Contact information');
+    await navigateToTab(page, 'Profile and contact');
 
     const labelsCard = page.locator('.ant-card').filter({ hasText: 'Labels' });
     await expect(labelsCard).toBeVisible({ timeout: 10000 });
@@ -580,9 +622,7 @@ test.describe('Contact Modules - Labels', () => {
     await modal.locator('.ant-select').click();
     await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: 'e2e-test-label' }).click();
 
-    const addResp = page.waitForResponse(
-      (resp) => resp.url().includes('/labels') && resp.request().method() === 'POST'
-    );
+    const addResp = page.waitForResponse((resp) => resp.url().includes('/labels') && resp.request().method() === 'POST');
     await modal.getByRole('button', { name: /save/i }).click();
     await addResp;
 
@@ -590,9 +630,7 @@ test.describe('Contact Modules - Labels', () => {
     await expect(labelsCard.locator('.ant-tag').filter({ hasText: 'e2e-test-label' })).toBeVisible({ timeout: 10000 });
 
     // Delete the label from the contact
-    const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/labels') && resp.request().method() === 'DELETE'
-    );
+    const deleteResp = page.waitForResponse((resp) => resp.url().includes('/labels') && resp.request().method() === 'DELETE');
     await labelsCard.locator('.ant-tag').filter({ hasText: 'e2e-test-label' }).locator('[aria-label="delete"]').click();
     await deleteResp;
 
@@ -606,7 +644,7 @@ test.describe('Contact Modules - Important Dates', () => {
     await goToContacts(page);
     await createContact(page, 'DateTest', 'User');
 
-    await navigateToTab(page, 'Contact information');
+    await navigateToTab(page, 'Profile and contact');
 
     const datesCard = page.locator('.ant-card').filter({ hasText: 'Important Dates' });
     await expect(datesCard).toBeVisible({ timeout: 10000 });
@@ -626,24 +664,27 @@ test.describe('Contact Modules - Important Dates', () => {
     await page.locator('.ant-select-dropdown').last().locator('.ant-select-item-option').first().click();
     await modal.locator('.ant-modal-header').click();
 
-    const createResp = page.waitForResponse(
-      (resp) => resp.url().includes('/dates') && resp.request().method() === 'POST'
-    );
+    const createResp = page.waitForResponse((resp) => resp.url().includes('/dates') && resp.request().method() === 'POST');
     await modal.getByRole('button', { name: /ok/i }).click();
     await createResp;
 
-    await expect(datesCard.getByText('Graduation Day')).toBeVisible({ timeout: 10000 });
+    await expect(datesCard.getByText('Graduation Day')).toBeVisible({
+      timeout: 10000,
+    });
 
     // Delete the important date (skip seed dates Birthdate/Deceased date, target our created one)
     const dateItem = datesCard.locator('.ant-list-item').filter({ hasText: 'Graduation Day' });
     await dateItem.locator('[aria-label="delete"]').click();
-    const deleteResp = page.waitForResponse(
-      (resp) => resp.url().includes('/dates') && resp.request().method() === 'DELETE'
-    );
-    await page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click();
+    const deleteResp = page.waitForResponse((resp) => resp.url().includes('/dates') && resp.request().method() === 'DELETE');
+    await page
+      .locator('.ant-popconfirm')
+      .getByRole('button', { name: /ok|yes/i })
+      .click();
     await deleteResp;
 
-    await expect(datesCard.getByText('Graduation Day')).not.toBeVisible({ timeout: 10000 });
+    await expect(datesCard.getByText('Graduation Day')).not.toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -653,7 +694,7 @@ test.describe('Contact Modules - Important Date Auto-fill', () => {
     await goToContacts(page);
     await createContact(page, 'Date', 'Test');
 
-    await navigateToTab(page, 'Contact information');
+    await navigateToTab(page, 'Profile and contact');
 
     const datesCard = page.locator('.ant-card').filter({ hasText: 'Important Dates' });
     await expect(datesCard).toBeVisible({ timeout: 10000 });
@@ -680,13 +721,13 @@ test.describe('Contact Modules - Important Date Auto-fill', () => {
     await page.locator('.ant-select-dropdown').last().locator('.ant-select-item-option').first().click();
     await modal.locator('.ant-modal-header').click();
 
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/dates') && resp.request().method() === 'POST'
-    );
+    const responsePromise = page.waitForResponse((resp) => resp.url().includes('/dates') && resp.request().method() === 'POST');
     await modal.getByRole('button', { name: /ok/i }).click();
     const resp = await responsePromise;
     expect(resp.status()).toBeLessThan(400);
 
-    await expect(datesCard.getByText('Birthdate').first()).toBeVisible({ timeout: 10000 });
+    await expect(datesCard.getByText('Birthdate').first()).toBeVisible({
+      timeout: 10000,
+    });
   });
 });

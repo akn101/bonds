@@ -39,9 +39,11 @@ async function navigateToContactTab(
   tabName: string,
   exact = false,
 ) {
-  const tab = page.getByRole("tab", { name: tabName, exact });
-  await expect(tab).toBeVisible({ timeout: 10000 });
-  await tab.click();
+  const section = page
+    .getByRole("navigation", { name: "Contact sections" })
+    .getByRole("button", { name: tabName, exact });
+  await expect(section).toBeVisible({ timeout: 10000 });
+  await section.click();
   await page.waitForLoadState("networkidle");
 }
 
@@ -614,7 +616,9 @@ test.describe("Vault - Feed, Calendar, Journal and Settings", () => {
       .first()
       .click();
 
-    await modal.getByRole("textbox", { name: "Title" }).fill("Graduated from university");
+    await modal
+      .getByRole("textbox", { name: "Title" })
+      .fill("Graduated from university");
     await modal.locator("textarea").fill("Got my degree");
 
     const dashboardActivityResp = page.waitForResponse(
@@ -732,7 +736,7 @@ test.describe("Vault Reminders Page", () => {
       timeout: 10000,
     });
 
-    await navigateToContactTab(page, "Information", true);
+    await navigateToContactTab(page, "Notes and records", true);
 
     const remindersCard = page
       .locator(".ant-card")
@@ -1027,7 +1031,7 @@ test.describe("Vault Reports - Overview Counts", () => {
     });
 
     // Navigate to Contact information tab to add address
-    await navigateToContactTab(page, "Contact information");
+    await navigateToContactTab(page, "Profile and contact");
 
     const addressCard = page
       .locator(".ant-card")
@@ -1064,7 +1068,7 @@ test.describe("Vault Reports - Overview Counts", () => {
     expect(addrRespResult.status()).toBeLessThan(400);
 
     // Add an important date to the same contact (Contact information tab)
-    await navigateToContactTab(page, "Contact information");
+    await navigateToContactTab(page, "Profile and contact");
 
     const datesCard = page
       .locator(".ant-card")
@@ -1173,7 +1177,7 @@ test.describe("Vault Feed - Contact Names", () => {
     });
 
     // Create a note to generate a feed entry
-    await navigateToContactTab(page, "Information", true);
+    await navigateToContactTab(page, "Notes and records", true);
 
     const notesCard = page.locator(".ant-card").filter({ hasText: /^Notes/ });
     await expect(notesCard).toBeVisible({ timeout: 10000 });

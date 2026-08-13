@@ -105,6 +105,9 @@ func main() {
 	if err := models.BackfillContactTemplateLayout(db); err != nil {
 		log.Printf("WARNING: failed to backfill contact template layout: %v", err)
 	}
+	if err := models.BackfillContactSectionNames(db); err != nil {
+		log.Printf("WARNING: failed to backfill contact section names: %v", err)
+	}
 	scheduler := cron.NewScheduler(db)
 	scheduler.Start()
 

@@ -750,7 +750,25 @@ function installObjectUrlLifecycleProbe(
 }
 
 function latestContactQueryFunction(): () => Promise<unknown> {
-  const options = mockContactQuery.mock.calls.at(-1)?.[0];
+  let options: unknown;
+  for (
+    let index = mockContactQuery.mock.calls.length - 1;
+    index >= 0;
+    index--
+  ) {
+    const candidate: unknown = mockContactQuery.mock.calls[index]?.[0];
+    if (typeof candidate !== "object" || candidate === null) continue;
+    const queryKey = Reflect.get(candidate, "queryKey");
+    if (
+      Array.isArray(queryKey) &&
+      queryKey.length === 4 &&
+      queryKey[0] === "vaults" &&
+      queryKey[2] === "contacts"
+    ) {
+      options = candidate;
+      break;
+    }
+  }
   if (typeof options !== "object" || options === null) {
     throw new Error("expected contact query options");
   }
@@ -953,27 +971,31 @@ describe("ContactDetail", () => {
     );
   });
 
-  it("always shows the full template tabs with Summary selected by default", async () => {
-    const user = userEvent.setup();
+  it("shows every template page as a continuous, navigable section", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
     renderContactDetail();
 
     expect(screen.getByText("ContactSummaryCard:read")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByText("Overview")).toBeInTheDocument();
-    expect(screen.getByText("Relationships")).toBeInTheDocument();
-    expect(screen.getByText("Information")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    expect(
+      screen.getByRole("combobox", { name: "Jump to section" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Summary" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Overview" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Relationships" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Information" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("QuickFactsModule:edit")).toBeInTheDocument();
     expect(screen.getByText("NotesModule:edit")).toBeInTheDocument();
   });
 
-  it("restores and updates the last selected tab for a contact template", async () => {
-    const user = userEvent.setup();
+  it("renders customized template pages in their configured order", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
     mockTabsData = {
       template_id: 42,
@@ -1000,60 +1022,74 @@ describe("ContactDetail", () => {
         },
       ],
     };
-    window.localStorage.setItem(
-      "bonds:contact-template:42:last-tab",
-      "activities",
-    );
 
     renderContactDetail();
 
-    expect(screen.getByRole("tab", { name: "Activities" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByRole("tab", { name: "Goals" })).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Summary" }));
-    expect(window.localStorage.getItem("bonds:contact-template:42:last-tab")).toBe(
-      "summary",
-    );
+    expect(
+      screen.getAllByRole("heading").map((heading) => heading.textContent),
+    ).toEqual(expect.arrayContaining(["Summary", "Activities", "Goals"]));
+    const sections = document.querySelectorAll("[data-contact-section-key]");
+    expect(Array.from(sections, (section) => section.textContent)).toEqual([
+      expect.stringContaining("Summary"),
+      expect.stringContaining("Activities"),
+      expect.stringContaining("Goals"),
+    ]);
   });
 
-  it("routes fallback notes links directly to their template tab", () => {
+  it("uses the compact section navigator to scroll without hiding content", async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
+    renderContactDetail();
+
+    await user.click(screen.getByRole("combobox", { name: "Jump to section" }));
+    await user.click(
+      screen.getByText("Activities", {
+        selector: ".ant-select-item-option-content",
+      }),
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+    });
+    expect(screen.getByText("ContactSummaryCard:read")).toBeInTheDocument();
+    expect(screen.getByText("ActivitiesModule")).toBeInTheDocument();
+  });
+
+  it("routes fallback notes links directly to their template section", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
 
     renderContactDetail("/vaults/1/contacts/2?focus=notes&source=Note:42");
 
-    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
     expect(screen.getByTestId("notes-module")).toHaveAttribute(
       "data-target",
       "Note:42",
     );
     expect(screen.getByText("NotesModule:edit")).toBeInTheDocument();
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "auto",
+      block: "start",
+    });
   });
 
-  it("forces fallback reminder links into the operations tab", () => {
+  it("routes fallback reminder links into the operations section", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
 
     renderContactDetail(
       "/vaults/1/contacts/2?focus=reminders&source=ContactReminder:17",
     );
 
-    expect(
-      screen.getByRole("tab", { name: "Tasks & follow-ups" }),
-    ).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
     expect(screen.getByTestId("reminders-module")).toHaveAttribute(
       "data-target",
       "ContactReminder:17",
     );
   });
 
-  it("selects a nonstandard dynamic tab containing the requested notes module", () => {
+  it("targets a nonstandard dynamic section containing the requested notes module", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
     mockTabsData = {
       pages: [
@@ -1074,17 +1110,16 @@ describe("ContactDetail", () => {
 
     renderContactDetail("/vaults/1/contacts/2?focus=notes&source=Note:88");
 
-    expect(screen.getByRole("tab", { name: "Memories" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(
+      screen.getByRole("heading", { name: "Memories" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("notes-module")).toHaveAttribute(
       "data-target",
       "Note:88",
     );
   });
 
-  it("routes a File documents link to the dynamic tab containing documents", () => {
+  it("routes a File documents link to the dynamic section containing documents", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
     mockTabsData = {
       pages: [
@@ -1107,17 +1142,16 @@ describe("ContactDetail", () => {
 
     renderContactDetail("/vaults/1/contacts/2?focus=documents&source=File:63");
 
-    expect(screen.getByRole("tab", { name: "Archive" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(
+      screen.getByRole("heading", { name: "Archive" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("documents-module")).toHaveAttribute(
       "data-target",
       "File:63",
     );
   });
 
-  it("preserves the default Summary tab for invalid canonical query parameters", () => {
+  it("does not target a module for invalid canonical query parameters", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
 
     renderContactDetail(
@@ -1125,14 +1159,13 @@ describe("ContactDetail", () => {
     );
 
     expect(screen.getByText("ContactSummaryCard:read")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    expect(screen.getByTestId("notes-module")).toHaveAttribute(
+      "data-target",
+      "none",
     );
-    expect(screen.queryByTestId("notes-module")).not.toBeInTheDocument();
   });
 
-  it("preserves default behavior when dynamic tabs omit the requested module", () => {
+  it("preserves default behavior when dynamic sections omit the requested module", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
     mockTabsData = {
       pages: [
@@ -1147,16 +1180,17 @@ describe("ContactDetail", () => {
 
     renderContactDetail("/vaults/1/contacts/2?focus=notes&source=Note:42");
 
-    expect(screen.queryByText("ContactSummaryCard:read")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("ContactSummaryCard:read"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("GiftsModule")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(
+      screen.getByRole("heading", { name: "General" }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("notes-module")).not.toBeInTheDocument();
   });
 
-  it("renders gifts from dynamic contact tabs without a view-mode toggle", () => {
+  it("renders gifts from dynamic contact sections", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
     mockTabsData = {
       pages: [
@@ -1171,7 +1205,9 @@ describe("ContactDetail", () => {
 
     renderContactDetail();
 
-    expect(screen.getByText("Information")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Information" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("GiftsModule")).toBeInTheDocument();
   });
 

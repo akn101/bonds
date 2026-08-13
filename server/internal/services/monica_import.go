@@ -182,6 +182,13 @@ func (s *MonicaImportService) Import(vaultID, userID string, data []byte) (*dto.
 				RelatedContactID:   ofContactID,
 				RelationshipTypeID: relType.ID,
 			}
+			if t, ok := parseMonicaTimestamp(mr.CreatedAt); ok {
+				rel.CreatedAt = t
+				rel.UpdatedAt = t
+			}
+			if t, ok := parseMonicaTimestamp(mr.UpdatedAt); ok {
+				rel.UpdatedAt = t
+			}
 			if err := s.DB.Create(&rel).Error; err == nil {
 				resp.ImportedRelationships++
 			}

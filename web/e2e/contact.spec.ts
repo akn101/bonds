@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
 let counter = 0;
 
@@ -6,231 +6,301 @@ function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now()}-${++counter}-${Math.random().toString(36).slice(2, 6)}@example.com`;
 }
 
-async function setupVault(page: import('@playwright/test').Page, prefix: string) {
+async function setupVault(
+  page: import("@playwright/test").Page,
+  prefix: string,
+) {
   const email = uniqueEmail(prefix);
-  await page.goto('/register');
-  await page.getByPlaceholder('First name').fill('Contact');
-  await page.getByPlaceholder('Last name').fill('Tester');
-  await page.getByPlaceholder('Email').fill(email);
-  await page.getByPlaceholder(/password/i).fill('password123');
-  await page.getByRole('button', { name: /create account/i }).click();
+  await page.goto("/register");
+  await page.getByPlaceholder("First name").fill("Contact");
+  await page.getByPlaceholder("Last name").fill("Tester");
+  await page.getByPlaceholder("Email").fill(email);
+  await page.getByPlaceholder(/password/i).fill("password123");
+  await page.getByRole("button", { name: /create account/i }).click();
   await expect(page).toHaveURL(/\/vaults/, { timeout: 15000 });
 
-  await page.getByRole('button', { name: /new vault/i }).click();
-  await page.getByPlaceholder(/e\.g\. family/i).fill('Test Vault');
-  await page.getByPlaceholder(/what is this vault/i).fill('For testing');
-  await page.getByRole('button', { name: /create vault/i }).click();
+  await page.getByRole("button", { name: /new vault/i }).click();
+  await page.getByPlaceholder(/e\.g\. family/i).fill("Test Vault");
+  await page.getByPlaceholder(/what is this vault/i).fill("For testing");
+  await page.getByRole("button", { name: /create vault/i }).click();
   await expect(page).toHaveURL(/\/vaults\/[a-f0-9-]{36}$/, { timeout: 20000 });
-  await page.waitForLoadState('networkidle');
-  await expect(page.getByRole('heading', { name: 'Test Vault' })).toBeVisible({ timeout: 10000 });
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: "Test Vault" })).toBeVisible({
+    timeout: 10000,
+  });
 }
 
-async function goToContacts(page: import('@playwright/test').Page) {
+async function goToContacts(page: import("@playwright/test").Page) {
   // Issue #63: Dashboard 重写后 'View all contacts' 链接已移除，改用 URL 导航
-  await page.goto(page.url().replace(/\/$/, '') + '/contacts');
+  await page.goto(page.url().replace(/\/$/, "") + "/contacts");
   await expect(page).toHaveURL(/\/contacts/, { timeout: 5000 });
 }
 
-async function createContact(page: import('@playwright/test').Page, firstName: string, lastName: string) {
-  await page.getByRole('button', { name: /add contact/i }).click();
-  await page.getByPlaceholder('First name').fill(firstName);
-  await page.getByPlaceholder('Last name').fill(lastName);
-  await page.getByRole('button', { name: /create contact/i }).click();
+async function createContact(
+  page: import("@playwright/test").Page,
+  firstName: string,
+  lastName: string,
+) {
+  await page.getByRole("button", { name: /add contact/i }).click();
+  await page.getByPlaceholder("First name").fill(firstName);
+  await page.getByPlaceholder("Last name").fill(lastName);
+  await page.getByRole("button", { name: /create contact/i }).click();
   await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+$/, { timeout: 10000 });
-  await expect(page.getByText(`${firstName} ${lastName}`).first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(`${firstName} ${lastName}`).first()).toBeVisible({
+    timeout: 10000,
+  });
 }
 
-test.describe('Contacts - CRUD', () => {
-  test('should show empty contact list', async ({ page }) => {
-    await setupVault(page, 'empty');
+test.describe("Contacts - CRUD", () => {
+  test("should show empty contact list", async ({ page }) => {
+    await setupVault(page, "empty");
     await goToContacts(page);
-    await expect(page.getByText('No contacts yet')).toBeVisible();
+    await expect(page.getByText("No contacts yet")).toBeVisible();
   });
 
-  test('should create a new contact', async ({ page }) => {
-    await setupVault(page, 'create');
+  test("should create a new contact", async ({ page }) => {
+    await setupVault(page, "create");
     await goToContacts(page);
-    await createContact(page, 'John', 'Doe');
+    await createContact(page, "John", "Doe");
   });
 
-  test('should view contact detail', async ({ page }) => {
-    await setupVault(page, 'detail');
+  test("should view contact detail", async ({ page }) => {
+    await setupVault(page, "detail");
     await goToContacts(page);
-    await createContact(page, 'Jane', 'Smith');
+    await createContact(page, "Jane", "Smith");
 
-    await page.getByText('Jane Smith').click();
-    await expect(page.getByText('Jane Smith')).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Jane Smith", exact: true }),
+    ).toBeVisible();
   });
 
-  test('should search contacts', async ({ page }) => {
-    await setupVault(page, 'search');
+  test("should search contacts", async ({ page }) => {
+    await setupVault(page, "search");
     await goToContacts(page);
 
-    await createContact(page, 'Alice', 'Wonder');
+    await createContact(page, "Alice", "Wonder");
 
-    await page.getByRole('button', { name: /back to contacts/i }).click();
-    await createContact(page, 'Bob', 'Builder');
+    await page.getByRole("button", { name: /back to contacts/i }).click();
+    await createContact(page, "Bob", "Builder");
 
-    await page.getByRole('button', { name: /back to contacts/i }).click();
-    await page.getByPlaceholder(/search/i).fill('Alice');
-    await expect(page.getByText('Alice Wonder')).toBeVisible();
+    await page.getByRole("button", { name: /back to contacts/i }).click();
+    await page.getByPlaceholder(/search/i).fill("Alice");
+    await expect(page.getByText("Alice Wonder")).toBeVisible();
   });
 
-  test('should edit a contact', async ({ page }) => {
-    await setupVault(page, 'edit');
+  test("should edit a contact", async ({ page }) => {
+    await setupVault(page, "edit");
     await goToContacts(page);
-    await createContact(page, 'EditTest', 'User');
+    await createContact(page, "EditTest", "User");
 
-    await page.getByRole('button', { name: 'Edit' }).first().click();
+    await page.getByRole("button", { name: "Edit" }).first().click();
 
-    const modal = page.locator('.ant-modal');
+    const modal = page.locator(".ant-modal");
     await expect(modal).toBeVisible({ timeout: 5000 });
-    await expect(modal.getByText('Edit Contact')).toBeVisible();
+    await expect(modal.getByText("Edit Contact")).toBeVisible();
 
-    const firstNameInput = modal.locator('#first_name');
+    const firstNameInput = modal.locator("#first_name");
     await expect(firstNameInput).toBeVisible({ timeout: 5000 });
 
     await firstNameInput.clear();
-    await firstNameInput.fill('UpdatedName');
+    await firstNameInput.fill("UpdatedName");
 
-    await modal.getByRole('button', { name: 'Save' }).click();
+    await modal.getByRole("button", { name: "Save" }).click();
 
     await expect(modal).not.toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('UpdatedName User').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("UpdatedName User").first()).toBeVisible({
+      timeout: 10000,
+    });
   });
 
-  test('should show Move button on contact detail', async ({ page }) => {
-    await setupVault(page, 'move');
+  test("should show Move button on contact detail", async ({ page }) => {
+    await setupVault(page, "move");
     await goToContacts(page);
-    await createContact(page, 'MoveTest', 'User');
+    await createContact(page, "MoveTest", "User");
 
     // Move button is now inside the More dropdown (icon-only button with MoreOutlined)
     // Find the more button by its icon aria-label
-    const moreBtn = page.locator('button').filter({ has: page.locator('[aria-label="more"]') });
+    const moreBtn = page
+      .locator("button")
+      .filter({ has: page.locator('[aria-label="more"]') });
     await expect(moreBtn).toBeVisible({ timeout: 5000 });
     await moreBtn.click();
-    await expect(page.getByText('Move', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Move", { exact: true })).toBeVisible({
+      timeout: 5000,
+    });
   });
 });
 
-test.describe('Contacts - Feed Tab', () => {
-  test('should show activity feed tab', async ({ page }) => {
-    await setupVault(page, 'feed');
+test.describe("Contacts - Feed Section", () => {
+  test("should show the activity feed section", async ({ page }) => {
+    await setupVault(page, "feed");
     await goToContacts(page);
-    await createContact(page, 'FeedTest', 'User');
+    await createContact(page, "FeedTest", "User");
 
-    const feedTab = page.getByRole('tab', { name: /feed/i });
-    await expect(feedTab).toBeVisible({ timeout: 10000 });
-    await feedTab.click();
+    const feedNavigation = page
+      .getByRole("navigation", { name: "Contact sections" })
+      .getByRole("button", { name: "Feed", exact: true });
+    await expect(feedNavigation).toBeVisible({ timeout: 10000 });
+    await feedNavigation.click();
 
     await expect(
-      page.locator('.ant-card').filter({ hasText: /Activity Feed/i })
+      page
+        .getByRole("region", { name: "Feed", exact: true })
+        .locator(".ant-card")
+        .filter({ hasText: /Activity Feed/i }),
     ).toBeVisible({ timeout: 10000 });
   });
 });
 
-test.describe('Contacts - vCard', () => {
-  test('should show import and export vCard buttons', async ({ page }) => {
-    await setupVault(page, 'vcard');
+test.describe("Contacts - vCard", () => {
+  test("should show import and export vCard buttons", async ({ page }) => {
+    await setupVault(page, "vcard");
     await goToContacts(page);
 
-    await expect(page.getByRole('button', { name: 'Import vCard' })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('button', { name: 'Export All' })).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole("button", { name: "Import vCard" }),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Export All" })).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
-test.describe('Contacts - Gender and Pronoun', () => {
-  test('create form should display gender and pronoun select fields', async ({ page }) => {
-    await setupVault(page, 'gender-create');
+test.describe("Contacts - Gender and Pronoun", () => {
+  test("create form should display gender and pronoun select fields", async ({
+    page,
+  }) => {
+    await setupVault(page, "gender-create");
     await goToContacts(page);
 
-    await page.getByRole('button', { name: /add contact/i }).click();
+    await page.getByRole("button", { name: /add contact/i }).click();
     await expect(page).toHaveURL(/\/contacts\/create/, { timeout: 5000 });
 
     // Gender and Pronoun selects should be visible on the create form
-    const genderFormItem = page.locator('.ant-form-item').filter({ hasText: 'Gender' }).locator('.ant-select');
+    const genderFormItem = page
+      .locator(".ant-form-item")
+      .filter({ hasText: "Gender" })
+      .locator(".ant-select");
     await expect(genderFormItem).toBeVisible({ timeout: 5000 });
 
-    const pronounFormItem = page.locator('.ant-form-item').filter({ hasText: 'Pronoun' }).locator('.ant-select');
+    const pronounFormItem = page
+      .locator(".ant-form-item")
+      .filter({ hasText: "Pronoun" })
+      .locator(".ant-select");
     await expect(pronounFormItem).toBeVisible({ timeout: 5000 });
   });
 
-  test('should create a contact with gender and pronoun selected', async ({ page }) => {
-    await setupVault(page, 'gender-assign');
+  test("should create a contact with gender and pronoun selected", async ({
+    page,
+  }) => {
+    await setupVault(page, "gender-assign");
     await goToContacts(page);
 
-    await page.getByRole('button', { name: /add contact/i }).click();
+    await page.getByRole("button", { name: /add contact/i }).click();
     await expect(page).toHaveURL(/\/contacts\/create/, { timeout: 5000 });
 
-    await page.getByPlaceholder('First name').fill('GenderTest');
-    await page.getByPlaceholder('Last name').fill('User');
+    await page.getByPlaceholder("First name").fill("GenderTest");
+    await page.getByPlaceholder("Last name").fill("User");
 
     // Select a gender from the dropdown (seed data provides Male, Female, Other)
-    const genderFormItem = page.locator('.ant-form-item').filter({ hasText: 'Gender' }).locator('.ant-select');
+    const genderFormItem = page
+      .locator(".ant-form-item")
+      .filter({ hasText: "Gender" })
+      .locator(".ant-select");
     await genderFormItem.click();
-    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
+    await page.getByTitle("Male", { exact: true }).click();
 
     // Ant Design Select dropdown can obscure sibling Selects.
     // Click the page heading to dismiss the dropdown before opening the next one.
-    await page.locator('h4').first().click();
+    await page.locator("h4").first().click();
     await page.waitForTimeout(300);
 
     // Select a pronoun
-    const pronounFormItem = page.locator('.ant-form-item').filter({ hasText: 'Pronoun' }).locator('.ant-select');
+    const pronounFormItem = page
+      .locator(".ant-form-item")
+      .filter({ hasText: "Pronoun" })
+      .locator(".ant-select");
     await pronounFormItem.click();
-    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
+    await page.getByTitle("he/him", { exact: true }).click();
 
-    await page.getByRole('button', { name: /create contact/i }).click();
+    await page.getByRole("button", { name: /create contact/i }).click();
     await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+$/, { timeout: 10000 });
-    await expect(page.getByText('GenderTest User').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("GenderTest User").first()).toBeVisible({
+      timeout: 10000,
+    });
 
     // Summary card should reflect the selected gender (not "Not set")
     const summaryCard = page.locator('[data-testid="contact-summary-card"]');
     await expect(summaryCard).toBeVisible({ timeout: 10000 });
-    const genderSummarySection = summaryCard.locator('div').filter({ hasText: 'Gender' }).first();
+    const genderSummarySection = summaryCard.locator(
+      '[data-testid="summary-gender-pronoun"]',
+    );
     await expect(genderSummarySection).toBeVisible();
-    await expect(genderSummarySection.getByText('Not set')).not.toBeVisible({ timeout: 3000 });
+    await expect(
+      genderSummarySection.getByText("Male", { exact: true }),
+    ).toBeVisible();
+    await expect(genderSummarySection.getByText("Not set")).not.toBeVisible({
+      timeout: 3000,
+    });
   });
 
-  test('edit modal should display gender and pronoun select fields', async ({ page }) => {
-    await setupVault(page, 'gender-edit');
+  test("edit modal should display gender and pronoun select fields", async ({
+    page,
+  }) => {
+    await setupVault(page, "gender-edit");
     await goToContacts(page);
-    await createContact(page, 'EditGender', 'User');
+    await createContact(page, "EditGender", "User");
 
     // Open the edit modal
-    await page.getByRole('button', { name: 'Edit' }).first().click();
-    const editModal = page.locator('.ant-modal');
+    await page.getByRole("button", { name: "Edit" }).first().click();
+    const editModal = page.locator(".ant-modal");
     await expect(editModal).toBeVisible({ timeout: 5000 });
-    await expect(editModal.getByText('Edit Contact')).toBeVisible();
+    await expect(editModal.getByText("Edit Contact")).toBeVisible();
 
     // Gender and Pronoun selects should be present in the edit modal
-    const genderFormItem = editModal.locator('.ant-form-item').filter({ hasText: 'Gender' }).locator('.ant-select');
+    const genderFormItem = editModal
+      .locator(".ant-form-item")
+      .filter({ hasText: "Gender" })
+      .locator(".ant-select");
     await expect(genderFormItem).toBeVisible({ timeout: 5000 });
 
-    const pronounFormItem = editModal.locator('.ant-form-item').filter({ hasText: 'Pronoun' }).locator('.ant-select');
+    const pronounFormItem = editModal
+      .locator(".ant-form-item")
+      .filter({ hasText: "Pronoun" })
+      .locator(".ant-select");
     await expect(pronounFormItem).toBeVisible({ timeout: 5000 });
 
     // Select a gender
     await genderFormItem.click();
-    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
-    await editModal.locator('.ant-modal-header').click();
+    await page
+      .locator(".ant-select-dropdown:visible .ant-select-item-option")
+      .first()
+      .click();
+    await editModal.locator(".ant-modal-header").click();
     await page.waitForTimeout(300);
 
     // Select a pronoun
     await pronounFormItem.click();
-    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
-    await editModal.locator('.ant-modal-header').click();
+    await page
+      .locator(".ant-select-dropdown:visible .ant-select-item-option")
+      .first()
+      .click();
+    await editModal.locator(".ant-modal-header").click();
     await page.waitForTimeout(300);
 
     // Save changes
-    await editModal.getByRole('button', { name: 'Save' }).click();
+    await editModal.getByRole("button", { name: "Save" }).click();
     await expect(editModal).not.toBeVisible({ timeout: 15000 });
 
     // Summary card should now show the selected gender
     const summaryCard = page.locator('[data-testid="contact-summary-card"]');
     await expect(summaryCard).toBeVisible({ timeout: 10000 });
-    const genderSummarySection = summaryCard.locator('div').filter({ hasText: 'Gender' }).first();
+    const genderSummarySection = summaryCard.locator(
+      '[data-testid="summary-gender-pronoun"]',
+    );
     await expect(genderSummarySection).toBeVisible();
-    await expect(genderSummarySection.getByText('Not set')).not.toBeVisible({ timeout: 3000 });
+    await expect(genderSummarySection.getByText("Not set")).not.toBeVisible({
+      timeout: 3000,
+    });
   });
 });

@@ -178,4 +178,4 @@ jobs:
         run: bunx playwright test
         env:
           CI: true
-        timeout-minutes: 30
+        timeout-minutes: 45

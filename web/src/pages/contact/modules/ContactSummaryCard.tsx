@@ -438,7 +438,7 @@ export default function ContactSummaryCard({
       )}
 
       {(!readOnly || hasGenderOrPronoun) && (
-        <div style={sectionStyle}>
+        <div style={sectionStyle} data-testid="summary-gender-pronoun">
           <div style={{ display: "flex", gap: 32 }}>
             {(!readOnly || genderLabel) && (
               <div style={{ flex: 1 }}>
@@ -671,7 +671,6 @@ export default function ContactSummaryCard({
           </Space>
         </div>
       )}
-
     </div>
   );
 }

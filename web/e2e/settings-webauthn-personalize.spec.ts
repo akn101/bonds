@@ -123,19 +123,19 @@ test.describe('Settings - WebAuthn and Modules', () => {
     // Wait for template items to load
     await expect(templatesPanel.locator('.ant-list-item').first()).toBeVisible({ timeout: 10000 });
 
-    // Expand the first template item to show SubItemsPanel (Pages)
+    // Expand the first template item to show SubItemsPanel (Contact sections)
     const firstTemplateItem = templatesPanel.locator('.ant-list-item').first();
     await firstTemplateItem.locator('button').filter({ has: page.locator('.anticon-right, .anticon-down') }).first().click();
     await page.waitForTimeout(500);
     // Wait for sub-items (template pages) to load
-    await expect(templatesPanel.getByText('Pages').first()).toBeVisible({ timeout: 10000 });
+    await expect(templatesPanel.getByText('Contact sections').first()).toBeVisible({ timeout: 10000 });
 
     // Find the pages sub-area and expand modules on the first page
-    const subItemsArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Pages' });
+    const subItemsArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Contact sections' });
     const pageItems = subItemsArea.locator('.ant-list-item');
     await expect(pageItems.first()).toBeVisible({ timeout: 10000 });
     // Use Contact information because it has multiple sortable modules.
-    const contactPageItem = pageItems.filter({ hasText: 'Contact information' }).first();
+    const contactPageItem = pageItems.filter({ hasText: 'Profile and contact' }).first();
     await contactPageItem.locator('button').filter({ has: page.locator('.anticon-appstore') }).click();
     await page.waitForTimeout(500);
 
@@ -156,22 +156,22 @@ test.describe('Settings - WebAuthn and Modules', () => {
     await templatesPanel.locator('.ant-collapse-header').click();
     await expect(templatesPanel.locator('.ant-list-item').first()).toBeVisible({ timeout: 10000 });
 
-    // Expand the first template item to show SubItemsPanel (Pages)
+    // Expand the first template item to show SubItemsPanel (Contact sections)
     const firstTemplateItem = templatesPanel.locator('.ant-list-item').first();
     await firstTemplateItem.locator('button').filter({ has: page.locator('.anticon-right, .anticon-down') }).first().click();
     await page.waitForTimeout(500);
-    await expect(templatesPanel.getByText('Pages').first()).toBeVisible({ timeout: 10000 });
+    await expect(templatesPanel.getByText('Contact sections').first()).toBeVisible({ timeout: 10000 });
 
     // Find the pages sub-area and expand modules on the first page
-    const subItemsArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Pages' });
+    const subItemsArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Contact sections' });
     const pageItems = subItemsArea.locator('.ant-list-item');
     await expect(pageItems.first()).toBeVisible({ timeout: 10000 });
-    const contactPageItem = pageItems.filter({ hasText: 'Contact information' }).first();
+    const contactPageItem = pageItems.filter({ hasText: 'Profile and contact' }).first();
     await contactPageItem.locator('button').filter({ has: page.locator('.anticon-appstore') }).click();
     await page.waitForTimeout(500);
-    // Wait for module list with Page Modules label
-    await expect(templatesPanel.getByText('Page Modules').first()).toBeVisible({ timeout: 10000 });
-    const modulesArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Page Modules' }).last();
+    // Wait for module list with Section Modules label
+    await expect(templatesPanel.getByText('Section Modules').first()).toBeVisible({ timeout: 10000 });
+    const modulesArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Section Modules' }).last();
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(500);
     // Get the first module name
@@ -213,7 +213,7 @@ test.describe('Settings - WebAuthn and Modules', () => {
     }).first();
     await expect(networkPageItem).toBeVisible({ timeout: 10000 });
     const visibilitySwitch = networkPageItem.getByRole('switch', {
-      name: /show page relationship network/i,
+      name: /show section relationship network/i,
     });
     await expect(visibilitySwitch).toBeChecked();
 

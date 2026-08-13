@@ -118,6 +118,10 @@ func TestTemplatePageUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
+	if err := svc.db.Model(&models.TemplatePage{}).Where("id = ?", created.ID).
+		Update("name_translation_key", "seed.template_pages.information").Error; err != nil {
+		t.Fatalf("mark page as seeded: %v", err)
+	}
 
 	updated, err := svc.Update(created.ID, accountID, dto.UpdateTemplatePageRequest{
 		Name:     strPtr("Updated"),
@@ -139,6 +143,13 @@ func TestTemplatePageUpdate(t *testing.T) {
 	}
 	if updated.Type != "new-type" {
 		t.Errorf("Expected type 'new-type', got '%s'", updated.Type)
+	}
+	var renamed models.TemplatePage
+	if err := svc.db.First(&renamed, created.ID).Error; err != nil {
+		t.Fatalf("load renamed page: %v", err)
+	}
+	if renamed.NameTranslationKey != nil {
+		t.Errorf("explicit rename should clear translation key, got %q", *renamed.NameTranslationKey)
 	}
 }
 

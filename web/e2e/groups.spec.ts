@@ -64,9 +64,11 @@ async function navigateToTab(
   page: import("@playwright/test").Page,
   tabName: string,
 ) {
-  const tab = page.getByRole("tab", { name: tabName });
-  await expect(tab).toBeVisible({ timeout: 15000 });
-  await tab.click();
+  const section = page
+    .getByRole("navigation", { name: "Contact sections" })
+    .getByRole("button", { name: tabName });
+  await expect(section).toBeVisible({ timeout: 15000 });
+  await section.click();
   await page.waitForLoadState("networkidle");
 }
 

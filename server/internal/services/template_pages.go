@@ -101,6 +101,10 @@ func (s *TemplatePageService) Update(pageID uint, accountID string, req dto.Upda
 	updates := make(map[string]interface{})
 	if req.Name != nil {
 		updates["name"] = strPtrOrNil(*req.Name)
+		// An explicit rename turns a seeded label into a user-owned label.
+		// Clearing the translation key prevents a later translation sync from
+		// overwriting the customization.
+		updates["name_translation_key"] = nil
 	}
 	if req.Slug != nil && *req.Slug != "" {
 		updates["slug"] = *req.Slug

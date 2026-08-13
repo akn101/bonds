@@ -144,9 +144,11 @@ async function navigateToContactActivities(
 ) {
   await page.goto(`/vaults/${vaultId}/contacts/${contactId}`);
   await page.waitForLoadState("networkidle");
-  const activitiesTab = page.getByRole("tab", { name: "Activities" });
-  await expect(activitiesTab).toBeVisible({ timeout: 30000 });
-  await activitiesTab.click();
+  const activitiesSection = page
+    .getByRole("navigation", { name: "Contact sections" })
+    .getByRole("button", { name: "Activities" });
+  await expect(activitiesSection).toBeVisible({ timeout: 30000 });
+  await activitiesSection.click();
   await page.waitForLoadState("networkidle");
 }
 
@@ -182,9 +184,7 @@ async function navigateToActivitiesTab(page: import("@playwright/test").Page) {
 }
 
 test.describe("Vault Settings - Activities", () => {
-  test("should navigate to vault settings activities tab", async ({
-    page,
-  }) => {
+  test("should navigate to vault settings activities tab", async ({ page }) => {
     await setupVault(page);
     await navigateToActivitiesTab(page);
     await expect(page.getByText("Add Category")).toBeVisible({
@@ -452,16 +452,14 @@ test.describe("Vault activity quick action", () => {
   }) => {
     await setupVault(page);
 
-    await page
-      .getByRole("button", { name: /Add activity/i })
-      .click();
+    await page.getByRole("button", { name: /Add activity/i }).click();
 
     const modal = page.locator(".ant-modal:visible");
     await expect(modal.locator(".ant-modal-title")).toHaveText("Add activity");
     await expect(modal.getByText("Title", { exact: true })).toBeVisible();
     await expect(modal.getByText("Gregorian", { exact: true })).toHaveCount(0);
-    await expect(
-      modal.getByText("Chinese Lunar", { exact: true }),
-    ).toHaveCount(0);
+    await expect(modal.getByText("Chinese Lunar", { exact: true })).toHaveCount(
+      0,
+    );
   });
 });

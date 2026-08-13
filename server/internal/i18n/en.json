@@ -347,13 +347,13 @@
 
   "seed.templates.default_template": "Default template",
   "seed.template_pages.summary": "Summary",
-  "seed.template_pages.contact_information": "Contact information",
+  "seed.template_pages.contact_information": "Profile and contact",
   "seed.template_pages.feed": "Feed",
   "seed.template_pages.social": "Social",
   "seed.template_pages.relationship_network": "Relationship network",
   "seed.template_pages.activities": "Activities",
   "seed.template_pages.goals": "Goals",
-  "seed.template_pages.information": "Information",
+  "seed.template_pages.information": "Notes and records",
 
   "seed.modules.contact_summary": "Contact summary",
   "seed.modules.avatar": "Avatar",

@@ -1,4 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   formatContactName,
   formatContactInitials,
@@ -23,7 +29,6 @@ import {
   Typography,
   Spin,
   Button,
-  Tabs,
   Space,
   Popconfirm,
   App,
@@ -37,6 +42,7 @@ import {
   theme,
   Dropdown,
   Checkbox,
+  Grid,
 } from "antd";
 import {
   EditOutlined,
@@ -66,10 +72,7 @@ import type {
 import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
 import { parseContactSourceFocus } from "@/utils/feedSourceLink";
-import type {
-  FeedSourceModule,
-  NormalizedFeedSource,
-} from "@/utils/feedSourceLink";
+import type { NormalizedFeedSource } from "@/utils/feedSourceLink";
 import {
   invalidateCalendarQueries,
   invalidateContactQueries,
@@ -109,30 +112,20 @@ import RelationshipNetworkModule from "./modules/RelationshipNetworkModule";
 
 const { Title, Text } = Typography;
 
-const FALLBACK_MODULE_TABS: Record<FeedSourceModule, string> = {
-  notes: "overview",
-  reminders: "operations",
-  calls: "operations",
-  tasks: "operations",
-  addresses: "information",
-  activities: "activities",
-  loans: "operations",
-  relationships: "relationships",
-  photos: "photos",
-  documents: "photos",
-  quick_facts: "overview",
-};
+function contactSectionKey(page: ContactTabPage, index: number): string {
+  return `${page.id ?? `fallback-${index}`}:${page.slug ?? index}`;
+}
 
-function findTargetTabKey(
+function findTargetSectionKey(
   target: NormalizedFeedSource,
-  tabsData: ContactTabsResponse | undefined,
+  pages: ContactTabPage[],
 ): string | null {
-  if (!tabsData) return FALLBACK_MODULE_TABS[target.module];
-
-  const targetPage = (tabsData.pages ?? []).find((page) =>
+  const targetIndex = pages.findIndex((page) =>
     (page.modules ?? []).some((module) => module.type === target.module),
   );
-  return targetPage ? (targetPage.slug ?? String(targetPage.id)) : null;
+  return targetIndex >= 0
+    ? contactSectionKey(pages[targetIndex]!, targetIndex)
+    : null;
 }
 
 function buildContactListUrl(vaultId: string, search: string): string {
@@ -214,7 +207,7 @@ function buildUpdateContactRequest(
   return request;
 }
 
-// Module type → component mapping for dynamic tab rendering.
+// Module type → component mapping for dynamic section rendering.
 // Modules like avatar, contact_names, family_summary, gender_pronoun, company,
 // religions are handled by the contact header card and ExtraInfoModule, not here.
 const MODULE_COMPONENT_MAP: Record<
@@ -248,6 +241,286 @@ const MODULE_COMPONENT_MAP: Record<
   relationship_network: RelationshipNetworkModule,
 };
 
+type ContactSectionLayoutProps = {
+  readonly pages: ContactTabPage[];
+  readonly targetSectionKey: string | null;
+  readonly targetContext: string | null;
+  readonly renderPage: (page: ContactTabPage) => React.ReactNode;
+};
+
+function ContactSectionLayout({
+  pages,
+  targetSectionKey,
+  targetContext,
+  renderPage,
+}: ContactSectionLayoutProps) {
+  const { t } = useTranslation();
+  const { token } = theme.useToken();
+  const screens = Grid.useBreakpoint();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrolledTargetRef = useRef<string | null>(null);
+  const [activeSectionKey, setActiveSectionKey] = useState<string | null>(null);
+  const [loadedSectionKeys, setLoadedSectionKeys] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const pageEntries = useMemo(
+    () =>
+      pages.map((page, index) => ({
+        key: contactSectionKey(page, index),
+        page,
+      })),
+    [pages],
+  );
+  const sectionIdentity = pageEntries.map((entry) => entry.key).join("|");
+  const validActiveSectionKey = pageEntries.some(
+    (entry) => entry.key === activeSectionKey,
+  )
+    ? activeSectionKey
+    : null;
+  const currentSectionKey =
+    validActiveSectionKey ?? targetSectionKey ?? pageEntries[0]?.key ?? null;
+  const IntersectionObserverConstructor = window.IntersectionObserver;
+  const canObserve = typeof IntersectionObserverConstructor === "function";
+
+  const getSectionNodes = useCallback(
+    (): HTMLElement[] =>
+      Array.from(
+        containerRef.current?.querySelectorAll<HTMLElement>(
+          "[data-contact-section-key]",
+        ) ?? [],
+      ),
+    [],
+  );
+
+  const jumpToSection = (key: string) => {
+    setActiveSectionKey(key);
+    setLoadedSectionKeys((current) => {
+      if (current.has(key)) return current;
+      const next = new Set(current);
+      next.add(key);
+      return next;
+    });
+    const section = getSectionNodes().find(
+      (node) => node.dataset.contactSectionKey === key,
+    );
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  useEffect(() => {
+    if (!canObserve || pageEntries.length === 0) return;
+
+    const nodes = getSectionNodes();
+    const loadObserver = new IntersectionObserverConstructor(
+      (entries) => {
+        const newlyVisible = entries.flatMap((entry) => {
+          const key = (entry.target as HTMLElement).dataset.contactSectionKey;
+          return entry.isIntersecting && key ? [key] : [];
+        });
+        if (newlyVisible.length === 0) return;
+        setLoadedSectionKeys((current) => {
+          if (newlyVisible.every((key) => current.has(key))) return current;
+          const next = new Set(current);
+          for (const key of newlyVisible) next.add(key);
+          return next;
+        });
+      },
+      { rootMargin: "400px 0px", threshold: 0.01 },
+    );
+    const activeObserver = new IntersectionObserverConstructor(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (left, right) =>
+              Math.abs(left.boundingClientRect.top - 132) -
+              Math.abs(right.boundingClientRect.top - 132),
+          );
+        const key = (visible[0]?.target as HTMLElement | undefined)?.dataset
+          .contactSectionKey;
+        if (key) setActiveSectionKey(key);
+      },
+      {
+        rootMargin: "-120px 0px -55% 0px",
+        threshold: [0.01, 0.25, 0.5, 0.75],
+      },
+    );
+
+    for (const node of nodes) {
+      loadObserver.observe(node);
+      activeObserver.observe(node);
+    }
+    return () => {
+      loadObserver.disconnect();
+      activeObserver.disconnect();
+    };
+  }, [
+    IntersectionObserverConstructor,
+    canObserve,
+    getSectionNodes,
+    pageEntries.length,
+    sectionIdentity,
+  ]);
+
+  useEffect(() => {
+    if (
+      !targetSectionKey ||
+      !targetContext ||
+      scrolledTargetRef.current === targetContext
+    ) {
+      return;
+    }
+    const section = getSectionNodes().find(
+      (node) => node.dataset.contactSectionKey === targetSectionKey,
+    );
+    if (!section) return;
+    scrolledTargetRef.current = targetContext;
+    section.scrollIntoView({ behavior: "auto", block: "start" });
+  }, [getSectionNodes, sectionIdentity, targetContext, targetSectionKey]);
+
+  if (pageEntries.length === 0) return null;
+
+  const compactNavigation = !screens.lg;
+  const navigation = compactNavigation ? (
+    <div
+      style={{
+        position: "sticky",
+        top: 116,
+        zIndex: 30,
+        padding: "8px 0 12px",
+        background: token.colorBgLayout,
+      }}
+    >
+      <Select
+        id="contact-section-navigation"
+        aria-label={t("contact.detail.jump_to_section")}
+        value={currentSectionKey ?? undefined}
+        onChange={jumpToSection}
+        options={pageEntries.map((entry) => ({
+          value: entry.key,
+          label: entry.page.name ?? entry.page.slug ?? "",
+        }))}
+        style={{ width: "100%" }}
+      />
+    </div>
+  ) : (
+    <nav
+      aria-label={t("contact.detail.section_navigation")}
+      style={{
+        position: "sticky",
+        top: 124,
+        alignSelf: "start",
+        maxHeight: "calc(100vh - 148px)",
+        overflowY: "auto",
+        padding: 8,
+        borderRadius: token.borderRadiusLG,
+        border: `1px solid ${token.colorBorderSecondary}`,
+        background: token.colorBgContainer,
+      }}
+    >
+      <Text
+        type="secondary"
+        style={{ display: "block", padding: "6px 8px 8px", fontSize: 12 }}
+      >
+        {t("contact.detail.section_navigation")}
+      </Text>
+      <Space orientation="vertical" size={2} style={{ width: "100%" }}>
+        {pageEntries.map((entry) => {
+          const active = entry.key === currentSectionKey;
+          return (
+            <Button
+              key={entry.key}
+              type="text"
+              block
+              aria-current={active ? "location" : undefined}
+              onClick={() => jumpToSection(entry.key)}
+              style={{
+                height: "auto",
+                minHeight: 34,
+                padding: "7px 10px",
+                textAlign: "left",
+                justifyContent: "flex-start",
+                whiteSpace: "normal",
+                lineHeight: 1.35,
+                color: active ? token.colorPrimary : token.colorTextSecondary,
+                background: active ? token.colorPrimaryBg : undefined,
+                fontWeight: active ? 600 : 400,
+              }}
+            >
+              {entry.page.name ?? entry.page.slug ?? ""}
+            </Button>
+          );
+        })}
+      </Space>
+    </nav>
+  );
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: compactNavigation
+          ? "minmax(0, 1fr)"
+          : "190px minmax(0, 1fr)",
+        gap: compactNavigation ? 0 : 24,
+        alignItems: "start",
+      }}
+    >
+      {navigation}
+      <div ref={containerRef}>
+        {pageEntries.map((entry, index) => {
+          const headingID = `contact-section-heading-${entry.page.id ?? index}`;
+          const shouldRender =
+            !canObserve ||
+            index === 0 ||
+            entry.key === targetSectionKey ||
+            loadedSectionKeys.has(entry.key);
+          return (
+            <section
+              key={entry.key}
+              data-contact-section-key={entry.key}
+              aria-labelledby={headingID}
+              aria-busy={!shouldRender}
+              style={{
+                scrollMarginTop: 132,
+                marginBottom: index === pageEntries.length - 1 ? 0 : 40,
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 16,
+                  paddingBottom: 10,
+                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                }}
+              >
+                <Title id={headingID} level={4} style={{ margin: 0 }}>
+                  {entry.page.name ?? entry.page.slug ?? ""}
+                </Title>
+              </div>
+              {shouldRender ? (
+                renderPage(entry.page)
+              ) : (
+                <div
+                  style={{
+                    minHeight: 180,
+                    display: "grid",
+                    placeItems: "center",
+                  }}
+                >
+                  <Spin size="small" />
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ContactDetail() {
   const { id, contactId } = useParams<{ id: string; contactId: string }>();
   const vaultId = id!;
@@ -260,10 +533,6 @@ export default function ContactDetail() {
   const { token } = theme.useToken();
   const nameOrder = useVaultNameOrder(vaultId);
   const dateFormats = useDateFormat();
-  const [tabSelection, setTabSelection] = useState<{
-    readonly context: string;
-    readonly key: string;
-  } | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -683,11 +952,99 @@ export default function ContactDetail() {
     contact,
     currentContactName: formatContactName(nameOrder, contact),
   };
+  const fallbackPages: ContactTabPage[] = [
+    {
+      id: 1,
+      name: t("contact.detail.view_mode"),
+      slug: "summary",
+      modules: [{ id: 1, type: "contact_summary" }],
+    },
+    {
+      id: 2,
+      name: t("contact.detail.tabs.overview"),
+      slug: "overview",
+      type: "contact",
+      modules: [
+        { id: 2, type: "labels" },
+        { id: 3, type: "quick_facts" },
+        { id: 4, type: "notes" },
+      ],
+    },
+    {
+      id: 3,
+      name: t("contact.detail.tabs.relationships"),
+      slug: "relationships",
+      modules: [{ id: 5, type: "relationships" }],
+    },
+    {
+      id: 4,
+      name: t("contact.detail.summary.network"),
+      slug: "relationship-network",
+      modules: [{ id: 6, type: "relationship_network" }],
+    },
+    {
+      id: 5,
+      name: t("contact.detail.tabs.information"),
+      slug: "information",
+      modules: [
+        { id: 7, type: "contact_information" },
+        { id: 8, type: "addresses" },
+        { id: 9, type: "important_dates" },
+        { id: 10, type: "gender_pronoun" },
+        { id: 11, type: "pets" },
+      ],
+    },
+    {
+      id: 6,
+      name: t("contact.detail.tabs.operations"),
+      slug: "operations",
+      modules: [
+        { id: 12, type: "tasks" },
+        { id: 13, type: "calls" },
+        { id: 14, type: "reminders" },
+        { id: 15, type: "loans" },
+      ],
+    },
+    {
+      id: 7,
+      name: t("contact.detail.tabs.activities"),
+      slug: "activities",
+      modules: [{ id: 16, type: "activities" }],
+    },
+    {
+      id: 8,
+      name: t("contact.detail.tabs.goals"),
+      slug: "goals",
+      modules: [{ id: 17, type: "goals" }],
+    },
+    {
+      id: 9,
+      name: t("contact.detail.tabs.photos_docs"),
+      slug: "photos",
+      modules: [
+        { id: 18, type: "photos" },
+        { id: 19, type: "documents" },
+      ],
+    },
+    {
+      id: 10,
+      name: t("contact.detail.feed.title"),
+      slug: "feed",
+      modules: [{ id: 20, type: "feed" }],
+    },
+  ];
+  const sectionPages = tabsData ? (tabsData.pages ?? []) : fallbackPages;
   const requestedSourceFocus = parseContactSourceFocus(location.search);
-  const targetTabKey = requestedSourceFocus
-    ? findTargetTabKey(requestedSourceFocus.source, tabsData)
+  const targetSectionKey = requestedSourceFocus
+    ? findTargetSectionKey(requestedSourceFocus.source, sectionPages)
     : null;
-  const sourceTarget = targetTabKey ? requestedSourceFocus?.source : undefined;
+  const sourceTarget = targetSectionKey
+    ? requestedSourceFocus?.source
+    : undefined;
+  const targetContext =
+    sourceTarget && targetSectionKey
+      ? `${sourceTarget.kind}:${sourceTarget.id}:${targetSectionKey}`
+      : null;
 
   // Compact overview card — only shows fields that have values,
   // timestamps rendered as subtle footer text to save vertical space.
@@ -915,171 +1272,11 @@ export default function ContactDetail() {
     );
   }
 
-  function buildDynamicTabs(data: ContactTabsResponse) {
-    return (data.pages ?? []).map((page) => ({
-      key: page.slug ?? String(page.id),
-      label: page.name ?? page.slug ?? "",
-      children: renderModulesForPage(page),
-    }));
-  }
-
-  const fallbackTabItems = [
-    {
-      key: "summary",
-      label: t("contact.detail.view_mode"),
-      children: <ContactSummaryModule {...moduleProps} />,
-    },
-    {
-      key: "overview",
-      label: t("contact.detail.tabs.overview"),
-      children: (
-        <Space direction="vertical" style={{ width: "100%" }} size={16}>
-          {overviewCard}
-          <LabelsModule {...moduleProps} />
-          <QuickFactsModule
-            {...moduleProps}
-            readOnly={false}
-            target={
-              sourceTarget?.module === "quick_facts" ? sourceTarget : undefined
-            }
-          />
-          <NotesModule
-            {...moduleProps}
-            readOnly={false}
-            target={sourceTarget?.module === "notes" ? sourceTarget : undefined}
-          />
-        </Space>
-      ),
-    },
-    {
-      key: "relationships",
-      label: t("contact.detail.tabs.relationships"),
-      children: (
-        <RelationshipsModule
-          {...moduleProps}
-          target={
-            sourceTarget?.module === "relationships" ? sourceTarget : undefined
-          }
-        />
-      ),
-    },
-    {
-      key: "relationship-network",
-      label: t("contact.detail.summary.network"),
-      children: <RelationshipNetworkModule {...moduleProps} />,
-    },
-    {
-      key: "information",
-      label: t("contact.detail.tabs.information"),
-      children: (
-        <Space direction="vertical" style={{ width: "100%" }} size={16}>
-          <ContactInfoModule {...moduleProps} />
-          <AddressesModule
-            {...moduleProps}
-            target={
-              sourceTarget?.module === "addresses" ? sourceTarget : undefined
-            }
-          />
-          <ImportantDatesModule {...moduleProps} />
-          <ExtraInfoModule {...moduleProps} contact={contact} />
-          <PetsModule {...moduleProps} />
-        </Space>
-      ),
-    },
-    {
-      key: "operations",
-      label: t("contact.detail.tabs.operations"),
-      children: (
-        <Space direction="vertical" style={{ width: "100%" }} size={16}>
-          <TasksModule
-            {...moduleProps}
-            target={sourceTarget?.module === "tasks" ? sourceTarget : undefined}
-          />
-          <CallsModule
-            {...moduleProps}
-            target={sourceTarget?.module === "calls" ? sourceTarget : undefined}
-          />
-          <RemindersModule
-            {...moduleProps}
-            target={
-              sourceTarget?.module === "reminders" ? sourceTarget : undefined
-            }
-          />
-          <LoansModule
-            {...moduleProps}
-            target={sourceTarget?.module === "loans" ? sourceTarget : undefined}
-          />
-        </Space>
-      ),
-    },
-    {
-      key: "activities",
-      label: t("contact.detail.tabs.activities"),
-      children: (
-        <ActivitiesModule
-          {...moduleProps}
-          target={
-            sourceTarget?.module === "activities" ? sourceTarget : undefined
-          }
-        />
-      ),
-    },
-    {
-      key: "goals",
-      label: t("contact.detail.tabs.goals"),
-      children: <GoalsModule {...moduleProps} />,
-    },
-    {
-      key: "photos",
-      label: t("contact.detail.tabs.photos_docs"),
-      children: (
-        <Space direction="vertical" style={{ width: "100%" }} size={16}>
-          <PhotosModule
-            {...moduleProps}
-            target={
-              sourceTarget?.module === "photos" ? sourceTarget : undefined
-            }
-          />
-          <DocumentsModule
-            {...moduleProps}
-            target={
-              sourceTarget?.module === "documents" ? sourceTarget : undefined
-            }
-          />
-        </Space>
-      ),
-    },
-    {
-      key: "feed",
-      label: t("contact.detail.feed.title"),
-      children: <FeedModule {...moduleProps} />,
-    },
-  ];
-
-  const tabItems = tabsData ? buildDynamicTabs(tabsData) : fallbackTabItems;
-  const tabSelectionContext =
-    sourceTarget && targetTabKey
-      ? `${sourceTarget.kind}:${sourceTarget.id}:${targetTabKey}`
-      : `template:${tabsData?.template_id ?? "fallback"}`;
-  const rememberedTabKey = tabsData?.template_id
-    ? window.localStorage.getItem(
-        `bonds:contact-template:${tabsData.template_id}:last-tab`,
-      )
-    : null;
-  const validRememberedTabKey = tabItems.some(
-    (item) => item.key === rememberedTabKey,
-  )
-    ? rememberedTabKey
-    : null;
-  const activeTabKey =
-    tabSelection?.context === tabSelectionContext
-      ? tabSelection.key
-      : (targetTabKey ?? validRememberedTabKey ?? tabItems[0]?.key ?? "summary");
   const isRelationshipOnlyHiddenContact =
     contact.needs_verification && !contact.listed;
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1180, margin: "0 auto" }}>
       <Button
         type="text"
         icon={<ArrowLeftOutlined />}
@@ -1361,25 +1558,11 @@ export default function ContactDetail() {
         <div style={{ marginBottom: 16 }}>{stayInTouchPanel}</div>
       )}
 
-      <Tabs
-        items={tabItems}
-        activeKey={activeTabKey}
-        onChange={(key) => {
-          setTabSelection({ context: tabSelectionContext, key });
-          if (tabsData?.template_id) {
-            window.localStorage.setItem(
-              `bonds:contact-template:${tabsData.template_id}:last-tab`,
-              key,
-            );
-          }
-        }}
-        style={{
-          marginTop: 4,
-        }}
-        tabBarStyle={{
-          marginBottom: 20,
-          paddingLeft: 4,
-        }}
+      <ContactSectionLayout
+        pages={sectionPages}
+        targetSectionKey={targetSectionKey}
+        targetContext={targetContext}
+        renderPage={renderModulesForPage}
       />
 
       <Modal

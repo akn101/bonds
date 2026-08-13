@@ -1361,6 +1361,60 @@ func TestMonicaImportRelationships_Basic(t *testing.T) {
 	if relType.Name == nil || strings.ToLower(*relType.Name) != "spouse" {
 		t.Errorf("expected relationship type name=spouse, got %v", relType.Name)
 	}
+	wantCreatedAt := time.Date(2023, time.March, 1, 0, 0, 0, 0, time.UTC)
+	if !rels[0].CreatedAt.Equal(wantCreatedAt) {
+		t.Errorf("expected relationship created_at=%s, got %s", wantCreatedAt, rels[0].CreatedAt)
+	}
+	if !rels[0].UpdatedAt.Equal(wantCreatedAt) {
+		t.Errorf("expected relationship updated_at=%s, got %s", wantCreatedAt, rels[0].UpdatedAt)
+	}
+}
+
+func TestMonicaImportRelationships_PreservesDistinctTimestamps(t *testing.T) {
+	svc, vaultID, userID, _ := setupMonicaImportTest(t)
+	exportJSON := `{
+		"version": "1.0-preview.1",
+		"account": {
+			"uuid": "test-account",
+			"data": [
+				{"count": 2, "type": "contacts", "values": [
+					{"uuid": "c1", "properties": {"first_name": "Alice"}, "data": []},
+					{"uuid": "c2", "properties": {"first_name": "Bob"}, "data": []}
+				]},
+				{"count": 1, "type": "relationships", "values": [
+					{
+						"uuid": "r1",
+						"created_at": "2024-01-24T14:11:00.000000Z",
+						"updated_at": "2024-02-15T03:45:00.123456Z",
+						"properties": {"type": "friend", "contact_is": "c1", "of_contact": "c2"}
+					}
+				]}
+			],
+			"properties": {},
+			"instance": {}
+		}
+	}`
+
+	resp, err := svc.Import(vaultID, userID, []byte(exportJSON))
+	if err != nil {
+		t.Fatalf("Import failed: %v", err)
+	}
+	if resp.ImportedRelationships != 1 {
+		t.Fatalf("expected 1 imported relationship, got %d (errors=%v)", resp.ImportedRelationships, resp.Errors)
+	}
+
+	var rel models.Relationship
+	if err := svc.DB.First(&rel).Error; err != nil {
+		t.Fatalf("relationship not found: %v", err)
+	}
+	wantCreatedAt := time.Date(2024, time.January, 24, 14, 11, 0, 0, time.UTC)
+	wantUpdatedAt := time.Date(2024, time.February, 15, 3, 45, 0, 123456000, time.UTC)
+	if !rel.CreatedAt.Equal(wantCreatedAt) {
+		t.Errorf("expected relationship created_at=%s, got %s", wantCreatedAt, rel.CreatedAt)
+	}
+	if !rel.UpdatedAt.Equal(wantUpdatedAt) {
+		t.Errorf("expected relationship updated_at=%s, got %s", wantUpdatedAt, rel.UpdatedAt)
+	}
 }
 
 func TestMonicaImportRelationships_UnresolvedContact(t *testing.T) {

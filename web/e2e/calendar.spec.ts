@@ -9,7 +9,10 @@ function uniqueEmail(prefix: string): string {
 async function enableAlternativeCalendar(page: import('@playwright/test').Page) {
   await page.goto('/settings/preferences');
   await page.waitForLoadState('networkidle');
-  const toggle = page.locator('.ant-form-item').filter({ hasText: /alternative calendar/i }).locator('.ant-switch');
+  const toggle = page
+    .locator('.ant-form-item')
+    .filter({ hasText: /alternative calendar/i })
+    .locator('.ant-switch');
   const isChecked = await toggle.getAttribute('aria-checked');
   if (isChecked !== 'true') {
     await toggle.click();
@@ -34,9 +37,7 @@ async function setupContactPage(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: /new vault/i }).click();
   await page.getByPlaceholder(/e\.g\. family/i).fill('Cal Vault');
   await page.getByPlaceholder(/what is this vault/i).fill('Calendar testing');
-  const createVaultResp = page.waitForResponse(
-    (resp) => resp.url().includes('/vaults') && resp.request().method() === 'POST' && resp.status() < 400
-  );
+  const createVaultResp = page.waitForResponse((resp) => resp.url().includes('/vaults') && resp.request().method() === 'POST' && resp.status() < 400);
   await page.getByRole('button', { name: /create vault/i }).click();
   await createVaultResp;
   await expect(page).toHaveURL(/\/vaults\/[a-f0-9-]{36}$/, { timeout: 10000 });
@@ -49,21 +50,21 @@ async function setupContactPage(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: /add contact/i }).click();
   await page.getByPlaceholder('First name').fill('Lunar');
   await page.getByPlaceholder('Last name').fill('Test');
-  const contactResp = page.waitForResponse(
-    (resp) => resp.url().includes('/contacts') && resp.request().method() === 'POST'
-  );
+  const contactResp = page.waitForResponse((resp) => resp.url().includes('/contacts') && resp.request().method() === 'POST');
   await page.getByRole('button', { name: /create contact/i }).click();
   // Full-suite runs can make text rendering lag behind the create request; wait for the committed route change.
   const contactRespResult = await contactResp;
   expect(contactRespResult.status()).toBeLessThan(400);
   await expect(page).toHaveURL(/\/contacts\/[a-f0-9-]+$/, { timeout: 15000 });
-  await expect(page.getByText('Lunar Test').first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Lunar Test').first()).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 async function navigateToContactTab(page: import('@playwright/test').Page, tabName: string, exact = false) {
-  const tab = page.getByRole('tab', { name: tabName, exact });
-  await expect(tab).toBeVisible({ timeout: 10000 });
-  await tab.click();
+  const section = page.getByRole('navigation', { name: 'Contact sections' }).getByRole('button', { name: tabName, exact });
+  await expect(section).toBeVisible({ timeout: 10000 });
+  await section.click();
   await page.waitForLoadState('networkidle');
 }
 
@@ -71,29 +72,37 @@ test.describe('Calendar System', () => {
   test('should show calendar type switcher in important dates modal', async ({ page }) => {
     await setupContactPage(page);
 
-    await navigateToContactTab(page, 'Contact information');
+    await navigateToContactTab(page, 'Profile and contact');
     const importantDatesCard = page.locator('.ant-card').filter({ hasText: 'Important Dates' });
     await importantDatesCard.getByRole('button', { name: /add/i }).click();
 
-    await expect(page.getByText('Gregorian', { exact: true })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Chinese Lunar', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Gregorian', { exact: true })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByText('Chinese Lunar', { exact: true })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('should show calendar type switcher in reminders modal', async ({ page }) => {
     await setupContactPage(page);
 
-    await navigateToContactTab(page, 'Information', true);
+    await navigateToContactTab(page, 'Notes and records', true);
     const remindersCard = page.locator('.ant-card').filter({ hasText: 'Reminders' });
     await remindersCard.getByRole('button', { name: /add/i }).click();
 
-    await expect(page.getByText('Gregorian', { exact: true })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Chinese Lunar', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Gregorian', { exact: true })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByText('Chinese Lunar', { exact: true })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('should create an important date with lunar calendar', async ({ page }) => {
     await setupContactPage(page);
 
-    await navigateToContactTab(page, 'Contact information');
+    await navigateToContactTab(page, 'Profile and contact');
     const importantDatesCard = page.locator('.ant-card').filter({ hasText: 'Important Dates' });
     await importantDatesCard.getByRole('button', { name: /add/i }).click();
 
@@ -119,14 +128,16 @@ test.describe('Calendar System', () => {
     await modal.getByRole('button', { name: /ok/i }).click();
 
     await expect(modal).not.toBeVisible({ timeout: 15000 });
-    await expect(importantDatesCard.getByText('Lunar Birthday')).toBeVisible({ timeout: 10000 });
+    await expect(importantDatesCard.getByText('Lunar Birthday')).toBeVisible({
+      timeout: 10000,
+    });
     await expect(importantDatesCard.locator('.ant-tag').filter({ hasText: 'lunar' })).toBeVisible({ timeout: 5000 });
   });
 
   test('should create a reminder with lunar calendar', async ({ page }) => {
     await setupContactPage(page);
 
-    await navigateToContactTab(page, 'Information', true);
+    await navigateToContactTab(page, 'Notes and records', true);
     const remindersCard = page.locator('.ant-card').filter({ hasText: 'Reminders' });
     await remindersCard.getByRole('button', { name: /add/i }).click();
 
@@ -146,13 +157,20 @@ test.describe('Calendar System', () => {
 
     const freqFormItem = modal.locator('.ant-form-item').filter({ hasText: /frequency/i });
     await freqFormItem.locator('.ant-select').click();
-    await page.locator('.ant-select-dropdown').last().locator('.ant-select-item-option').filter({ hasText: /yearly/i }).click();
+    await page
+      .locator('.ant-select-dropdown')
+      .last()
+      .locator('.ant-select-item-option')
+      .filter({ hasText: /yearly/i })
+      .click();
     await modal.locator('.ant-modal-header').click();
 
     await modal.getByRole('button', { name: /ok/i }).click();
 
     await expect(modal).not.toBeVisible({ timeout: 10000 });
-    await expect(remindersCard.getByText('Lunar Reminder')).toBeVisible({ timeout: 5000 });
+    await expect(remindersCard.getByText('Lunar Reminder')).toBeVisible({
+      timeout: 5000,
+    });
     await expect(remindersCard.locator('.ant-tag').filter({ hasText: 'lunar' })).toBeVisible({ timeout: 5000 });
   });
 });

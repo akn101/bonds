@@ -353,13 +353,13 @@
 
   "seed.templates.default_template": "默认模板",
   "seed.template_pages.summary": "摘要",
-  "seed.template_pages.contact_information": "联系人信息",
+  "seed.template_pages.contact_information": "个人资料与联系方式",
   "seed.template_pages.feed": "动态",
   "seed.template_pages.social": "社交",
   "seed.template_pages.relationship_network": "关系网络",
   "seed.template_pages.activities": "活动记录",
   "seed.template_pages.goals": "目标",
-  "seed.template_pages.information": "资料",
+  "seed.template_pages.information": "笔记与记录",
 
   "seed.modules.contact_summary": "联系人摘要",
   "seed.modules.avatar": "头像",
