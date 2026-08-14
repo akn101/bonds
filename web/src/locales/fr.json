@@ -968,6 +968,8 @@
       "kinship_degree": "Degré de parenté : {{degree}}",
       "kinship_no_path": "Aucun chemin de parenté trouvé",
       "click_to_calculate": "Cliquez sur deux nœuds pour calculer la parenté",
+      "inferred_hint": "Les lignes pointillées sont des relations déduites",
+      "navigate_hint": "Ctrl+clic ou double-clic pour ouvrir le contact",
       "one_way_only": "aller simple seulement",
       "one_way_hint": "Vous ne disposez pas de l'autorisation de modification sur le coffre-fort de ce contact. Seule une relation à sens unique sera créée."
     },

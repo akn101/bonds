@@ -272,6 +272,11 @@
   "seed.relationship_groups.friend": "Friend",
   "seed.relationship_groups.work": "Work",
 
+  "graph.relationships.step_parent": "step-parent",
+  "graph.relationships.step_child": "step-child",
+  "graph.relationships.step_sibling": "step-sibling",
+  "graph.relationships.ancestor_generations": "ancestor ({{count}} generations)",
+  "graph.relationships.descendant_generations": "descendant ({{count}} generations)",
   "seed.relationship_types.significant_other": "significant other",
   "seed.relationship_types.spouse": "spouse",
   "seed.relationship_types.date": "date",

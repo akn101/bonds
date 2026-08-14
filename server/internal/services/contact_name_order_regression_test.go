@@ -154,7 +154,7 @@ func TestRelationshipNamesUseContactVaultNameOrder(t *testing.T) {
 		t.Fatal("related contact missing from cross-vault picker")
 	}
 
-	graph, err := NewRelationshipService(ctx.db).GetContactGraph(ctx.contact.ID, ctx.vaultID, ctx.userID)
+	graph, err := NewRelationshipService(ctx.db).GetContactGraph(ctx.contact.ID, ctx.vaultID, ctx.userID, "en")
 	if err != nil {
 		t.Fatalf("GetContactGraph failed: %v", err)
 	}

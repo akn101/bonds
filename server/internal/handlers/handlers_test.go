@@ -3693,6 +3693,68 @@ func TestContactListByLabel_NoResults(t *testing.T) {
 	}
 }
 
+// ==================== Relationship graph ====================
+
+func TestRelationshipGraphReturnsLocalizedInferredRelations(t *testing.T) {
+	ts := setupTestServer(t)
+	token, auth := ts.registerTestUser(t, "relationship-graph-inference@example.com")
+	vault := ts.createTestVault(t, token, "Family Graph")
+	grandParent := ts.createTestContact(t, token, vault.ID, "GrandParent")
+	parent := ts.createTestContact(t, token, vault.ID, "Parent")
+	child := ts.createTestContact(t, token, vault.ID, "Child")
+
+	var parentType models.RelationshipType
+	if err := ts.db.
+		Joins("JOIN relationship_group_types ON relationship_group_types.id = relationship_types.relationship_group_type_id").
+		Where("relationship_group_types.account_id = ? AND relationship_types.name_translation_key = ?", auth.User.AccountID, "seed.relationship_types.parent").
+		First(&parentType).Error; err != nil {
+		t.Fatalf("find parent relationship type: %v", err)
+	}
+	relationshipService := services.NewRelationshipService(ts.db)
+	for _, pair := range [][2]string{{grandParent.ID, parent.ID}, {parent.ID, child.ID}} {
+		if _, err := relationshipService.Create(pair[0], vault.ID, auth.User.ID, dto.CreateRelationshipRequest{
+			RelationshipTypeID: parentType.ID,
+			RelatedContactID:   pair[1],
+		}); err != nil {
+			t.Fatalf("create parent relationship: %v", err)
+		}
+	}
+
+	ts.e.Use(middleware.Locale())
+	rec := ts.doRequestWithLocale(
+		http.MethodGet,
+		fmt.Sprintf("/api/vaults/%s/contacts/%s/relationships/graph", vault.ID, child.ID),
+		"",
+		token,
+		"zh",
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	resp := parseResponse(t, rec)
+	var graph dto.ContactGraphResponse
+	if err := json.Unmarshal(resp.Data, &graph); err != nil {
+		t.Fatalf("parse graph response: %v", err)
+	}
+	if len(graph.Nodes) != 3 {
+		t.Fatalf("nodes = %d, want full three-generation component", len(graph.Nodes))
+	}
+	foundLocalizedGrandParent := false
+	for _, edge := range graph.Edges {
+		for _, relation := range edge.Relations {
+			if relation.SourceKind == "grand_parent" && relation.SourceLabel == "祖父母" && relation.Inferred {
+				foundLocalizedGrandParent = true
+			}
+			if relation.TargetKind == "grand_parent" && relation.TargetLabel == "祖父母" && relation.Inferred {
+				foundLocalizedGrandParent = true
+			}
+		}
+	}
+	if !foundLocalizedGrandParent {
+		t.Fatalf("localized inferred grandparent relation missing: %#v", graph.Edges)
+	}
+}
+
 // ==================== RelationshipType Sub-resource CRUD ====================
 
 func TestRelationshipType_Create(t *testing.T) {

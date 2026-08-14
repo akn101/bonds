@@ -754,7 +754,7 @@ func TestCrossVaultRelationship_ReadsHideInaccessibleRelatedVault(t *testing.T) 
 		t.Fatalf("expected inaccessible related vault relationship to be hidden, got %#v", rels)
 	}
 
-	graph, err := relSvc.GetContactGraph(sharedContact.ID, sharedVault.ID, viewer.User.ID)
+	graph, err := relSvc.GetContactGraph(sharedContact.ID, sharedVault.ID, viewer.User.ID, "en")
 	if err != nil {
 		t.Fatalf("GetContactGraph failed: %v", err)
 	}
@@ -815,13 +815,14 @@ func TestContactGraphIncludesAccessibleSecondLayerEdges(t *testing.T) {
 		t.Fatalf("Create graph relationships failed: %v", err)
 	}
 
-	graph, err := NewRelationshipService(db).GetContactGraph(center.ID, sharedVault.ID, viewer.User.ID)
+	graph, err := NewRelationshipService(db).GetContactGraph(center.ID, sharedVault.ID, viewer.User.ID, "en")
 	if err != nil {
 		t.Fatalf("GetContactGraph failed: %v", err)
 	}
 	foundSharedSecondLayerEdge := false
 	for _, edge := range graph.Edges {
-		if edge.Source == sharedLeft.ID && edge.Target == sharedRight.ID {
+		if (edge.Source == sharedLeft.ID && edge.Target == sharedRight.ID) ||
+			(edge.Source == sharedRight.ID && edge.Target == sharedLeft.ID) {
 			foundSharedSecondLayerEdge = true
 		}
 	}

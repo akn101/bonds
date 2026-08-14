@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { httpClient } from "@/api";
+import type { ContactGraphRelation } from "@/api";
 import { networkGraphQueryKey } from "@/components/networkGraphQueryKey";
+import { graphEdgeLabelForNode } from "@/components/networkGraphRelations";
 
 const { Text } = Typography;
 
@@ -19,6 +21,8 @@ interface GraphEdge {
   source: string | GraphNode;
   target: string | GraphNode;
   type: string;
+  inferred: boolean;
+  relations?: ContactGraphRelation[];
 }
 
 interface GraphData {
@@ -149,19 +153,6 @@ export default function NetworkGraph({
       }
     });
 
-    g.append("defs")
-      .append("marker")
-      .attr("id", "arrowhead")
-      .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 20)
-      .attr("refY", 0)
-      .attr("markerWidth", 6)
-      .attr("markerHeight", 6)
-      .attr("orient", "auto")
-      .append("path")
-      .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", edgeColor);
-
     const link = g
       .append("g")
       .selectAll<SVGLineElement, GraphEdge>("line")
@@ -169,14 +160,15 @@ export default function NetworkGraph({
       .join("line")
       .attr("stroke", edgeColor)
       .attr("stroke-opacity", 0.3)
-      .attr("stroke-width", 1.5);
+      .attr("stroke-width", 1.5)
+      .attr("stroke-dasharray", (d) => (d.inferred ? "5 4" : null));
 
     const edgeLabel = g
       .append("g")
       .selectAll<SVGTextElement, GraphEdge>("text")
       .data(edges)
       .join("text")
-      .text((d) => d.type)
+      .text((d) => graphEdgeLabelForNode(d, getNodeId(d.source)))
       .attr("font-size", 10)
       .attr("fill", textColor)
       .attr("text-anchor", "middle")
@@ -230,18 +222,22 @@ export default function NetworkGraph({
             return srcId === d.id || tgtId === d.id ? 2.5 : 1.5;
           });
 
-        edgeLabel.attr("opacity", (l) => {
-          const srcId = getNodeId(l.source);
-          const tgtId = getNodeId(l.target);
-          return srcId === d.id || tgtId === d.id ? 1 : 0;
-        });
+        edgeLabel
+          .text((l) => graphEdgeLabelForNode(l, d.id))
+          .attr("opacity", (l) => {
+            const srcId = getNodeId(l.source);
+            const tgtId = getNodeId(l.target);
+            return srcId === d.id || tgtId === d.id ? 1 : 0;
+          });
       })
       .on("mouseleave", () => {
         link
           .attr("stroke", edgeColor)
           .attr("stroke-opacity", 0.3)
           .attr("stroke-width", 1.5);
-        edgeLabel.attr("opacity", 0);
+        edgeLabel
+          .text((l) => graphEdgeLabelForNode(l, getNodeId(l.source)))
+          .attr("opacity", 0);
       });
 
     node.on("click", (event, d) => {
@@ -462,9 +458,31 @@ export default function NetworkGraph({
             !kinship &&
             t("modules.relationships.kinship_no_path")}
         </Text>
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          Ctrl+Click / Double-click to navigate
-        </Text>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {graphData.edges.some((edge) => edge.inferred) && (
+            <Text
+              type="secondary"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: 11,
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 18,
+                  borderTop: `1px dashed ${token.colorTextSecondary}`,
+                }}
+              />
+              {t("modules.relationships.inferred_hint")}
+            </Text>
+          )}
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {t("modules.relationships.navigate_hint")}
+          </Text>
+        </div>
       </div>
     </div>
   );

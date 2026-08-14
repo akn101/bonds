@@ -446,6 +446,10 @@ export type { GithubComNaibaBondsInternalDtoLoanResponse as Loan } from "./gener
 export type { GithubComNaibaBondsInternalDtoPetResponse as Pet } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoPetCategoryResponse as PetCategory } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoRelationshipResponse as Relationship } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoContactGraphResponse as ContactGraph } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoGraphEdge as ContactGraphEdge } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoGraphNode as ContactGraphNode } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoGraphRelation as ContactGraphRelation } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoRelationshipTypeWithGroupResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCrossVaultContactItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoGoalResponse as Goal } from "./generated/data-contracts";

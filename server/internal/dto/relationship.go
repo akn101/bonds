@@ -33,9 +33,23 @@ type GraphNode struct {
 }
 
 type GraphEdge struct {
-	Source string `json:"source" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Target string `json:"target" example:"660e8400-e29b-41d4-a716-446655440001"`
-	Type   string `json:"type" example:"Parent"`
+	Source    string          `json:"source" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Target    string          `json:"target" example:"660e8400-e29b-41d4-a716-446655440001"`
+	Type      string          `json:"type" example:"Parent"`
+	Inferred  bool            `json:"inferred" example:"false"`
+	Relations []GraphRelation `json:"relations"`
+}
+
+// GraphRelation describes one relationship carried by a visual edge. The
+// labels are stored from both endpoint perspectives so reciprocal database
+// rows (for example Parent/Child) can be rendered as one non-overlapping edge.
+type GraphRelation struct {
+	SourceKind  string `json:"source_kind" example:"parent"`
+	TargetKind  string `json:"target_kind" example:"child"`
+	SourceLabel string `json:"source_label" example:"Parent"`
+	TargetLabel string `json:"target_label" example:"Child"`
+	Inferred    bool   `json:"inferred" example:"false"`
+	Generations int    `json:"generations,omitempty" example:"2"`
 }
 
 type ContactGraphResponse struct {

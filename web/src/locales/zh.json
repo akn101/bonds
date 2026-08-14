@@ -968,6 +968,8 @@
       "kinship_degree": "亲等度数: {{degree}}",
       "kinship_no_path": "未找到亲等路径",
       "click_to_calculate": "点击两个节点计算亲等",
+      "inferred_hint": "虚线为推导关系",
+      "navigate_hint": "Ctrl+点击或双击打开联系人",
       "one_way_only": "仅单向",
       "one_way_hint": "你没有该联系人所在 Vault 的编辑权限，将只创建单向关系。"
     },

@@ -968,6 +968,8 @@
       "kinship_degree": "Grau de Parentesco: {{degree}}",
       "kinship_no_path": "Nenhum caminho de parentesco encontrado",
       "click_to_calculate": "Clique em dois nós para calcular o parentesco",
+      "inferred_hint": "Linhas tracejadas são relações inferidas",
+      "navigate_hint": "Ctrl+clique ou clique duplo para abrir o contato",
       "one_way_only": "apenas um lado",
       "one_way_hint": "Você não tem permissão de edição no cofre deste contato. Apenas um relacionamento unilateral será criado."
     },

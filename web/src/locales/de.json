@@ -968,6 +968,8 @@
       "kinship_degree": "Verwandtschaftsgrad: {{degree}}",
       "kinship_no_path": "Kein Verwandtschaftspfad gefunden",
       "click_to_calculate": "Zwei Knoten anklicken, um die Verwandtschaft zu berechnen",
+      "inferred_hint": "Gestrichelte Linien sind abgeleitete Beziehungen",
+      "navigate_hint": "Strg+Klick oder Doppelklick öffnet den Kontakt",
       "one_way_only": "nur einseitig",
       "one_way_hint": "Sie haben keine Bearbeitungsberechtigung für den Tresor dieses Kontakts. Es wird nur eine einseitige Beziehung erstellt."
     },

@@ -179,7 +179,7 @@ func (h *RelationshipHandler) Delete(c echo.Context) error {
 // GetContactGraph godoc
 //
 //	@Summary		Get contact relationship graph
-//	@Description	Return nodes and edges for the contact's relationship network
+//	@Description	Return the complete accessible relationship component, with reciprocal rows collapsed and family relationships inferred
 //	@Tags			relationships
 //	@Accept			json
 //	@Produce		json
@@ -195,7 +195,7 @@ func (h *RelationshipHandler) GetContactGraph(c echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
-	graph, err := h.relationshipService.GetContactGraph(contactID, vaultID, userID)
+	graph, err := h.relationshipService.GetContactGraph(contactID, vaultID, userID, middleware.GetLocale(c))
 	if err != nil {
 		if errors.Is(err, services.ErrContactNotFound) {
 			return response.NotFound(c, "err.contact_not_found")

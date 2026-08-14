@@ -968,6 +968,8 @@
       "kinship_degree": "Kinship Degree: {{degree}}",
       "kinship_no_path": "No kinship path found",
       "click_to_calculate": "Click two nodes to calculate kinship",
+      "inferred_hint": "Dashed lines are inferred",
+      "navigate_hint": "Ctrl+click or double-click to open contact",
       "one_way_only": "one-way only",
       "one_way_hint": "You don't have edit permission on this contact's vault. Only a one-way relationship will be created."
     },
