@@ -42,14 +42,13 @@ func (s *VaultService) ListVaults(userID string) ([]dto.VaultResponse, error) {
 	if err := s.db.Where("id IN ?", vaultIDs).Find(&vaults).Error; err != nil {
 		return nil, err
 	}
-	userNameOrder, err := getUserNameOrder(s.db, userID)
-	if err != nil {
-		return nil, err
-	}
-
 	result := make([]dto.VaultResponse, len(vaults))
+	permissions := make(map[string]int, len(userVaults))
+	for _, membership := range userVaults {
+		permissions[membership.VaultID] = membership.Permission
+	}
 	for i, v := range vaults {
-		result[i] = toVaultResponse(&v, userNameOrder)
+		result[i] = toVaultResponse(&v, permissions[v.ID])
 	}
 	return result, nil
 }
@@ -82,11 +81,7 @@ func (s *VaultService) CreateVault(accountID, userID string, req dto.CreateVault
 		return nil, err
 	}
 
-	userNameOrder, err := getUserNameOrder(s.db, userID)
-	if err != nil {
-		return nil, err
-	}
-	resp := toVaultResponse(&vault, userNameOrder)
+	resp := toVaultResponse(&vault, models.PermissionManager)
 	return &resp, nil
 }
 
@@ -98,11 +93,11 @@ func (s *VaultService) GetVault(vaultID, userID string) (*dto.VaultResponse, err
 		}
 		return nil, err
 	}
-	userNameOrder, err := getUserNameOrder(s.db, userID)
+	permission, err := getUserVaultPermission(s.db, userID, vaultID)
 	if err != nil {
 		return nil, err
 	}
-	resp := toVaultResponse(&vault, userNameOrder)
+	resp := toVaultResponse(&vault, permission)
 	return &resp, nil
 }
 
@@ -123,11 +118,11 @@ func (s *VaultService) UpdateVault(vaultID, userID string, req dto.UpdateVaultRe
 		return nil, err
 	}
 
-	userNameOrder, err := getUserNameOrder(s.db, userID)
+	permission, err := getUserVaultPermission(s.db, userID, vaultID)
 	if err != nil {
 		return nil, err
 	}
-	resp := toVaultResponse(&vault, userNameOrder)
+	resp := toVaultResponse(&vault, permission)
 	return &resp, nil
 }
 
@@ -473,6 +468,28 @@ func deleteVaultCascade(tx *gorm.DB, vaultID string) error {
 		return fmt.Errorf("delete Contact: %w", err)
 	}
 
+	var contactTemplateIDs []uint
+	if err := tx.Model(&models.VaultContactTemplate{}).Where("vault_id = ?", vaultID).Pluck("id", &contactTemplateIDs).Error; err != nil {
+		return fmt.Errorf("pluck VaultContactTemplate ids: %w", err)
+	}
+	if len(contactTemplateIDs) > 0 {
+		var contactPageIDs []uint
+		if err := tx.Model(&models.VaultContactTemplatePage{}).Where("template_id IN ?", contactTemplateIDs).Pluck("id", &contactPageIDs).Error; err != nil {
+			return fmt.Errorf("pluck VaultContactTemplatePage ids: %w", err)
+		}
+		if len(contactPageIDs) > 0 {
+			if err := tx.Where("template_page_id IN ?", contactPageIDs).Delete(&models.VaultContactTemplateModule{}).Error; err != nil {
+				return fmt.Errorf("delete VaultContactTemplateModule: %w", err)
+			}
+		}
+		if err := tx.Where("template_id IN ?", contactTemplateIDs).Delete(&models.VaultContactTemplatePage{}).Error; err != nil {
+			return fmt.Errorf("delete VaultContactTemplatePage: %w", err)
+		}
+		if err := tx.Where("id IN ?", contactTemplateIDs).Delete(&models.VaultContactTemplate{}).Error; err != nil {
+			return fmt.Errorf("delete VaultContactTemplate: %w", err)
+		}
+	}
+
 	// Step 5: Delete the vault itself.
 	if err := tx.Where("id = ?", vaultID).Delete(&models.Vault{}).Error; err != nil {
 		return fmt.Errorf("delete Vault: %w", err)
@@ -494,7 +511,7 @@ func (s *VaultService) CheckUserVaultAccess(userID, vaultID string, requiredPerm
 	return nil
 }
 
-func getUserNameOrder(db *gorm.DB, userID string) (string, error) {
+func GetUserNameOrder(db *gorm.DB, userID string) (string, error) {
 	var user models.User
 	if err := db.First(&user, "id = ?", userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -505,50 +522,37 @@ func getUserNameOrder(db *gorm.DB, userID string) (string, error) {
 	return user.NameOrder, nil
 }
 
-func GetEffectiveVaultNameOrder(db *gorm.DB, vaultID, userID string) (string, error) {
-	userNameOrder, err := getUserNameOrder(db, userID)
-	if err != nil {
-		return "", err
-	}
-	var vault models.Vault
-	if err := db.First(&vault, "id = ?", vaultID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", ErrVaultNotFound
-		}
-		return "", err
-	}
-	return effectiveVaultNameOrder(&vault, userNameOrder), nil
-}
-
-func effectiveVaultNameOrder(v *models.Vault, userNameOrder string) string {
-	if v.NameOrder != nil {
-		return *v.NameOrder
-	}
-	return userNameOrder
-}
-
-func toVaultResponse(v *models.Vault, userNameOrder string) dto.VaultResponse {
+func toVaultResponse(v *models.Vault, permission int) dto.VaultResponse {
 	desc := ""
 	if v.Description != nil {
 		desc = *v.Description
 	}
 	return dto.VaultResponse{
-		ID:                  v.ID,
-		AccountID:           v.AccountID,
-		Name:                v.Name,
-		Description:         desc,
-		NameOrder:           v.NameOrder,
-		EffectiveNameOrder:  effectiveVaultNameOrder(v, userNameOrder),
-		DefaultDashboardTab: v.DefaultDashboardTab,
+		ID:          v.ID,
+		AccountID:   v.AccountID,
+		Name:        v.Name,
+		Description: desc,
 		// Layout reads the Viewer-accessible vault detail, not Manager-only settings.
-		ShowGroupTab:     v.ShowGroupTab,
-		ShowTasksTab:     v.ShowTasksTab,
-		ShowFilesTab:     v.ShowFilesTab,
-		ShowJournalTab:   v.ShowJournalTab,
-		ShowCompaniesTab: v.ShowCompaniesTab,
-		ShowReportsTab:   v.ShowReportsTab,
-		ShowCalendarTab:  v.ShowCalendarTab,
-		CreatedAt:        v.CreatedAt,
-		UpdatedAt:        v.UpdatedAt,
+		ShowGroupTab:          v.ShowGroupTab,
+		ShowTasksTab:          v.ShowTasksTab,
+		ShowFilesTab:          v.ShowFilesTab,
+		ShowJournalTab:        v.ShowJournalTab,
+		ShowCompaniesTab:      v.ShowCompaniesTab,
+		ShowReportsTab:        v.ShowReportsTab,
+		ShowCalendarTab:       v.ShowCalendarTab,
+		CurrentUserPermission: permission,
+		CreatedAt:             v.CreatedAt,
+		UpdatedAt:             v.UpdatedAt,
 	}
+}
+
+func getUserVaultPermission(db *gorm.DB, userID, vaultID string) (int, error) {
+	var membership models.UserVault
+	if err := db.Select("permission").Where("user_id = ? AND vault_id = ?", userID, vaultID).First(&membership).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, ErrVaultForbidden
+		}
+		return 0, err
+	}
+	return membership.Permission, nil
 }

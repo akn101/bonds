@@ -1,33 +1,34 @@
 package models
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
+var ErrDefaultTemplateOutsideVault = errors.New("default contact template must belong to the vault")
+
 type Vault struct {
-	ID                  string    `json:"id" gorm:"primaryKey;type:text"`
-	AccountID           string    `json:"account_id" gorm:"type:text;not null;index"`
-	Type                string    `json:"type" gorm:"not null"`
-	Name                string    `json:"name" gorm:"not null"`
-	Description         *string   `json:"description"`
-	NameOrder           *string   `json:"name_order" gorm:"type:text"`
-	DefaultTemplateID   *uint     `json:"default_template_id" gorm:"index"`
-	DefaultDashboardTab string    `json:"default_dashboard_tab" gorm:"default:'feed'"`
-	ShowGroupTab        bool      `json:"show_group_tab" gorm:"default:true"`
-	ShowTasksTab        bool      `json:"show_tasks_tab" gorm:"default:true"`
-	ShowFilesTab        bool      `json:"show_files_tab" gorm:"default:true"`
-	ShowJournalTab      bool      `json:"show_journal_tab" gorm:"default:true"`
-	ShowCompaniesTab    bool      `json:"show_companies_tab" gorm:"default:true"`
-	ShowReportsTab      bool      `json:"show_reports_tab" gorm:"default:true"`
-	ShowCalendarTab     bool      `json:"show_calendar_tab" gorm:"default:true"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	ID                string    `json:"id" gorm:"primaryKey;type:text"`
+	AccountID         string    `json:"account_id" gorm:"type:text;not null;index"`
+	Type              string    `json:"type" gorm:"not null"`
+	Name              string    `json:"name" gorm:"not null"`
+	Description       *string   `json:"description"`
+	DefaultTemplateID *uint     `json:"default_template_id" gorm:"index"`
+	ShowGroupTab      bool      `json:"show_group_tab" gorm:"default:true"`
+	ShowTasksTab      bool      `json:"show_tasks_tab" gorm:"default:true"`
+	ShowFilesTab      bool      `json:"show_files_tab" gorm:"default:true"`
+	ShowJournalTab    bool      `json:"show_journal_tab" gorm:"default:true"`
+	ShowCompaniesTab  bool      `json:"show_companies_tab" gorm:"default:true"`
+	ShowReportsTab    bool      `json:"show_reports_tab" gorm:"default:true"`
+	ShowCalendarTab   bool      `json:"show_calendar_tab" gorm:"default:true"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 
 	Account                   Account                    `json:"account,omitempty" gorm:"foreignKey:AccountID"`
-	Template                  *Template                  `json:"template,omitempty" gorm:"foreignKey:DefaultTemplateID"`
 	Contacts                  []Contact                  `json:"contacts,omitempty" gorm:"foreignKey:VaultID"`
 	Labels                    []Label                    `json:"labels,omitempty" gorm:"foreignKey:VaultID"`
 	Users                     []User                     `json:"users,omitempty" gorm:"many2many:user_vault"`
@@ -48,6 +49,22 @@ type Vault struct {
 func (v *Vault) BeforeCreate(tx *gorm.DB) error {
 	if v.ID == "" {
 		v.ID = uuid.New().String()
+	}
+	return nil
+}
+
+func (v *Vault) BeforeSave(tx *gorm.DB) error {
+	if v.DefaultTemplateID == nil || v.ID == "" || !tx.Migrator().HasTable(&VaultContactTemplate{}) {
+		return nil
+	}
+	var count int64
+	if err := tx.Model(&VaultContactTemplate{}).
+		Where("id = ? AND vault_id = ?", *v.DefaultTemplateID, v.ID).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count != 1 {
+		return fmt.Errorf("%w: template %d, vault %s", ErrDefaultTemplateOutsideVault, *v.DefaultTemplateID, v.ID)
 	}
 	return nil
 }

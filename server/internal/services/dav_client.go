@@ -92,7 +92,7 @@ func (s *DavClientService) Create(vaultID, userID string, req dto.CreateDavSubsc
 	}
 
 	sub := models.AddressBookSubscription{
-		UserID:          userID,
+		CreatedByUserID: userID,
 		VaultID:         vaultID,
 		URI:             req.URI,
 		AddressBookPath: req.AddressBookPath,

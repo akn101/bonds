@@ -284,8 +284,8 @@ func TestCalendarUsesVaultNameOrderOverride(t *testing.T) {
 	}
 
 	override := "%last_name%, %first_name% {nickname? (%nickname%)}"
-	if err := db.Model(&models.Vault{}).Where("id = ?", vault.ID).Update("name_order", override).Error; err != nil {
-		t.Fatalf("update vault name order failed: %v", err)
+	if err := db.Model(&models.User{}).Where("id = ?", resp.User.ID).Update("name_order", override).Error; err != nil {
+		t.Fatalf("update user name order failed: %v", err)
 	}
 
 	contactSvc := NewContactService(db)

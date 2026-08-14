@@ -6,7 +6,7 @@ import ContactAvatar from "@/components/ContactAvatar";
 import LinkifiedText from "@/components/LinkifiedText";
 import { parseContactMentions } from "@/components/journal/contactMentionSerialization";
 import type { PostContactReference } from "@/components/journal/contactMentionTypes";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 import { formatDateOnly } from "@/utils/dateOnlyInput";
 import { useDateFormat } from "@/utils/dateFormat";
 
@@ -92,7 +92,7 @@ export default function ContactMentionText({
   contacts,
   children,
 }: ContactMentionTextProps) {
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
   const contactsById = new Map(
     contacts.flatMap((contact) =>
       contact.id ? [[contact.id.toLowerCase(), contact]] : [],

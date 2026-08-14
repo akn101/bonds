@@ -8,7 +8,7 @@ import React, {
 import {
   formatContactName,
   formatContactInitials,
-  useVaultNameOrder,
+  useNameOrder,
 } from "@/utils/nameFormat";
 import { useDateFormat, formatDate } from "@/utils/dateFormat";
 import {
@@ -43,6 +43,7 @@ import {
   Dropdown,
   Checkbox,
   Grid,
+  Drawer,
 } from "antd";
 import {
   EditOutlined,
@@ -57,6 +58,7 @@ import {
   MoreOutlined,
   LayoutOutlined,
   CheckCircleOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { api, httpClient } from "@/api";
@@ -65,9 +67,10 @@ import type {
   Contact,
   UpdateContactRequest,
   Vault,
-  PersonalizeItem,
+  ContactLayoutTemplateSummary,
   ContactTabsResponse,
   ContactTabPage,
+  PersonalizeItem,
 } from "@/api";
 import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
@@ -86,6 +89,7 @@ import type {
 } from "@/utils/queryInvalidation";
 import { invalidateVaultTaskImpactQueries } from "@/utils/taskQueryInvalidation";
 import { refreshMostConsultedProjections } from "@/utils/mostConsultedProjection";
+import ContactLayoutManager from "@/components/contact-layout/ContactLayoutManager";
 
 import NotesModule from "./modules/NotesModule";
 import RemindersModule from "./modules/RemindersModule";
@@ -531,11 +535,13 @@ export default function ContactDetail() {
   const { message } = App.useApp();
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const nameOrder = useVaultNameOrder(vaultId);
+  const detailScreens = Grid.useBreakpoint();
+  const nameOrder = useNameOrder();
   const dateFormats = useDateFormat();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isLayoutDrawerOpen, setIsLayoutDrawerOpen] = useState(false);
   const [avatarKey, setAvatarKey] = useState(0);
   const [editForm] = Form.useForm();
   const [moveForm] = Form.useForm();
@@ -558,6 +564,12 @@ export default function ContactDetail() {
     enabled: !!vaultId && !!cId,
   });
 
+  const { data: currentVault } = useQuery<Vault>({
+    queryKey: ["vaults", vaultId],
+    queryFn: async () => (await api.vaults.vaultsDetail(String(vaultId))).data!,
+    enabled: !!vaultId,
+  });
+
   const { data: vaults = [] } = useQuery({
     queryKey: ["vaults"],
     queryFn: async () => {
@@ -568,10 +580,10 @@ export default function ContactDetail() {
     enabled: isMoveModalOpen,
   });
 
-  const { data: templates = [] } = useQuery<PersonalizeItem[]>({
-    queryKey: ["settings", "personalize", "templates"],
+  const { data: templates = [] } = useQuery<ContactLayoutTemplateSummary[]>({
+    queryKey: ["vaults", vaultId, "contact-layout", "templates"],
     queryFn: async () => {
-      const res = await api.personalize.personalizeDetail("templates");
+      const res = await api.contactLayouts.contactLayoutTemplatesList(vaultId);
       return res.data ?? [];
     },
     enabled: isTemplateModalOpen,
@@ -1228,6 +1240,7 @@ export default function ContactDetail() {
         continue;
       }
       if (
+        moduleType === "extra_information" ||
         moduleType === "gender_pronoun" ||
         moduleType === "religions" ||
         moduleType === "company"
@@ -1425,6 +1438,16 @@ export default function ContactDetail() {
             borderTop: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
+          {currentVault?.current_user_permission === 100 && (
+            <Button
+              icon={<SettingOutlined />}
+              type="text"
+              size="small"
+              onClick={() => setIsLayoutDrawerOpen(true)}
+            >
+              {t("contact.layout.customize")}
+            </Button>
+          )}
           <Button
             icon={<EditOutlined />}
             type="text"
@@ -1865,7 +1888,7 @@ export default function ContactDetail() {
             <Select
               loading={!templates.length}
               options={templates.map((tpl) => ({
-                label: tpl.label,
+                label: tpl.name,
                 value: tpl.id,
               }))}
             />
@@ -1884,6 +1907,19 @@ export default function ContactDetail() {
           </div>
         </Form>
       </Modal>
+
+      <Drawer
+        title={t("contact.layout.customize")}
+        open={isLayoutDrawerOpen}
+        onClose={() => setIsLayoutDrawerOpen(false)}
+        width={detailScreens.md ? 720 : "100%"}
+        styles={{ body: { padding: 16 } }}
+      >
+        <ContactLayoutManager
+          vaultId={String(vaultId)}
+          initialTemplateId={tabsData?.template_id}
+        />
+      </Drawer>
     </div>
   );
 }

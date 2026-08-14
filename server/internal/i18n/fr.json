@@ -403,5 +403,12 @@
   "notification.channel.test.body": "<p>Il s'agit d'une notification de test de Bonds.</p>",
   "reminder.subject": "Rappel : {{label}}",
   "reminder.body": "<h2>Rappel : {{label}}</h2><p>Vous avez un rappel pour <strong>{{contact}}</strong> le <strong>{{date}}</strong>.</p><p>{{label}}</p>",
-  "reminder.unknown_contact": "Inconnu"
+  "reminder.unknown_contact": "Inconnu",
+  "err.contact_layout_not_found": "Vue de contact introuvable",
+  "err.contact_layout_conflict": "Cette vue a été modifiée ailleurs. La dernière version a été chargée ; vérifiez-la puis enregistrez à nouveau.",
+  "err.invalid_contact_layout": "La vue est invalide. Conservez au moins une section visible et n’utilisez chaque module qu’une fois.",
+  "err.contact_layout_in_use": "Cette vue est encore utilisée",
+  "err.contact_layout_is_default": "La vue par défaut ne peut pas être supprimée",
+  "err.contact_layout_name_exists": "Une vue portant ce nom existe déjà",
+  "err.failed_to_update_contact_layout": "Échec de la mise à jour de la vue de contact"
 }

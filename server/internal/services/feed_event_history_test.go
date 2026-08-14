@@ -14,10 +14,6 @@ func TestFeedRecorderPersistsEventContext(t *testing.T) {
 	// Given
 	db := testutil.SetupTestDB(t)
 	ctx := setupFeedEventHistoryContext(t, db, "recorder-context@example.com")
-	nameOrder := "%last_name% %first_name%{nickname? (%nickname%)}"
-	if err := db.Model(&models.Vault{}).Where("id = ?", ctx.vaultID).Update("name_order", nameOrder).Error; err != nil {
-		t.Fatalf("set vault name order: %v", err)
-	}
 	firstName, lastName, nickname := "Ada", "Lovelace", "Enchantress"
 	contact := models.Contact{VaultID: ctx.vaultID, FirstName: &firstName, LastName: &lastName, Nickname: &nickname}
 	if err := db.Create(&contact).Error; err != nil {
@@ -47,8 +43,8 @@ func TestFeedRecorderPersistsEventContext(t *testing.T) {
 	if row.VaultID != ctx.vaultID {
 		t.Errorf("event vault_id = %q, want %q", row.VaultID, ctx.vaultID)
 	}
-	if row.ContactNameSnapshot != "Lovelace Ada(Enchantress)" {
-		t.Errorf("contact snapshot = %q, want deterministic vault formatted name", row.ContactNameSnapshot)
+	if row.ContactNameSnapshot != "Ada Lovelace" {
+		t.Errorf("contact snapshot = %q, want shared deterministic name independent of personal display preferences", row.ContactNameSnapshot)
 	}
 	if row.FeedableID != note.ID || row.FeedableType != sourceType {
 		t.Errorf("source = (%s, %d), want (%s, %d)", row.FeedableType, row.FeedableID, sourceType, note.ID)

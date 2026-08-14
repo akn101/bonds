@@ -56,7 +56,7 @@ vi.mock("@/utils/taskStatus", () => ({
 }));
 vi.mock("@/utils/nameFormat", () => ({
   formatContactName: () => "Contact",
-  useVaultNameOrder: () => "first_last",
+  useNameOrder: () => "first_last",
 }));
 vi.mock("@/components/CalendarAwareDatePicker", () => ({
   default: () => <div />,

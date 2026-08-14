@@ -25,7 +25,7 @@ func NewCalendarICSService(db *gorm.DB) *CalendarICSService {
 // ExportVault renders every dated item in a vault — important dates, reminders,
 // tasks and activities — into a single read-only iCalendar feed.
 func (s *CalendarICSService) ExportVault(vaultID, userID string) ([]byte, error) {
-	nameOrder, err := GetEffectiveVaultNameOrder(s.db, vaultID, userID)
+	nameOrder, err := GetUserNameOrder(s.db, userID)
 	if err != nil {
 		return nil, err
 	}

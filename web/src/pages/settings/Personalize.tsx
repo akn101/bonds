@@ -14,18 +14,20 @@ import {
   theme,
   Select,
   Switch,
+  Modal,
 } from "antd";
-import { PlusOutlined, DeleteOutlined, EditOutlined, RightOutlined, DownOutlined, AppstoreOutlined, ArrowUpOutlined, ArrowDownOutlined, SyncOutlined } from "@ant-design/icons";
+import { PlusOutlined, DeleteOutlined, EditOutlined, RightOutlined, DownOutlined, ArrowUpOutlined, ArrowDownOutlined, SyncOutlined } from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api";
 import type { PersonalizeItem, APIError, Currency } from "@/api";
+import { SUPPORTED_LANGUAGES } from "@/i18n";
 
 const { Title, Text } = Typography;
 
 const sectionKeys = [
   "genders", "pronouns", "address-types", "pet-categories",
-  "contact-info-types", "relationship-types", "templates", "modules",
+  "contact-info-types", "relationship-types",
   "currencies", "religions", "call-reasons",
   "gift-occasions", "gift-states", "post-templates", "group-types",
   "task-statuses",
@@ -38,8 +40,6 @@ const sectionI18nMap: Record<string, string> = {
   "pet-categories": "settings.personalize.pet_categories",
   "contact-info-types": "settings.personalize.contact_info_types",
   "relationship-types": "settings.personalize.relationship_types",
-  "templates": "settings.personalize.templates",
-  "modules": "settings.personalize.modules_label",
   "currencies": "settings.personalize.currencies",
   "religions": "settings.personalize.religions",
   "call-reasons": "settings.personalize.call_reasons",
@@ -72,16 +72,6 @@ interface SubItemConfig {
 }
 
 const subItemConfigs: Record<string, SubItemConfig> = {
-  "templates": {
-    labelKey: "settings.personalize.pages",
-    addKey: "settings.personalize.add_page",
-    fields: [{ key: "name", placeholder: "common.name" }],
-    list: (id) => api.templatePages.personalizeTemplatesPagesList(id),
-    create: (id, b) => api.templatePages.personalizeTemplatesPagesCreate(id, { name: b.name, slug: b.name.toLowerCase().replace(/\s+/g, "-") }),
-    update: (id, itemId, b) => api.templatePages.personalizeTemplatesPagesUpdate(id, itemId, { name: b.name }),
-    remove: (id, itemId) => api.templatePages.personalizeTemplatesPagesDelete(id, itemId),
-    position: (id, itemId, pos) => api.templatePages.personalizeTemplatesPagesPositionCreate(id, itemId, { position: pos }),
-  },
   "post-templates": {
     labelKey: "settings.personalize.sections",
     addKey: "settings.personalize.add_section",
@@ -131,10 +121,7 @@ function SubItemsPanel({ parentId, sectionKey }: { parentId: number; sectionKey:
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
-  const [expandedModulePageId, setExpandedModulePageId] = useState<number | null>(null);
-  const showModules = sectionKey === "templates";
   const queryClient = useQueryClient();
-  const { token } = theme.useToken();
   const { message } = App.useApp();
   const { t } = useTranslation();
   const qk = ["settings", "personalize", sectionKey, "sub-items", parentId];
@@ -175,16 +162,6 @@ function SubItemsPanel({ parentId, sectionKey }: { parentId: number; sectionKey:
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk }),
     onError: (e: APIError) => message.error(e.message),
   });
-
-  const pageVisibilityMutation = useMutation({
-    mutationFn: ({ itemId, visible }: { itemId: number; visible: boolean }) =>
-      api.templatePages.personalizeTemplatesPagesUpdate(parentId, itemId, {
-        visible,
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk }),
-    onError: (e: APIError) => message.error(e.message),
-  });
-
   function resetForm() {
     setAdding(false);
     setEditingId(null);
@@ -275,21 +252,6 @@ function SubItemsPanel({ parentId, sectionKey }: { parentId: number; sectionKey:
             <List.Item
               style={{ padding: "4px 0" }}
               actions={[
-                ...(showModules ? [
-                  <Switch
-                    key="visibility"
-                    size="small"
-                    checked={item.visible !== false}
-                    loading={pageVisibilityMutation.isPending}
-                    aria-label={`${t("settings.personalize.page_visible")} ${getDisplayLabel(item)}`}
-                    onChange={(visible) =>
-                      pageVisibilityMutation.mutate({
-                        itemId: item.id as number,
-                        visible,
-                      })
-                    }
-                  />,
-                ] : []),
                 ...(hasPosition ? [
                   <Button
                     key="up"
@@ -310,17 +272,6 @@ function SubItemsPanel({ parentId, sectionKey }: { parentId: number; sectionKey:
                     onClick={() => subPositionMutation.mutate({ itemId: item.id as number, position: index + 1 })}
                   />,
                 ] : []),
-                ...(showModules ? [
-                  <Button
-                    key="modules"
-                    type="text"
-                    size="small"
-                    icon={<AppstoreOutlined />}
-                    title={t("settings.personalize.page_modules")}
-                    onClick={() => setExpandedModulePageId(expandedModulePageId === (item.id as number) ? null : (item.id as number))}
-                    style={expandedModulePageId === (item.id as number) ? { color: token.colorPrimary } : undefined}
-                  />,
-                ] : []),
                 <Button key="e" type="text" size="small" icon={<EditOutlined />} onClick={() => startEdit(item)} />,
                 <Popconfirm key="d" title={t("settings.personalize.delete_confirm")} onConfirm={() => deleteMutation.mutate(item.id as number)}>
                   <Button
@@ -335,145 +286,9 @@ function SubItemsPanel({ parentId, sectionKey }: { parentId: number; sectionKey:
             >
               <span style={{ fontSize: 13 }}>{getDisplayLabel(item)}</span>
             </List.Item>
-            {showModules && expandedModulePageId === (item.id as number) && (
-              <ModulesPanel templateId={parentId} pageId={item.id as number} />
-            )}
           </div>
         )}
       />
-    </div>
-  );
-}
-
-function ModulesPanel({ templateId, pageId }: { templateId: number; pageId: number }) {
-  const queryClient = useQueryClient();
-  const { message } = App.useApp();
-  const { t } = useTranslation();
-  const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
-
-  const modulesQk = ["settings", "personalize", "templates", templateId, "pages", pageId, "modules"];
-
-  const { data: pageModules = [], isLoading: loadingPageModules } = useQuery({
-    queryKey: modulesQk,
-    queryFn: async () => {
-      const res = await api.templatePages.personalizeTemplatesPagesModulesList(templateId, pageId);
-      return (res.data ?? []) as Array<Record<string, unknown>>;
-    },
-  });
-
-  const { data: availableModules = [] } = useQuery({
-    queryKey: ["settings", "personalize", "modules"],
-    queryFn: async () => {
-      const res = await api.personalize.personalizeDetail("modules");
-      return res.data ?? [];
-    },
-  });
-
-  const addModuleMutation = useMutation({
-    mutationFn: (moduleId: number) =>
-      api.templatePages.personalizeTemplatesPagesModulesCreate(templateId, pageId, { module_id: moduleId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: modulesQk });
-      setSelectedModuleId(null);
-      message.success(t("common.created"));
-    },
-    onError: (e: APIError) => message.error(e.message),
-  });
-
-  const removeModuleMutation = useMutation({
-    mutationFn: (moduleId: number) =>
-      api.templatePages.personalizeTemplatesPagesModulesDelete(templateId, pageId, moduleId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: modulesQk });
-      message.success(t("common.deleted"));
-    },
-    onError: (e: APIError) => message.error(e.message),
-  });
-
-
-  const modulePositionMutation = useMutation({
-    mutationFn: ({ moduleId, position }: { moduleId: number; position: number }) =>
-      api.templatePages.personalizeTemplatesPagesModulesPositionCreate(templateId, pageId, moduleId, { position }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: modulesQk }),
-    onError: (e: APIError) => message.error(e.message),
-  });
-
-  const assignedModuleIds = new Set(pageModules.map((m: Record<string, unknown>) => m.module_id as number));
-  const unassignedModules = availableModules.filter((m: PersonalizeItem) => !assignedModuleIds.has(m.id!));
-
-  return (
-    <div style={{ paddingLeft: 24, paddingTop: 8, paddingBottom: 4, borderLeft: "2px solid #e8e8e8" }}>
-      <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
-        <AppstoreOutlined /> {t("settings.personalize.page_modules")}
-      </Text>
-
-      {loadingPageModules ? null : pageModules.length === 0 ? (
-        <Text type="secondary" style={{ fontSize: 12, fontStyle: "italic", display: "block", marginBottom: 8 }}>
-          {t("settings.personalize.no_modules")}
-        </Text>
-      ) : (
-        <List
-          size="small"
-          dataSource={pageModules}
-          renderItem={(mod: Record<string, unknown>, index: number) => (
-            <List.Item
-              style={{ padding: "4px 0" }}
-              actions={[
-                <Button
-                  key="up"
-                  type="text"
-                  size="small"
-                  icon={<ArrowUpOutlined />}
-                  title={t("settings.personalize.move_up")}
-                  disabled={index === 0}
-                  onClick={() => modulePositionMutation.mutate({ moduleId: mod.module_id as number, position: index - 1 })}
-                />,
-                <Button
-                  key="down"
-                  type="text"
-                  size="small"
-                  icon={<ArrowDownOutlined />}
-                  title={t("settings.personalize.move_down")}
-                  disabled={index === pageModules.length - 1}
-                  onClick={() => modulePositionMutation.mutate({ moduleId: mod.module_id as number, position: index + 1 })}
-                />,
-                <Popconfirm
-                  key="d"
-                  title={t("settings.personalize.delete_confirm")}
-                  onConfirm={() => removeModuleMutation.mutate(mod.module_id as number)}
-                >
-                  <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-                </Popconfirm>,
-              ]}
-            >
-              <span style={{ fontSize: 13 }}>{(mod.module_name as string) ?? `Module #${mod.module_id}`}</span>
-            </List.Item>
-          )}
-        />
-      )}
-
-      {unassignedModules.length > 0 && (
-        <Space.Compact size="small" style={{ width: "100%" }}>
-          <Select
-            size="small"
-            style={{ flex: 1 }}
-            placeholder={t("settings.personalize.available_modules")}
-            value={selectedModuleId}
-            onChange={(val) => setSelectedModuleId(val)}
-            options={unassignedModules.map((m: PersonalizeItem) => ({ label: m.label ?? m.name, value: m.id }))}
-          />
-          <Button
-            type="primary"
-            size="small"
-            icon={<PlusOutlined />}
-            disabled={selectedModuleId === null}
-            loading={addModuleMutation.isPending}
-            onClick={() => { if (selectedModuleId !== null) addModuleMutation.mutate(selectedModuleId); }}
-          >
-            {t("settings.personalize.add_module")}
-          </Button>
-        </Space.Compact>
-      )}
     </div>
   );
 }
@@ -807,10 +622,16 @@ export default function Personalize() {
   const { token } = theme.useToken();
   const queryClient = useQueryClient();
   const { message } = App.useApp();
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [sharedLocale, setSharedLocale] = useState<
+    (typeof SUPPORTED_LANGUAGES)[number]["code"]
+  >("en");
 
   const syncMutation = useMutation({
-    mutationFn: () => api.personalize.personalizeSyncCreate(),
+    mutationFn: () =>
+      api.personalize.personalizeSyncCreate({ locale: sharedLocale }),
     onSuccess: () => {
+      setSyncOpen(false);
       message.success(t("settings.personalize.sync_success"));
       queryClient.invalidateQueries({ queryKey: ["settings", "personalize"] });
     },
@@ -839,17 +660,13 @@ export default function Personalize() {
             {t("settings.personalize.description")}
           </Text>
         </div>
-        <Popconfirm
-          title={t("settings.personalize.sync_confirm")}
-          onConfirm={() => syncMutation.mutate()}
+        <Button
+          icon={<SyncOutlined />}
+          loading={syncMutation.isPending}
+          onClick={() => setSyncOpen(true)}
         >
-          <Button
-            icon={<SyncOutlined />}
-            loading={syncMutation.isPending}
-          >
-            {t("settings.personalize.sync_translations")}
-          </Button>
-        </Popconfirm>
+          {t("settings.personalize.sync_translations")}
+        </Button>
       </div>
 
       <Card
@@ -863,6 +680,26 @@ export default function Personalize() {
           style={{ background: token.colorBgContainer }}
         />
       </Card>
+      <Modal
+        title={t("settings.personalize.sync_translations")}
+        open={syncOpen}
+        onCancel={() => setSyncOpen(false)}
+        onOk={() => syncMutation.mutate()}
+        confirmLoading={syncMutation.isPending}
+      >
+        <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+          {t("settings.personalize.sync_confirm")}
+        </Text>
+        <Select
+          style={{ width: "100%" }}
+          value={sharedLocale}
+          onChange={setSharedLocale}
+          options={SUPPORTED_LANGUAGES.map((language) => ({
+            value: language.code,
+            label: language.label,
+          }))}
+        />
+      </Modal>
     </div>
   );
 }

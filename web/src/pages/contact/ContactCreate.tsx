@@ -23,7 +23,7 @@ import type {
 } from "@/api";
 import { useTranslation } from "react-i18next";
 import { dateInputToTimestamp } from "@/utils/dateOnlyInput";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 import CalendarDatePicker from "@/components/CalendarDatePicker";
 import type { CalendarDatePickerValue } from "@/components/CalendarDatePicker";
 import { buildContactFirstMetRequest } from "@/utils/contactFirstMet";
@@ -83,7 +83,7 @@ export default function ContactCreate() {
   const { message } = App.useApp();
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
   const [form] = Form.useForm();
 
   const { data: contactOptions = [], isLoading: isContactOptionsLoading } =

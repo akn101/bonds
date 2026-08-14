@@ -2,12 +2,13 @@
 // - /admin/settings, /admin/backups, /admin/oauth-providers — accessed via admin tabs
 // All orphan routes are intentionally secondary pages reachable from their parent views.
 
-import { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { Alert, Spin } from "antd";
-import { AuthProvider, ProtectedRoute } from "@/stores/auth";
+import { useQuery } from "@tanstack/react-query";
+import { AuthProvider, ProtectedRoute, useAuth } from "@/stores/auth";
 import Layout from "@/components/Layout";
-import { httpClient } from "@/api";
+import { api, httpClient } from "@/api";
 
 // Auth pages
 const Login = lazy(() => import("@/pages/auth/Login"));
@@ -82,6 +83,26 @@ function PageLoader() {
   );
 }
 
+function VaultManagerRoute({ children }: { children: ReactNode }) {
+  const { id } = useParams<{ id: string }>();
+  const { data: vault, isLoading } = useQuery({
+    queryKey: ["vaults", id],
+    queryFn: async () => (await api.vaults.vaultsDetail(String(id))).data,
+    enabled: !!id,
+  });
+
+  if (isLoading) return <PageLoader />;
+  if (!id || vault?.current_user_permission !== 100) {
+    return <Navigate to={id ? `/vaults/${id}` : "/vaults"} replace />;
+  }
+  return children;
+}
+
+function AccountAdminRoute({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  return user?.is_admin ? children : <Navigate to="/settings/preferences" replace />;
+}
+
 export default function App() {
   const [announcement, setAnnouncement] = useState("");
 
@@ -154,7 +175,7 @@ export default function App() {
             <Route path="/vaults/:id/feed" element={<VaultFeed />} />
             <Route
               path="/vaults/:id/settings"
-              element={<VaultSettings />}
+              element={<VaultManagerRoute><VaultSettings /></VaultManagerRoute>}
             />
             <Route
               path="/vaults/:id/reminders"
@@ -166,7 +187,7 @@ export default function App() {
             />
             <Route
               path="/vaults/:id/dav-subscriptions"
-              element={<DavSubscriptions />}
+              element={<VaultManagerRoute><DavSubscriptions /></VaultManagerRoute>}
             />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/preferences" element={<Preferences />} />
@@ -174,7 +195,10 @@ export default function App() {
               path="/settings/notifications"
               element={<Notifications />}
             />
-            <Route path="/settings/personalize" element={<Personalize />} />
+            <Route
+              path="/settings/personalize"
+              element={<AccountAdminRoute><Personalize /></AccountAdminRoute>}
+            />
             <Route path="/settings/users" element={<Users />} />
             <Route path="/settings/2fa" element={<TwoFactor />} />
             <Route path="/settings/invitations" element={<Invitations />} />

@@ -31,7 +31,7 @@ func NewReportHandler(reportService *services.ReportService) *ReportHandler {
 //	@Router			/vaults/{vault_id}/reports/overview [get]
 func (h *ReportHandler) Overview(c echo.Context) error {
 	vaultID := c.Param("vault_id")
-	data, err := h.reportService.Overview(vaultID)
+	data, err := h.reportService.Overview(vaultID, middleware.GetUserID(c))
 	if err != nil {
 		return response.InternalError(c, "err.failed_to_get_report_overview")
 	}
@@ -91,7 +91,7 @@ func (h *ReportHandler) ImportantDates(c echo.Context) error {
 //	@Router			/vaults/{vault_id}/reports/moodTrackingEvents [get]
 func (h *ReportHandler) MoodTrackingEvents(c echo.Context) error {
 	vaultID := c.Param("vault_id")
-	data, err := h.reportService.MoodReport(vaultID)
+	data, err := h.reportService.MoodReport(vaultID, middleware.GetUserID(c))
 	if err != nil {
 		return response.InternalError(c, "err.failed_to_get_mood_report")
 	}

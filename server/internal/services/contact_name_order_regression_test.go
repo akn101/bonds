@@ -40,8 +40,8 @@ func setupNameOrderRegressionTest(t *testing.T, email string) *nameOrderRegressi
 		t.Fatalf("CreateVault failed: %v", err)
 	}
 	override := "%last_name%, %first_name% {nickname? (%nickname%)}"
-	if err := db.Model(&models.Vault{}).Where("id = ?", vault.ID).Update("name_order", override).Error; err != nil {
-		t.Fatalf("Update vault name_order failed: %v", err)
+	if err := db.Model(&models.User{}).Where("id = ?", resp.User.ID).Update("name_order", override).Error; err != nil {
+		t.Fatalf("Update user name_order failed: %v", err)
 	}
 
 	contact, err := NewContactService(db).CreateContact(vault.ID, resp.User.ID, dto.CreateContactRequest{
@@ -110,15 +110,11 @@ func TestFeedContactNameUsesVaultNameOrder(t *testing.T) {
 	}
 }
 
-func TestRelationshipNamesUseContactVaultNameOrder(t *testing.T) {
+func TestRelationshipNamesUseCurrentUserNameOrderAcrossVaults(t *testing.T) {
 	ctx := setupNameOrderRegressionTest(t, "name-order-relationship@example.com")
 	relatedVault, err := NewVaultService(ctx.db).CreateVault(loadAccountID(t, ctx.db, ctx.userID), ctx.userID, dto.CreateVaultRequest{Name: "Related Vault"}, "en")
 	if err != nil {
 		t.Fatalf("Create related vault failed: %v", err)
-	}
-	relatedOverride := "%last_name% / %first_name%"
-	if err := ctx.db.Model(&models.Vault{}).Where("id = ?", relatedVault.ID).Update("name_order", relatedOverride).Error; err != nil {
-		t.Fatalf("Update related vault name_order failed: %v", err)
 	}
 	related, err := NewContactService(ctx.db).CreateContact(relatedVault.ID, ctx.userID, dto.CreateContactRequest{FirstName: "Bob", LastName: "Yellow"})
 	if err != nil {
@@ -133,8 +129,8 @@ func TestRelationshipNamesUseContactVaultNameOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create relationship failed: %v", err)
 	}
-	if rel.RelatedContactName != "Yellow / Bob" {
-		t.Fatalf("related_contact_name = %q, want %q", rel.RelatedContactName, "Yellow / Bob")
+	if rel.RelatedContactName != "Yellow, Bob" {
+		t.Fatalf("related_contact_name = %q, want %q", rel.RelatedContactName, "Yellow, Bob")
 	}
 
 	picker, err := NewRelationshipService(ctx.db).ListContactsAcrossVaults(ctx.userID)
@@ -145,8 +141,8 @@ func TestRelationshipNamesUseContactVaultNameOrder(t *testing.T) {
 	for _, item := range picker {
 		if item.ContactID == related.ID {
 			foundRelated = true
-			if item.ContactName != "Yellow / Bob" {
-				t.Fatalf("cross-vault picker name = %q, want %q", item.ContactName, "Yellow / Bob")
+			if item.ContactName != "Yellow, Bob" {
+				t.Fatalf("cross-vault picker name = %q, want %q", item.ContactName, "Yellow, Bob")
 			}
 		}
 	}
@@ -158,7 +154,7 @@ func TestRelationshipNamesUseContactVaultNameOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetContactGraph failed: %v", err)
 	}
-	wantLabels := map[string]string{ctx.contact.ID: "Zephyr, Alice (Ace)", related.ID: "Yellow / Bob"}
+	wantLabels := map[string]string{ctx.contact.ID: "Zephyr, Alice (Ace)", related.ID: "Yellow, Bob"}
 	for _, node := range graph.Nodes {
 		if want, ok := wantLabels[node.ID]; ok && node.Label != want {
 			t.Fatalf("graph node %s label = %q, want %q", node.ID, node.Label, want)

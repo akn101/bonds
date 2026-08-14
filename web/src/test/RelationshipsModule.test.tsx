@@ -7,6 +7,13 @@ import {
 } from "./relationshipsModuleTestHarness";
 
 describe("RelationshipsModule characterization", () => {
+  it("renders relationship CRUD without embedding a second network graph", async () => {
+    renderRelationshipsModule();
+
+    expect(await screen.findByText("Add")).toBeInTheDocument();
+    expect(screen.queryByTestId("network-graph")).not.toBeInTheDocument();
+  });
+
   it("submits the selected existing contact and relationship type", async () => {
     const user = setupRelationshipsUser();
     renderRelationshipsModule();

@@ -84,7 +84,21 @@ func runPostAutoMigrateBackfills(db *gorm.DB) error {
 	if err := backfillContactReminderAudience(db); err != nil {
 		return err
 	}
-	return models.BackfillActivityGoalLayout(db)
+	if hasLegacyContactLayoutTables(db) {
+		if err := models.BackfillGiftContactModules(db); err != nil {
+			return err
+		}
+		if err := models.BackfillContactTemplateLayout(db); err != nil {
+			return err
+		}
+		if err := models.BackfillActivityGoalLayout(db); err != nil {
+			return err
+		}
+		if err := models.BackfillContactSectionNames(db); err != nil {
+			return err
+		}
+	}
+	return migrateVaultContactLayouts(db)
 }
 
 type participantPivotMigration struct {

@@ -207,7 +207,7 @@ func (s *DavSyncService) SyncSubscription(ctx context.Context, subID, vaultID st
 		return nil, fmt.Errorf("vault not found: %w", err)
 	}
 	accountID := vault.AccountID
-	userID := sub.UserID
+	userID := sub.CreatedByUserID
 
 	result := &dto.TriggerSyncResponse{}
 	// Discover address book path if not cached

@@ -12,17 +12,15 @@ import {
   ArrowLeftOutlined,
   CheckSquareOutlined,
 } from "@ant-design/icons";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
-import type { VaultTask } from "@/api";
+import type { UserPreferences, VaultTask } from "@/api";
 import { useTranslation } from "react-i18next";
 import { useDateFormat } from "@/utils/dateFormat";
 import TasksKanban from "./TasksKanban";
 import TaskEditModal from "./TaskEditModal";
 import { VaultTaskList } from "./VaultTaskList";
 import {
-  loadTaskSortMode,
-  persistTaskSortMode,
   sortTasksForListView,
   type TaskSortMode,
 } from "./taskSort";
@@ -31,16 +29,12 @@ const { Title } = Typography;
 
 type ViewMode = "list" | "kanban";
 
-const VIEW_STORAGE_KEY = "bonds_vault_tasks_view";
+function normalizeViewMode(value: string | undefined): ViewMode {
+  return value === "kanban" ? "kanban" : "list";
+}
 
-function loadView(): ViewMode {
-  try {
-    const saved = localStorage.getItem(VIEW_STORAGE_KEY);
-    if (saved === "list" || saved === "kanban") return saved;
-  } catch {
-    // Ignore storage errors in private mode or restricted environments.
-  }
-  return "list";
+function normalizeTaskSortMode(value: string | undefined): TaskSortMode {
+  return value === "due_date" ? "due_date" : "custom";
 }
 
 export default function VaultTasks() {
@@ -50,21 +44,33 @@ export default function VaultTasks() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const dateFormats = useDateFormat();
-  const [view, setView] = useState<ViewMode>(loadView);
-  const [sortMode, setSortMode] = useState<TaskSortMode>(loadTaskSortMode);
+  const queryClient = useQueryClient();
+  const [viewOverride, setViewOverride] = useState<ViewMode | null>(null);
+  const [sortOverride, setSortOverride] = useState<TaskSortMode | null>(null);
+
+  const { data: preferences } = useQuery<UserPreferences>({
+    queryKey: ["settings", "preferences"],
+    queryFn: async () => (await api.preferences.preferencesList()).data!,
+  });
+  const view = viewOverride ?? normalizeViewMode(preferences?.task_view);
+  const sortMode =
+    sortOverride ?? normalizeTaskSortMode(preferences?.task_sort);
+
+  const preferenceMutation = useMutation({
+    mutationFn: (next: Partial<UserPreferences>) =>
+      api.preferences.preferencesUpdate(next),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["settings", "preferences"] }),
+  });
 
   const updateView = (next: ViewMode) => {
-    setView(next);
-    try {
-      localStorage.setItem(VIEW_STORAGE_KEY, next);
-    } catch {
-      // Ignore storage errors in private mode or restricted environments.
-    }
+    setViewOverride(next);
+    preferenceMutation.mutate({ task_view: next });
   };
 
   const updateSortMode = (next: TaskSortMode) => {
-    setSortMode(next);
-    persistTaskSortMode(next);
+    setSortOverride(next);
+    preferenceMutation.mutate({ task_sort: next });
   };
 
   // Modal state owned by VaultTasks for the list view's row clicks. The

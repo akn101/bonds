@@ -36,8 +36,9 @@ import type {
   PaginationMeta,
   LabelResponse,
   Vault,
+  UserPreferences,
 } from "@/api";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 import { useDateFormat, formatDate } from "@/utils/dateFormat";
 import { formatContactFirstMetDisplay } from "@/utils/contactFirstMet";
 import type { ColumnsType } from "antd/es/table";
@@ -64,7 +65,6 @@ const SORT_MAP: Record<string, string> = {
   updated_at: "updated_at",
 };
 
-const COLUMNS_STORAGE_KEY = "bonds_contact_list_columns";
 const DEFAULT_VISIBLE_COLUMNS = [
   "name",
   "nickname",
@@ -120,26 +120,13 @@ function buildPaginationSearch(
   return `?${next.toString()}`;
 }
 
-function loadVisibleColumns(): string[] {
-  try {
-    const saved = localStorage.getItem(COLUMNS_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved) as string[];
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {
-    /* fallback */
-  }
-  return DEFAULT_VISIBLE_COLUMNS;
-}
-
 export default function ContactList() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const vaultId = id!;
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<string>("name");
+  const [sortOverride, setSortOverride] = useState<string | null>(null);
   const [labelFilter, setLabelFilter] = useState<number | null>(
     parsePositiveInteger(searchParams.get("label")),
   );
@@ -147,8 +134,7 @@ export default function ContactList() {
     parsePositiveInteger(searchParams.get("group")),
   );
   const [statusFilter, setStatusFilter] = useState<string>("active");
-  const [visibleColumns, setVisibleColumns] =
-    useState<string[]>(loadVisibleColumns);
+  const [columnsOverride, setColumnsOverride] = useState<string[] | null>(null);
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkMoveForm] = Form.useForm<{ target_vault_id: string }>();
@@ -163,8 +149,17 @@ export default function ContactList() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
   const dateFormats = useDateFormat();
+  const { data: preferences } = useQuery<UserPreferences>({
+    queryKey: ["settings", "preferences"],
+    queryFn: async () => (await api.preferences.preferencesList()).data!,
+  });
+  const sortBy = sortOverride ?? preferences?.contact_sort_order ?? "name";
+  const visibleColumns =
+    columnsOverride ??
+    preferences?.contact_list_columns ??
+    DEFAULT_VISIBLE_COLUMNS;
   const { data: labels = [] } = useQuery({
     queryKey: ["vault", vaultId, "labels"],
     queryFn: async () =>
@@ -295,12 +290,13 @@ export default function ContactList() {
     setSearchParams(nextParams, { replace: true });
   };
 
-  const sortMutation = useMutation({
-    mutationFn: (data: { sort_by: string; sort_order: "asc" | "desc" }) =>
-      api.contacts.contactsSortUpdate(String(vaultId), data),
+  const viewPreferenceMutation = useMutation({
+    mutationFn: (data: Partial<UserPreferences>) =>
+      api.preferences.preferencesUpdate(data),
     onSuccess: () => {
-      message.success(t("contact.list.sort_updated"));
+      queryClient.invalidateQueries({ queryKey: ["settings", "preferences"] });
     },
+    onError: (error: APIError) => message.error(error.message),
   });
 
   const bulkMoveMutation = useMutation({
@@ -408,10 +404,9 @@ export default function ContactList() {
   });
 
   const handleSortChange = (value: string) => {
-    setSortBy(value);
+    setSortOverride(value);
     resetToFirstPage();
-    // Save user preference as side effect
-    sortMutation.mutate({ sort_by: value, sort_order: "asc" });
+    viewPreferenceMutation.mutate({ contact_sort_order: value });
   };
 
   const handleSearch = (val: string) => {
@@ -423,8 +418,8 @@ export default function ContactList() {
     const next = checked
       ? [...visibleColumns, key]
       : visibleColumns.filter((k) => k !== key);
-    setVisibleColumns(next);
-    localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(next));
+    setColumnsOverride(next);
+    viewPreferenceMutation.mutate({ contact_list_columns: next });
   };
 
   const allColumns: (ColumnsType<Contact>[number] & {

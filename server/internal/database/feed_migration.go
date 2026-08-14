@@ -27,8 +27,12 @@ func backfillContactFeedEventContext(db *gorm.DB) error {
 	}
 	return db.Transaction(func(tx *gorm.DB) error {
 		var contacts []legacyFeedContact
+		nameOrderSelection := "NULL AS name_order"
+		if hasColumn(tx, "vaults", "name_order") {
+			nameOrderSelection = "vaults.name_order"
+		}
 		if err := tx.Unscoped().Table("contact_feed_items").
-			Select("contact_feed_items.id AS feed_item_id, contacts.vault_id, vaults.name_order, contacts.first_name, contacts.middle_name, contacts.last_name, contacts.nickname, contacts.maiden_name, contacts.prefix, contacts.suffix").
+			Select("contact_feed_items.id AS feed_item_id, contacts.vault_id, " + nameOrderSelection + ", contacts.first_name, contacts.middle_name, contacts.last_name, contacts.nickname, contacts.maiden_name, contacts.prefix, contacts.suffix").
 			Joins("JOIN contacts ON contacts.id = contact_feed_items.contact_id").
 			Joins("LEFT JOIN vaults ON vaults.id = contacts.vault_id").
 			Where("contact_feed_items.vault_id IS NULL OR contact_feed_items.vault_id = '' OR contact_feed_items.contact_name_snapshot IS NULL OR contact_feed_items.contact_name_snapshot = ''").

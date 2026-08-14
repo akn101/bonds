@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,8 +13,9 @@ import (
 )
 
 var (
-	ErrInvalidNameOrder = errors.New("name_order must contain at least one variable like %first_name%")
-	ErrInvalidWeekStart = errors.New("week_start must be sunday or monday")
+	ErrInvalidNameOrder      = errors.New("name_order must contain at least one variable like %first_name%")
+	ErrInvalidWeekStart      = errors.New("week_start must be sunday or monday")
+	ErrInvalidViewPreference = errors.New("invalid view preference")
 
 	// ErrUnsupportedLocale is returned when a caller tries to persist a locale
 	// code that the embedded i18n bundle does not load. Without this guard the
@@ -51,6 +53,10 @@ func (s *PreferenceService) Get(userID string) (*dto.PreferencesResponse, error)
 	if user.Timezone != nil {
 		tz = *user.Timezone
 	}
+	columns := defaultContactListColumns()
+	if err := json.Unmarshal([]byte(user.ContactListColumns), &columns); err != nil || !validContactListColumns(columns) {
+		columns = defaultContactListColumns()
+	}
 	return &dto.PreferencesResponse{
 		NameOrder:                 user.NameOrder,
 		DateFormat:                user.DateFormat,
@@ -62,6 +68,12 @@ func (s *PreferenceService) Get(userID string) (*dto.PreferencesResponse, error)
 		DefaultMapSite:            user.DefaultMapSite,
 		HelpShown:                 user.HelpShown,
 		EnableAlternativeCalendar: user.EnableAlternativeCalendar,
+		ContactSortOrder:          normalizedChoice(user.ContactSortOrder, "name", "name", "first_met_at", "updated_at"),
+		ContactListColumns:        columns,
+		DashboardTab:              normalizedChoice(user.DashboardTab, "feed", "feed", "activities", "life_metrics"),
+		TaskView:                  normalizedChoice(user.TaskView, "list", "list", "kanban"),
+		TaskSort:                  normalizedChoice(user.TaskSort, "custom", "custom", "due_date"),
+		Theme:                     normalizedChoice(user.Theme, "system", "light", "dark", "system"),
 	}, nil
 }
 
@@ -208,6 +220,46 @@ func (s *PreferenceService) UpdateAll(userID string, req dto.UpdatePreferencesRe
 	if req.EnableAlternativeCalendar != nil {
 		updates["enable_alternative_calendar"] = *req.EnableAlternativeCalendar
 	}
+	if req.ContactSortOrder != "" {
+		if !isChoice(req.ContactSortOrder, "name", "first_met_at", "updated_at") {
+			return nil, ErrInvalidViewPreference
+		}
+		updates["contact_sort_order"] = req.ContactSortOrder
+	}
+	if req.ContactListColumns != nil {
+		if !validContactListColumns(req.ContactListColumns) {
+			return nil, ErrInvalidViewPreference
+		}
+		encoded, err := json.Marshal(req.ContactListColumns)
+		if err != nil {
+			return nil, err
+		}
+		updates["contact_list_columns"] = string(encoded)
+	}
+	if req.DashboardTab != "" {
+		if !isChoice(req.DashboardTab, "feed", "activities", "life_metrics") {
+			return nil, ErrInvalidViewPreference
+		}
+		updates["dashboard_tab"] = req.DashboardTab
+	}
+	if req.TaskView != "" {
+		if !isChoice(req.TaskView, "list", "kanban") {
+			return nil, ErrInvalidViewPreference
+		}
+		updates["task_view"] = req.TaskView
+	}
+	if req.TaskSort != "" {
+		if !isChoice(req.TaskSort, "custom", "due_date") {
+			return nil, ErrInvalidViewPreference
+		}
+		updates["task_sort"] = req.TaskSort
+	}
+	if req.Theme != "" {
+		if !isChoice(req.Theme, "light", "dark", "system") {
+			return nil, ErrInvalidViewPreference
+		}
+		updates["theme"] = req.Theme
+	}
 	if len(updates) == 0 {
 		return s.Get(userID)
 	}
@@ -215,6 +267,44 @@ func (s *PreferenceService) UpdateAll(userID string, req dto.UpdatePreferencesRe
 		return nil, err
 	}
 	return s.Get(userID)
+}
+
+func defaultContactListColumns() []string {
+	return []string{"name", "nickname", "first_met_at", "status", "updated_at"}
+}
+
+func validContactListColumns(columns []string) bool {
+	if len(columns) == 0 || len(columns) > 8 {
+		return false
+	}
+	allowed := map[string]bool{
+		"name": true, "nickname": true, "birthday": true, "age": true,
+		"groups": true, "status": true, "first_met_at": true, "updated_at": true,
+	}
+	seen := make(map[string]bool, len(columns))
+	for _, column := range columns {
+		if !allowed[column] || seen[column] {
+			return false
+		}
+		seen[column] = true
+	}
+	return seen["name"]
+}
+
+func isChoice(value string, choices ...string) bool {
+	for _, choice := range choices {
+		if value == choice {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizedChoice(value, fallback string, choices ...string) string {
+	if isChoice(value, choices...) {
+		return value
+	}
+	return fallback
 }
 
 func isValidWeekStart(weekStart string) bool {

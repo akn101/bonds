@@ -43,8 +43,6 @@ var entityConfigs = map[string]entityConfig{
 	"group-types":        {table: "group_types", hasLabel: true, hasPosition: true},
 	"post-templates":     {table: "post_templates", hasLabel: true, hasPosition: true},
 	"relationship-types": {table: "relationship_group_types", hasName: true},
-	"templates":          {table: "templates", hasName: true},
-	"modules":            {table: "modules", hasName: true},
 	"currencies":         {table: "currencies"},
 	"emotions":           {table: "emotions"},
 }
@@ -249,9 +247,6 @@ var accountSyncEntities = []syncableEntity{
 	{table: "gift_occasions", displayCol: "label", keyCol: "label_translation_key", ownerCol: "account_id"},
 	{table: "gift_states", displayCol: "label", keyCol: "label_translation_key", ownerCol: "account_id"},
 	{table: "post_templates", displayCol: "label", keyCol: "label_translation_key", ownerCol: "account_id"},
-	{table: "templates", displayCol: "name", keyCol: "name_translation_key", ownerCol: "account_id"},
-	{table: "template_pages", displayCol: "name", keyCol: "name_translation_key", ownerCol: "account_id", parentTable: "templates", parentJoinCol: "template_id"},
-	{table: "modules", displayCol: "name", keyCol: "name_translation_key", ownerCol: "account_id"},
 	{table: "task_statuses", displayCol: "name", keyCol: "name_translation_key", ownerCol: "account_id"},
 }
 

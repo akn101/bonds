@@ -37,6 +37,7 @@ import { ContactDocuments } from "./generated/ContactDocuments";
 import { ContactInformation } from "./generated/ContactInformation";
 import { ContactLabels } from "./generated/ContactLabels";
 import { ContactPhotos } from "./generated/ContactPhotos";
+import { ContactLayouts } from "./generated/ContactLayouts";
 import { Contacts } from "./generated/Contacts";
 import { Currencies } from "./generated/Currencies";
 import { Dashboard } from "./generated/Dashboard";
@@ -76,7 +77,6 @@ import { Settings } from "./generated/Settings";
 import { SlicesOfLife } from "./generated/SlicesOfLife";
 import { Tasks } from "./generated/Tasks";
 
-import { TemplatePages } from "./generated/TemplatePages";
 import { TwoFactor } from "./generated/TwoFactor";
 import { Users } from "./generated/Users";
 import { Vaults } from "./generated/Vaults";
@@ -345,6 +345,7 @@ export const api = {
   contactInformation: new ContactInformation(httpClient),
   contactLabels: new ContactLabels(httpClient),
   contactPhotos: new ContactPhotos(httpClient),
+  contactLayouts: new ContactLayouts(httpClient),
   contacts: new Contacts(httpClient),
   currencies: new Currencies(httpClient),
   dashboard: new Dashboard(httpClient),
@@ -384,7 +385,6 @@ export const api = {
   settings: new Settings(httpClient),
   slicesOfLife: new SlicesOfLife(httpClient),
   tasks: new Tasks(httpClient),
-  templatePages: new TemplatePages(httpClient),
   twoFactor: new TwoFactor(httpClient),
   users: new Users(httpClient),
   vaults: new Vaults(httpClient),
@@ -420,6 +420,10 @@ export type { GithubComNaibaBondsInternalDtoUpdateContactReligionRequest as Upda
 export type { GithubComNaibaBondsInternalDtoContactLabelResponse as ContactLabel } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabsResponse as ContactTabsResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabPage as ContactTabPage } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoContactLayoutResponse as ContactLayout } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoContactLayoutPage as ContactLayoutPage } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoContactLayoutModuleDefinition as ContactLayoutModuleDefinition } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoContactLayoutTemplateSummary as ContactLayoutTemplateSummary } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoCatchUpPromptResponse as CatchUpPrompt } from "./generated/data-contracts";
 
 // Vault

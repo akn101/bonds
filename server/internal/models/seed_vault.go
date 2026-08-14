@@ -7,6 +7,7 @@ import (
 
 func SeedVaultDefaults(tx *gorm.DB, vaultID, locale string) error {
 	seeders := []func(*gorm.DB, string, string) error{
+		func(tx *gorm.DB, vaultID, _ string) error { return SeedVaultContactLayout(tx, vaultID) },
 		seedContactImportantDateTypes,
 		seedMoodTrackingParameters,
 		seedActivityCategoriesAndTypes,

@@ -54,7 +54,7 @@ func (h *AvatarHandler) GetAvatar(c echo.Context) error {
 		}
 	}
 
-	nameOrder, err := services.GetEffectiveVaultNameOrder(h.db, vaultID, userID)
+	nameOrder, err := services.GetUserNameOrder(h.db, userID)
 	if err != nil {
 		if errors.Is(err, services.ErrUserNotFound) {
 			return response.NotFound(c, "err.user_not_found")

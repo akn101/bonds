@@ -125,35 +125,3 @@ export function useNameOrder(): string {
 
   return data?.name_order || DEFAULT_NAME_ORDER;
 }
-
-/**
- * Hook to get the effective name order for a specific vault.
- * It returns vault.effective_name_order, or vault.name_order,
- * or global user preference, or DEFAULT_NAME_ORDER in that order of precedence.
- */
-export function useVaultNameOrder(vaultId?: string): string {
-  // 1. Fetch vault settings (has name_order override)
-  const { data: vaultData } = useQuery({
-    queryKey: ["vaults", vaultId],
-    queryFn: async () => {
-      if (!vaultId) return null;
-      const res = await api.vaults.vaultsDetail(vaultId);
-      return res.data!;
-    },
-    enabled: !!vaultId,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
-
-  // 2. Fetch user preferences as fallback
-  const globalNameOrder = useNameOrder();
-
-  if (vaultData?.effective_name_order) {
-    return vaultData.effective_name_order;
-  }
-  if (vaultData?.name_order) {
-    return vaultData.name_order;
-  }
-
-  return globalNameOrder;
-}

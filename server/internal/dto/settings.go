@@ -3,16 +3,22 @@ package dto
 import "time"
 
 type PreferencesResponse struct {
-	NameOrder                 string `json:"name_order" example:"%first_name% %last_name%"`
-	DateFormat                string `json:"date_format" example:"YYYY-MM-DD"`
-	WeekStart                 string `json:"week_start" example:"sunday"`
-	Timezone                  string `json:"timezone" example:"America/New_York"`
-	Locale                    string `json:"locale" example:"en"`
-	NumberFormat              string `json:"number_format" example:"1,234.56"`
-	DistanceFormat            string `json:"distance_format" example:"km"`
-	DefaultMapSite            string `json:"default_map_site" example:"google_maps"`
-	HelpShown                 bool   `json:"help_shown" example:"true"`
-	EnableAlternativeCalendar bool   `json:"enable_alternative_calendar" example:"false"`
+	NameOrder                 string   `json:"name_order" example:"%first_name% %last_name%"`
+	DateFormat                string   `json:"date_format" example:"YYYY-MM-DD"`
+	WeekStart                 string   `json:"week_start" example:"sunday"`
+	Timezone                  string   `json:"timezone" example:"America/New_York"`
+	Locale                    string   `json:"locale" example:"en"`
+	NumberFormat              string   `json:"number_format" example:"1,234.56"`
+	DistanceFormat            string   `json:"distance_format" example:"km"`
+	DefaultMapSite            string   `json:"default_map_site" example:"google_maps"`
+	HelpShown                 bool     `json:"help_shown" example:"true"`
+	EnableAlternativeCalendar bool     `json:"enable_alternative_calendar" example:"false"`
+	ContactSortOrder          string   `json:"contact_sort_order" example:"name"`
+	ContactListColumns        []string `json:"contact_list_columns" example:"name,nickname,status"`
+	DashboardTab              string   `json:"dashboard_tab" example:"feed"`
+	TaskView                  string   `json:"task_view" example:"list"`
+	TaskSort                  string   `json:"task_sort" example:"custom"`
+	Theme                     string   `json:"theme" example:"system"`
 }
 
 type UpdateNameOrderRequest struct {
@@ -35,16 +41,22 @@ type UpdateLocaleRequest struct {
 }
 
 type UpdatePreferencesRequest struct {
-	NameOrder                 string `json:"name_order" example:"%first_name% %last_name%"`
-	DateFormat                string `json:"date_format" example:"YYYY-MM-DD"`
-	WeekStart                 string `json:"week_start" example:"sunday"`
-	Timezone                  string `json:"timezone" example:"America/New_York"`
-	Locale                    string `json:"locale" example:"en"`
-	NumberFormat              string `json:"number_format" example:"1,234.56"`
-	DistanceFormat            string `json:"distance_format" example:"km"`
-	DefaultMapSite            string `json:"default_map_site" example:"google_maps"`
-	HelpShown                 *bool  `json:"help_shown" example:"true"`
-	EnableAlternativeCalendar *bool  `json:"enable_alternative_calendar" example:"false"`
+	NameOrder                 string   `json:"name_order" example:"%first_name% %last_name%"`
+	DateFormat                string   `json:"date_format" example:"YYYY-MM-DD"`
+	WeekStart                 string   `json:"week_start" example:"sunday"`
+	Timezone                  string   `json:"timezone" example:"America/New_York"`
+	Locale                    string   `json:"locale" example:"en"`
+	NumberFormat              string   `json:"number_format" example:"1,234.56"`
+	DistanceFormat            string   `json:"distance_format" example:"km"`
+	DefaultMapSite            string   `json:"default_map_site" example:"google_maps"`
+	HelpShown                 *bool    `json:"help_shown" example:"true"`
+	EnableAlternativeCalendar *bool    `json:"enable_alternative_calendar" example:"false"`
+	ContactSortOrder          string   `json:"contact_sort_order" example:"name"`
+	ContactListColumns        []string `json:"contact_list_columns" example:"name,nickname,status"`
+	DashboardTab              string   `json:"dashboard_tab" example:"feed"`
+	TaskView                  string   `json:"task_view" example:"list"`
+	TaskSort                  string   `json:"task_sort" example:"custom"`
+	Theme                     string   `json:"theme" example:"system"`
 }
 
 type CreateNotificationChannelRequest struct {
@@ -76,6 +88,12 @@ type PersonalizeEntityRequest struct {
 	Label    string `json:"label" example:"Male"`
 	Name     string `json:"name" example:"genders"`
 	Position *int   `json:"position" example:"1"`
+}
+
+// SyncSharedTranslationsRequest deliberately carries an explicit shared data
+// locale. It must never be inferred from the current user's UI locale.
+type SyncSharedTranslationsRequest struct {
+	Locale string `json:"locale" validate:"required,oneof=en zh es fr de pt-BR pt-PT" example:"en"`
 }
 
 type PersonalizeEntityResponse struct {

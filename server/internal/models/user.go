@@ -26,7 +26,12 @@ type User struct {
 	InvitationCode            *string    `json:"invitation_code"`
 	InvitationAcceptedAt      *time.Time `json:"invitation_accepted_at"`
 	NameOrder                 string     `json:"name_order" gorm:"default:'%first_name% %last_name%'"`
-	ContactSortOrder          string     `json:"contact_sort_order" gorm:"default:'last_updated'"`
+	ContactSortOrder          string     `json:"contact_sort_order" gorm:"size:32;default:'name'"`
+	ContactListColumns        string     `json:"contact_list_columns" gorm:"type:text;default:'[\"name\",\"nickname\",\"first_met_at\",\"status\",\"updated_at\"]'"`
+	DashboardTab              string     `json:"dashboard_tab" gorm:"size:32;default:'feed'"`
+	TaskView                  string     `json:"task_view" gorm:"size:16;default:'list'"`
+	TaskSort                  string     `json:"task_sort" gorm:"size:16;default:'custom'"`
+	Theme                     string     `json:"theme" gorm:"size:16;default:'system'"`
 	DateFormat                string     `json:"date_format" gorm:"default:'MMM DD, YYYY'"`
 	WeekStart                 string     `json:"week_start" gorm:"size:8;default:'sunday'"`
 	NumberFormat              string     `json:"number_format" gorm:"size:8;default:'locale'"`

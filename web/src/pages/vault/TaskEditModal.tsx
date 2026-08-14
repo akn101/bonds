@@ -24,7 +24,7 @@ import {
 import CalendarAwareDatePicker from "@/components/CalendarAwareDatePicker";
 import { buildCalendarAwareValue } from "@/components/calendarAwareDateValue";
 import type { CalendarAwareDateValue } from "@/components/calendarAwareDateValue";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 import {
   createVaultTaskOperation,
   createDeleteVaultTaskRequest,
@@ -141,7 +141,7 @@ function TaskEditModalContent({
   const { token } = theme.useToken();
   const queryClient = useQueryClient();
   const [form] = Form.useForm<FormValues>();
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
   const activeRef = useRef(false);
 
   useLayoutEffect(() => {

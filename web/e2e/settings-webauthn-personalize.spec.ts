@@ -11,6 +11,28 @@ async function registerUser(page: import('@playwright/test').Page) {
   await expect(page).toHaveURL(/\/vaults/, { timeout: 10000 });
 }
 
+async function createVaultAndOpenContactLayouts(page: import('@playwright/test').Page) {
+  await registerUser(page);
+  await page.getByRole('button', { name: /new vault/i }).click();
+  await page.getByPlaceholder(/e\.g\. family/i).fill('Layout Vault');
+  await page.getByPlaceholder(/what is this vault/i).fill('Contact layout testing');
+  await page.getByRole('button', { name: /create vault/i }).click();
+  await expect(page).toHaveURL(/\/vaults\/[a-f0-9-]{36}$/, { timeout: 20000 });
+  await page.goto(`${page.url()}/settings`);
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByText('Contact view layouts', { exact: true })).toBeVisible({ timeout: 20000 });
+  await expect(page.locator('input[value="Profile and contact"]')).toBeVisible({ timeout: 20000 });
+}
+
+function contactLayoutSectionCard(
+  page: import('@playwright/test').Page,
+  sectionName: string,
+) {
+  return page
+    .locator(`input[value="${sectionName}"]`)
+    .locator("xpath=ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' ant-card ')][1]");
+}
+
 test.describe('Settings - WebAuthn and Modules', () => {
   test('should navigate to WebAuthn settings page', async ({ page }) => {
     await registerUser(page);
@@ -109,153 +131,71 @@ test.describe('Settings - WebAuthn and Modules', () => {
     await expect(page.locator('.ant-switch').first()).toBeVisible({ timeout: 20000 });
   });
 
-  test('should show module reorder buttons in template page modules', async ({ page }) => {
-    await registerUser(page);
-    await page.goto('/settings/personalize');
-    await page.waitForLoadState('networkidle');
+  test('should show stable modules and reorder controls in a Vault contact layout', async ({ page }) => {
+    await createVaultAndOpenContactLayouts(page);
+    const contactCard = contactLayoutSectionCard(page, 'Profile and contact');
 
-    // Expand Templates section
-    const templatesPanel = page.locator('.ant-collapse-item').filter({
-      has: page.locator('.ant-collapse-header span').getByText('Templates', { exact: true }),
-    });
-    await expect(templatesPanel).toBeVisible({ timeout: 10000 });
-    await templatesPanel.locator('.ant-collapse-header').click();
-    // Wait for template items to load
-    await expect(templatesPanel.locator('.ant-list-item').first()).toBeVisible({ timeout: 10000 });
-
-    // Expand the first template item to show SubItemsPanel (Contact sections)
-    const firstTemplateItem = templatesPanel.locator('.ant-list-item').first();
-    await firstTemplateItem.locator('button').filter({ has: page.locator('.anticon-right, .anticon-down') }).first().click();
-    await page.waitForTimeout(500);
-    // Wait for sub-items (template pages) to load
-    await expect(templatesPanel.getByText('Contact sections').first()).toBeVisible({ timeout: 10000 });
-
-    // Find the pages sub-area and expand modules on the first page
-    const subItemsArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Contact sections' });
-    const pageItems = subItemsArea.locator('.ant-list-item');
-    await expect(pageItems.first()).toBeVisible({ timeout: 10000 });
-    // Use Contact information because it has multiple sortable modules.
-    const contactPageItem = pageItems.filter({ hasText: 'Profile and contact' }).first();
-    await contactPageItem.locator('button').filter({ has: page.locator('.anticon-appstore') }).click();
-    await page.waitForTimeout(500);
-
-    // Verify modules list with up/down arrow buttons appears
-    await expect(templatesPanel.locator('.anticon-arrow-up').first()).toBeVisible({ timeout: 10000 });
-    await expect(templatesPanel.locator('.anticon-arrow-down').first()).toBeVisible({ timeout: 10000 });
+    for (const moduleName of ['Important dates', 'Labels', 'Quick Facts', 'Addresses']) {
+      await expect(contactCard.getByText(moduleName, { exact: true })).toBeVisible();
+    }
+    await expect(contactCard.getByRole('button', { name: 'Move up' }).first()).toBeVisible();
+    await expect(contactCard.getByRole('button', { name: 'Move down' }).first()).toBeVisible();
   });
 
-  test('should reorder module position via arrow buttons', async ({ page }) => {
-    await registerUser(page);
-    await page.goto('/settings/personalize');
-    await page.waitForLoadState('networkidle');
+  test('should reorder a module and persist the complete Vault layout', async ({ page }) => {
+    await createVaultAndOpenContactLayouts(page);
+    const contactCard = contactLayoutSectionCard(page, 'Profile and contact');
+    const firstModule = contactCard.locator('.ant-card-body .ant-typography').first();
+    const firstModuleName = await firstModule.textContent();
+    await contactCard.getByRole('button', { name: 'Move down' }).first().click();
+    await expect(firstModule).not.toHaveText(firstModuleName ?? '');
 
-    // Expand Templates section
-    const templatesPanel = page.locator('.ant-collapse-item').filter({
-      has: page.locator('.ant-collapse-header span').getByText('Templates', { exact: true }),
-    });
-    await templatesPanel.locator('.ant-collapse-header').click();
-    await expect(templatesPanel.locator('.ant-list-item').first()).toBeVisible({ timeout: 10000 });
-
-    // Expand the first template item to show SubItemsPanel (Contact sections)
-    const firstTemplateItem = templatesPanel.locator('.ant-list-item').first();
-    await firstTemplateItem.locator('button').filter({ has: page.locator('.anticon-right, .anticon-down') }).first().click();
-    await page.waitForTimeout(500);
-    await expect(templatesPanel.getByText('Contact sections').first()).toBeVisible({ timeout: 10000 });
-
-    // Find the pages sub-area and expand modules on the first page
-    const subItemsArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Contact sections' });
-    const pageItems = subItemsArea.locator('.ant-list-item');
-    await expect(pageItems.first()).toBeVisible({ timeout: 10000 });
-    const contactPageItem = pageItems.filter({ hasText: 'Profile and contact' }).first();
-    await contactPageItem.locator('button').filter({ has: page.locator('.anticon-appstore') }).click();
-    await page.waitForTimeout(500);
-    // Wait for module list with Section Modules label
-    await expect(templatesPanel.getByText('Section Modules').first()).toBeVisible({ timeout: 10000 });
-    const modulesArea = templatesPanel.locator('[style*="border-left"]').filter({ hasText: 'Section Modules' }).last();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(500);
-    // Get the first module name
-    const moduleListItems = modulesArea.locator('.ant-list-item');
-    await expect(moduleListItems.first()).toBeVisible({ timeout: 10000 });
-    const firstModuleName = await moduleListItems.first().locator('span').first().textContent();
-
-    // Click down arrow on the first module (within modulesArea) and wait for response
-    const downArrow = modulesArea.locator('.anticon-arrow-down').first();
-    await expect(downArrow).toBeEnabled({ timeout: 5000 });
-    const [response] = await Promise.all([
-      page.waitForResponse(resp => resp.url().includes('/position') && resp.status() === 200, { timeout: 10000 }).catch(() => null),
-      downArrow.click(),
-    ]);
-    // After reorder, the first module should have changed
-    await page.waitForTimeout(500);
-    const newFirstModuleName = await moduleListItems.first().locator('span').first().textContent();
-    // If the API succeeded, the module should have moved down
-    if (response) {
-      expect(firstModuleName).not.toBe(newFirstModuleName);
-    }
+    const saveResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/contact-layout/templates/') &&
+        response.url().endsWith('/layout') &&
+        response.request().method() === 'PUT' &&
+        response.status() < 400,
+    );
+    await page.getByRole('button', { name: /save/i }).last().click();
+    await saveResponse;
+    await expect(page.getByText('Contact view saved', { exact: true })).toBeVisible();
   });
 
   test('should hide and restore a template page without deleting it', async ({ page }) => {
-    await registerUser(page);
-    await page.goto('/settings/personalize');
-    await page.waitForLoadState('networkidle');
-
-    const templatesPanel = page.locator('.ant-collapse-item').filter({
-      has: page.locator('.ant-collapse-header span').getByText('Templates', { exact: true }),
-    });
-    await templatesPanel.locator('.ant-collapse-header').click();
-    const firstTemplateItem = templatesPanel.locator('.ant-list-item').first();
-    await expect(firstTemplateItem).toBeVisible({ timeout: 10000 });
-    await firstTemplateItem.locator('button').filter({ has: page.locator('.anticon-right, .anticon-down') }).first().click();
-
-    const networkPageItem = templatesPanel.locator('.ant-list-item').filter({
-      hasText: 'Relationship network',
-    }).first();
-    await expect(networkPageItem).toBeVisible({ timeout: 10000 });
-    const visibilitySwitch = networkPageItem.getByRole('switch', {
-      name: /show section relationship network/i,
-    });
+    await createVaultAndOpenContactLayouts(page);
+    const networkCard = contactLayoutSectionCard(page, 'Relationship network');
+    const visibilitySwitch = networkCard.getByRole('switch');
     await expect(visibilitySwitch).toBeChecked();
 
-    const hideResponse = page.waitForResponse(
-      (response) => response.url().includes('/pages/') && response.request().method() === 'PUT' && response.status() < 400,
-    );
     await visibilitySwitch.click();
-    await hideResponse;
     await expect(visibilitySwitch).not.toBeChecked();
-
-    const restoreResponse = page.waitForResponse(
-      (response) => response.url().includes('/pages/') && response.request().method() === 'PUT' && response.status() < 400,
+    const hideResponse = page.waitForResponse(
+      (response) => response.url().endsWith('/layout') && response.request().method() === 'PUT' && response.status() < 400,
     );
-    await visibilitySwitch.click();
+    await page.getByRole('button', { name: /save/i }).last().click();
+    await hideResponse;
+    await expect(contactLayoutSectionCard(page, 'Relationship network').getByRole('switch')).not.toBeChecked();
+
+    const restoredSwitch = contactLayoutSectionCard(page, 'Relationship network').getByRole('switch');
+    await restoredSwitch.click();
+    const restoreResponse = page.waitForResponse(
+      (response) => response.url().endsWith('/layout') && response.request().method() === 'PUT' && response.status() < 400,
+    );
+    await page.getByRole('button', { name: /save/i }).last().click();
     await restoreResponse;
-    await expect(visibilitySwitch).toBeChecked();
+    await expect(contactLayoutSectionCard(page, 'Relationship network').getByRole('switch')).toBeChecked();
   });
 });
 
 test.describe('Settings - Personalize', () => {
-  test('personalize modules section shows module names', async ({ page }) => {
+  test('personalize excludes Vault-owned contact layouts', async ({ page }) => {
     await registerUser(page);
 
     await page.goto('/settings/personalize');
     await page.waitForLoadState('networkidle');
-
-    // Find the Modules collapse panel and expand it
-    const modulesPanel = page.locator('.ant-collapse-item').filter({ hasText: 'Modules' });
-    await expect(modulesPanel).toBeVisible({ timeout: 10000 });
-    await modulesPanel.locator('.ant-collapse-header').click();
-
-    // Wait for the list items to load
-    await expect(modulesPanel.locator('.ant-list-item').first()).toBeVisible({ timeout: 15000 });
-
-    // Verify known module names from seed data are present
-    const moduleNames = ['Avatar', 'Contact name', 'Notes', 'Feed'];
-    for (const name of moduleNames) {
-      await expect(modulesPanel.getByText(name, { exact: false }).first()).toBeVisible({ timeout: 5000 });
-    }
-
-    // Verify list is not empty
-    const count = await modulesPanel.locator('.ant-list-item').count();
-    expect(count).toBeGreaterThan(0);
+    await expect(page.getByRole('heading', { name: 'Shared account data' })).toBeVisible();
+    await expect(page.locator('.ant-collapse-item').filter({ hasText: /^Templates/ })).toHaveCount(0);
+    await expect(page.locator('.ant-collapse-item').filter({ hasText: /^Modules/ })).toHaveCount(0);
   });
 });

@@ -1,7 +1,5 @@
 import type { VaultTask } from "@/api";
 
-const TASK_SORT_STORAGE_KEY = "bonds_vault_tasks_sort";
-
 export type TaskSortMode = "custom" | "due_date";
 
 function parseDueAt(value: string | undefined): number | null {
@@ -20,33 +18,6 @@ function compareByDueDate(left: VaultTask, right: VaultTask): number {
   if (rightDueAt === null) return -1;
 
   return leftDueAt - rightDueAt;
-}
-
-export function loadTaskSortMode(): TaskSortMode {
-  try {
-    const saved = localStorage.getItem(TASK_SORT_STORAGE_KEY);
-    if (saved === "custom" || saved === "due_date") {
-      return saved;
-    }
-  } catch (error) {
-    if (error instanceof Error) {
-      return "custom";
-    }
-
-    throw error;
-  }
-
-  return "custom";
-}
-
-export function persistTaskSortMode(next: TaskSortMode): void {
-  try {
-    localStorage.setItem(TASK_SORT_STORAGE_KEY, next);
-  } catch (error) {
-    if (!(error instanceof Error)) {
-      throw error;
-    }
-  }
 }
 
 export function sortTasksForListView(tasks: readonly VaultTask[], mode: TaskSortMode): VaultTask[] {

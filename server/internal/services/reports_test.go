@@ -294,7 +294,7 @@ func TestReportOverview(t *testing.T) {
 
 	svc := NewReportService(db)
 
-	overview, err := svc.Overview(vault.ID)
+	overview, err := svc.Overview(vault.ID, resp.User.ID)
 	if err != nil {
 		t.Fatalf("Overview failed: %v", err)
 	}
@@ -346,6 +346,7 @@ func TestReportOverview(t *testing.T) {
 	if len(params) > 0 {
 		event := &models.MoodTrackingEvent{
 			VaultID:                 vault.ID,
+			UserID:                  &resp.User.ID,
 			MoodTrackingParameterID: params[0].ID,
 			RatedAt:                 importantDate.CreatedAt,
 		}
@@ -354,7 +355,7 @@ func TestReportOverview(t *testing.T) {
 		}
 	}
 
-	overview, err = svc.Overview(vault.ID)
+	overview, err = svc.Overview(vault.ID, resp.User.ID)
 	if err != nil {
 		t.Fatalf("Overview failed: %v", err)
 	}
@@ -394,7 +395,7 @@ func TestReportOverviewEmpty(t *testing.T) {
 	}
 
 	svc := NewReportService(db)
-	overview, err := svc.Overview(vault.ID)
+	overview, err := svc.Overview(vault.ID, resp.User.ID)
 	if err != nil {
 		t.Fatalf("Overview failed: %v", err)
 	}
@@ -444,7 +445,7 @@ func TestMoodReport(t *testing.T) {
 	}
 
 	svc := NewReportService(db)
-	report, err := svc.MoodReport(vault.ID)
+	report, err := svc.MoodReport(vault.ID, resp.User.ID)
 	if err != nil {
 		t.Fatalf("MoodReport failed: %v", err)
 	}
@@ -462,5 +463,60 @@ func TestMoodReport(t *testing.T) {
 	}
 	if !found {
 		t.Error("Expected to find 'Happy' mood parameter in report")
+	}
+}
+
+func TestMoodReportsOnlyIncludeCurrentUsersVaultContext(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	authSvc := NewAuthService(db, testutil.TestJWTConfig())
+	registered, err := authSvc.Register(dto.RegisterRequest{
+		FirstName: "Mood", LastName: "Owner", Email: "mood-owner@example.com", Password: "password123",
+	}, "en")
+	if err != nil {
+		t.Fatalf("register owner: %v", err)
+	}
+	vault, err := NewVaultService(db).CreateVault(registered.User.AccountID, registered.User.ID, dto.CreateVaultRequest{Name: "Mood Vault"}, "en")
+	if err != nil {
+		t.Fatalf("create vault: %v", err)
+	}
+	otherUser := models.User{ID: "other-mood-user", AccountID: registered.User.AccountID, Email: "other-mood@example.com"}
+	if err := db.Create(&otherUser).Error; err != nil {
+		t.Fatalf("create second user: %v", err)
+	}
+	if err := db.Create(&models.UserVault{UserID: otherUser.ID, VaultID: vault.ID, Permission: models.PermissionViewer}).Error; err != nil {
+		t.Fatalf("add second user to vault: %v", err)
+	}
+	var parameter models.MoodTrackingParameter
+	if err := db.Where("vault_id = ?", vault.ID).First(&parameter).Error; err != nil {
+		t.Fatalf("load mood parameter: %v", err)
+	}
+	ownerID := registered.User.ID
+	for _, userID := range []*string{&ownerID, &otherUser.ID, nil} {
+		event := models.MoodTrackingEvent{VaultID: vault.ID, UserID: userID, MoodTrackingParameterID: parameter.ID}
+		if err := db.Create(&event).Error; err != nil {
+			t.Fatalf("create mood event for %v: %v", userID, err)
+		}
+	}
+
+	svc := NewReportService(db)
+	ownerOverview, err := svc.Overview(vault.ID, ownerID)
+	if err != nil {
+		t.Fatalf("owner overview: %v", err)
+	}
+	otherOverview, err := svc.Overview(vault.ID, otherUser.ID)
+	if err != nil {
+		t.Fatalf("other overview: %v", err)
+	}
+	if ownerOverview.TotalMoodEntries != 1 || otherOverview.TotalMoodEntries != 1 {
+		t.Fatalf("mood overview leaked users or legacy history: owner=%d other=%d", ownerOverview.TotalMoodEntries, otherOverview.TotalMoodEntries)
+	}
+	ownerReport, err := svc.MoodReport(vault.ID, ownerID)
+	if err != nil {
+		t.Fatalf("owner mood report: %v", err)
+	}
+	for _, item := range ownerReport {
+		if item.ParameterLabel == *parameter.Label && item.Count != 1 {
+			t.Fatalf("owner mood count = %d, want 1", item.Count)
+		}
 	}
 }

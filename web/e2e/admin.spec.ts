@@ -358,7 +358,7 @@ test.describe('Admin Features', () => {
     const deleteResp = page.waitForResponse(
       (resp) => resp.url().includes('/admin/backups') && resp.request().method() === 'DELETE'
     );
-    await page.locator('.ant-popconfirm').getByRole('button', { name: /ok|yes/i }).click();
+    await page.getByRole('tooltip').getByRole('button', { name: /ok|yes/i }).click();
     const delResp = await deleteResp;
     expect(delResp.status()).toBeLessThan(400);
     await expect(page.getByText('No backups yet')).toBeVisible({ timeout: 10000 });

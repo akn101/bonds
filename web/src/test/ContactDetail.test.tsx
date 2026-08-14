@@ -446,6 +446,9 @@ vi.mock("@/pages/contact/modules/PetsModule", () => ({
 vi.mock("@/pages/contact/modules/RelationshipsModule", () => ({
   default: () => <div>RelationshipsModule</div>,
 }));
+vi.mock("@/pages/contact/modules/RelationshipNetworkModule", () => ({
+  default: () => <div data-testid="relationship-network-module">RelationshipNetworkModule</div>,
+}));
 vi.mock("@/pages/contact/modules/GoalsModule", () => ({
   default: () => <div>GoalsModule</div>,
 }));
@@ -529,6 +532,12 @@ vi.mock("@/components/CalendarDatePicker", () => ({
   ),
 }));
 
+vi.mock("@/components/contact-layout/ContactLayoutManager", () => ({
+  default: ({ vaultId }: { vaultId: string }) => (
+    <div data-testid="contact-layout-manager">Layout manager for {vaultId}</div>
+  ),
+}));
+
 vi.mock("@/api/contacts", () => ({
   contactsApi: {
     get: vi.fn(),
@@ -578,6 +587,7 @@ const mockSetQueriesData = vi.fn<QueryClient["setQueriesData"]>();
 const mockSetQueryData = vi.fn<QueryClient["setQueryData"]>();
 let mockMeetingContacts: Contact[] = [];
 let mockTabsData: ContactTabsResponse | undefined;
+let mockCurrentVault: { current_user_permission?: number } | undefined;
 let mockRouteParams: TestRouteParams = { id: "1", contactId: "2" };
 let mockVaults: readonly TestVault[] = [];
 const defaultQuery = { data: undefined, isLoading: false };
@@ -588,6 +598,9 @@ vi.mock("@tanstack/react-query", async () => {
       const key = Array.isArray(opts?.queryKey) ? opts.queryKey : [];
       if (key.length === 1 && key[0] === "vaults") {
         return { data: mockVaults, isLoading: false };
+      }
+      if (key.length === 2 && key[0] === "vaults") {
+        return { data: mockCurrentVault, isLoading: false };
       }
       if (
         key[0] === "vaults" &&
@@ -909,6 +922,7 @@ describe("ContactDetail", () => {
       .mockRejectedValue(new Error("mocked"));
     mockMeetingContacts = [];
     mockTabsData = undefined;
+    mockCurrentVault = undefined;
     mockRouteParams = { id: "1", contactId: "2" };
     mockVaults = [];
     vi.mocked(api.contacts.contactsUpdate).mockResolvedValue({ data: {} });
@@ -944,6 +958,45 @@ describe("ContactDetail", () => {
       screen.getByRole("button", { name: /favorite/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /more/i })).toBeInTheDocument();
+  });
+
+  it("shows shared layout customization only to Vault Managers", async () => {
+    const user = userEvent.setup();
+    mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
+    mockCurrentVault = { current_user_permission: 100 };
+    const rendered = renderContactDetail();
+
+    await user.click(screen.getByRole("button", { name: /Customize view/ }));
+    expect(await screen.findByTestId("contact-layout-manager")).toHaveTextContent(
+      "Layout manager for 1",
+    );
+
+    rendered.unmount();
+    mockCurrentVault = { current_user_permission: 200 };
+    renderContactDetail();
+    expect(
+      screen.queryByRole("button", { name: /Customize view/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not render or navigate to a hidden relationship network section", () => {
+    mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
+    mockTabsData = {
+      template_id: 42,
+      pages: [
+        {
+          id: 1,
+          name: "Social",
+          slug: "social",
+          modules: [{ id: 10, name: "Relationships", type: "relationships" }],
+        },
+      ],
+    };
+
+    renderContactDetail();
+
+    expect(screen.queryByText("Relationship network")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("relationship-network-module")).not.toBeInTheDocument();
   });
 
   it("shows a promote action for hidden relationship-only contacts", async () => {

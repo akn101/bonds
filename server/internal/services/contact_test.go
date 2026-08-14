@@ -1195,8 +1195,8 @@ func TestCreateContact_WithAllFields(t *testing.T) {
 	pronoun := models.Pronoun{AccountID: accountID, Name: strPtrOrNil("they/them/custom")}
 	db.Create(&pronoun)
 
-	var tmpl models.Template
-	db.Where("account_id = ?", accountID).First(&tmpl)
+	var tmpl models.VaultContactTemplate
+	db.Where("vault_id = ?", vaultID).First(&tmpl)
 
 	contact, err := svc.CreateContact(vaultID, userID, dto.CreateContactRequest{
 		FirstName:  "John",
@@ -1285,8 +1285,8 @@ func TestUpdateContact_WithAllFields(t *testing.T) {
 	pronoun := models.Pronoun{AccountID: accountID, Name: strPtrOrNil("ze/zir")}
 	db.Create(&pronoun)
 
-	var tmpl models.Template
-	db.Where("account_id = ?", accountID).First(&tmpl)
+	var tmpl models.VaultContactTemplate
+	db.Where("vault_id = ?", vaultID).First(&tmpl)
 
 	updated, err := svc.UpdateContact(created.ID, vaultID, userID, dto.UpdateContactRequest{
 		FirstName:  "Updated",

@@ -121,7 +121,7 @@ func (b *CalDAVBackend) GetCalendarObject(ctx context.Context, path string, _ *c
 		if err := b.verifyVaultAccess(userID, importantDate.Contact.VaultID); err != nil {
 			return nil, err
 		}
-		nameOrder, err := services.GetEffectiveVaultNameOrder(b.db, importantDate.Contact.VaultID, userID)
+		nameOrder, err := services.GetUserNameOrder(b.db, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +154,7 @@ func (b *CalDAVBackend) ListCalendarObjects(ctx context.Context, path string, _ 
 	if err := b.verifyVaultAccess(userID, vaultID); err != nil {
 		return nil, err
 	}
-	nameOrder, err := services.GetEffectiveVaultNameOrder(b.db, vaultID, userID)
+	nameOrder, err := services.GetUserNameOrder(b.db, userID)
 	if err != nil {
 		return nil, err
 	}

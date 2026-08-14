@@ -1,0 +1,265 @@
+package database
+
+import (
+	"testing"
+
+	"github.com/naiba/bonds/internal/models"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+)
+
+func TestMigrateVaultContactLayoutsPreservesAndIsolatesLegacyAccountLayouts(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:contact-layout-migration?mode=memory&cache=shared"), &gorm.Config{
+		PrepareStmt: false,
+	})
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	if err := db.AutoMigrate(models.AllModels()...); err != nil {
+		t.Fatalf("create current non-layout schema: %v", err)
+	}
+	if err := db.AutoMigrate(
+		&models.Template{}, &models.TemplatePage{}, &models.Module{},
+		&models.ModuleRow{}, &models.ModuleRowField{}, &models.ModuleTemplatePage{},
+	); err != nil {
+		t.Fatalf("create legacy schema: %v", err)
+	}
+
+	account := models.Account{ID: "account-layout-migration"}
+	if err := db.Create(&account).Error; err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+	user := models.User{
+		ID:                 "user-layout-migration",
+		AccountID:          account.ID,
+		Email:              "layout-migration@example.com",
+		ContactSortOrder:   "last_updated",
+		ContactListColumns: "",
+		DashboardTab:       "unknown",
+		TaskView:           "grid",
+		TaskSort:           "priority",
+		Theme:              "blue",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	// GORM applies string defaults on Create; force legacy invalid values so the
+	// migration's normalization is exercised.
+	if err := db.Model(&models.User{}).Where("id = ?", user.ID).Updates(map[string]interface{}{
+		"contact_sort_order":   "last_updated",
+		"contact_list_columns": "",
+		"dashboard_tab":        "unknown",
+		"task_view":            "grid",
+		"task_sort":            "priority",
+		"theme":                "blue",
+	}).Error; err != nil {
+		t.Fatalf("set legacy preferences: %v", err)
+	}
+
+	vaultA := models.Vault{ID: "vault-layout-a", AccountID: account.ID, Type: "personal", Name: "A"}
+	vaultB := models.Vault{ID: "vault-layout-b", AccountID: account.ID, Type: "personal", Name: "B"}
+	if err := db.Create(&vaultA).Error; err != nil {
+		t.Fatalf("create vault A: %v", err)
+	}
+	if err := db.Create(&vaultB).Error; err != nil {
+		t.Fatalf("create vault B: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE vaults ADD COLUMN name_order text").Error; err != nil {
+		t.Fatalf("add legacy name_order: %v", err)
+	}
+	if err := db.Exec("ALTER TABLE vaults ADD COLUMN default_dashboard_tab text DEFAULT 'feed'").Error; err != nil {
+		t.Fatalf("add legacy dashboard preference: %v", err)
+	}
+
+	defaultName := "Default template"
+	customName := "Family detail"
+	caseDuplicateName := "family detail"
+	defaultTemplate := models.Template{AccountID: account.ID, Name: &defaultName}
+	customTemplate := models.Template{AccountID: account.ID, Name: &customName}
+	caseDuplicateTemplate := models.Template{AccountID: account.ID, Name: &caseDuplicateName}
+	if err := db.Create(&defaultTemplate).Error; err != nil {
+		t.Fatalf("create default template: %v", err)
+	}
+	if err := db.Model(&defaultTemplate).Update("can_be_deleted", false).Error; err != nil {
+		t.Fatalf("protect default template: %v", err)
+	}
+	if err := db.Create(&customTemplate).Error; err != nil {
+		t.Fatalf("create custom template: %v", err)
+	}
+	if err := db.Create(&caseDuplicateTemplate).Error; err != nil {
+		t.Fatalf("create case-duplicate template: %v", err)
+	}
+
+	socialName := "Social"
+	hiddenName := "Private notes"
+	socialPosition, hiddenPosition := 3, 9
+	socialType := "relationships"
+	socialPage := models.TemplatePage{
+		TemplateID: defaultTemplate.ID, Name: &socialName, Slug: "social",
+		Position: &socialPosition, Visible: true,
+	}
+	hiddenPage := models.TemplatePage{
+		TemplateID: customTemplate.ID, Name: &hiddenName, Slug: "private-notes",
+		Position: &hiddenPosition, Type: &socialType, Visible: true,
+	}
+	if err := db.Create(&socialPage).Error; err != nil {
+		t.Fatalf("create social page: %v", err)
+	}
+	if err := db.Create(&hiddenPage).Error; err != nil {
+		t.Fatalf("create hidden page: %v", err)
+	}
+	if err := db.Model(&hiddenPage).Update("visible", false).Error; err != nil {
+		t.Fatalf("hide custom page: %v", err)
+	}
+
+	relationshipsType := "relationships"
+	notesType := "notes"
+	relationshipsName := "Relationships"
+	notesName := "Notes"
+	relationshipsModule := models.Module{AccountID: account.ID, Name: &relationshipsName, Type: &relationshipsType}
+	notesModule := models.Module{AccountID: account.ID, Name: &notesName, Type: &notesType}
+	if err := db.Create(&relationshipsModule).Error; err != nil {
+		t.Fatalf("create relationships module: %v", err)
+	}
+	if err := db.Create(&notesModule).Error; err != nil {
+		t.Fatalf("create notes module: %v", err)
+	}
+	firstPosition := 0
+	for _, placement := range []models.ModuleTemplatePage{
+		{TemplatePageID: socialPage.ID, ModuleID: relationshipsModule.ID, Position: &firstPosition},
+		{TemplatePageID: hiddenPage.ID, ModuleID: notesModule.ID, Position: &firstPosition},
+	} {
+		if err := db.Create(&placement).Error; err != nil {
+			t.Fatalf("create module placement: %v", err)
+		}
+	}
+
+	if err := db.Model(&models.Vault{}).Where("id = ?", vaultA.ID).Update("default_template_id", defaultTemplate.ID).Error; err != nil {
+		t.Fatalf("set vault A default: %v", err)
+	}
+	if err := db.Model(&models.Vault{}).Where("id = ?", vaultB.ID).Update("default_template_id", customTemplate.ID).Error; err != nil {
+		t.Fatalf("set vault B default: %v", err)
+	}
+	contactA := models.Contact{ID: "contact-layout-a", VaultID: vaultA.ID, FirstName: stringPointer("Alice"), TemplateID: &customTemplate.ID}
+	contactB := models.Contact{ID: "contact-layout-b", VaultID: vaultB.ID, FirstName: stringPointer("Bob"), TemplateID: &defaultTemplate.ID}
+	if err := db.Table("contacts").Create(map[string]interface{}{
+		"id": contactA.ID, "vault_id": contactA.VaultID, "first_name": "Alice", "template_id": customTemplate.ID,
+	}).Error; err != nil {
+		t.Fatalf("create contact A: %v", err)
+	}
+	if err := db.Table("contacts").Create(map[string]interface{}{
+		"id": contactB.ID, "vault_id": contactB.VaultID, "first_name": "Bob", "template_id": defaultTemplate.ID,
+	}).Error; err != nil {
+		t.Fatalf("create contact B: %v", err)
+	}
+
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("migrate legacy layouts: %v", err)
+	}
+
+	templatesA := loadVaultLayoutTemplates(t, db, vaultA.ID)
+	templatesB := loadVaultLayoutTemplates(t, db, vaultB.ID)
+	if len(templatesA) != len(templatesB) || len(templatesA) < 2 {
+		t.Fatalf("expected each vault to receive all account templates, got A=%d B=%d", len(templatesA), len(templatesB))
+	}
+	for name, templateA := range templatesA {
+		templateB, ok := templatesB[name]
+		if !ok {
+			t.Fatalf("vault B missing cloned template %q", name)
+		}
+		if templateA.ID == templateB.ID {
+			t.Fatalf("template %q was shared across vaults", name)
+		}
+	}
+	if _, ok := templatesA["family detail (2)"]; !ok {
+		t.Fatalf("case-insensitive legacy duplicate was not renamed: %v", templatesA)
+	}
+
+	assertVaultDefaultTemplate(t, db, vaultA.ID, templatesA[defaultName].ID)
+	assertVaultDefaultTemplate(t, db, vaultB.ID, templatesB[customName].ID)
+	assertContactTemplate(t, db, contactA.ID, vaultA.ID, templatesA[customName].ID)
+	assertContactTemplate(t, db, contactB.ID, vaultB.ID, templatesB[defaultName].ID)
+
+	var migratedHiddenPage models.VaultContactTemplatePage
+	if err := db.Where("template_id = ? AND slug = ?", templatesA[customName].ID, "private-notes").First(&migratedHiddenPage).Error; err != nil {
+		t.Fatalf("load migrated hidden page: %v", err)
+	}
+	if migratedHiddenPage.Visible || migratedHiddenPage.Position != hiddenPosition {
+		t.Fatalf("hidden page state was not preserved: %+v", migratedHiddenPage)
+	}
+	var migratedNotes models.VaultContactTemplateModule
+	if err := db.Where("template_page_id = ? AND module_key = ?", migratedHiddenPage.ID, "notes").First(&migratedNotes).Error; err != nil {
+		t.Fatalf("load migrated notes module: %v", err)
+	}
+
+	for _, table := range []string{"templates", "template_pages", "modules", "module_template_page", "module_rows", "module_row_fields"} {
+		if db.Migrator().HasTable(table) {
+			t.Fatalf("legacy layout table %s still exists", table)
+		}
+	}
+	for _, column := range []string{"name_order", "default_dashboard_tab"} {
+		if hasColumn(db, "vaults", column) {
+			t.Fatalf("legacy vault preference column %s still exists", column)
+		}
+	}
+
+	var normalized models.User
+	if err := db.First(&normalized, "id = ?", user.ID).Error; err != nil {
+		t.Fatalf("load normalized user: %v", err)
+	}
+	if normalized.ContactSortOrder != "name" || normalized.DashboardTab != "feed" ||
+		normalized.TaskView != "list" || normalized.TaskSort != "custom" || normalized.Theme != "system" ||
+		normalized.ContactListColumns == "" {
+		t.Fatalf("legacy personal preferences were not normalized: %+v", normalized)
+	}
+
+	beforeA, beforeB := len(templatesA), len(templatesB)
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("rerun migration: %v", err)
+	}
+	if got := len(loadVaultLayoutTemplates(t, db, vaultA.ID)); got != beforeA {
+		t.Fatalf("idempotent rerun changed vault A template count: %d -> %d", beforeA, got)
+	}
+	if got := len(loadVaultLayoutTemplates(t, db, vaultB.ID)); got != beforeB {
+		t.Fatalf("idempotent rerun changed vault B template count: %d -> %d", beforeB, got)
+	}
+}
+
+func loadVaultLayoutTemplates(t *testing.T, db *gorm.DB, vaultID string) map[string]models.VaultContactTemplate {
+	t.Helper()
+	var templates []models.VaultContactTemplate
+	if err := db.Where("vault_id = ?", vaultID).Find(&templates).Error; err != nil {
+		t.Fatalf("load templates for %s: %v", vaultID, err)
+	}
+	result := make(map[string]models.VaultContactTemplate, len(templates))
+	for _, template := range templates {
+		result[template.Name] = template
+	}
+	return result
+}
+
+func assertVaultDefaultTemplate(t *testing.T, db *gorm.DB, vaultID string, expected uint) {
+	t.Helper()
+	var vault models.Vault
+	if err := db.First(&vault, "id = ?", vaultID).Error; err != nil {
+		t.Fatalf("load vault %s: %v", vaultID, err)
+	}
+	if vault.DefaultTemplateID == nil || *vault.DefaultTemplateID != expected {
+		t.Fatalf("vault %s default template = %v, want %d", vaultID, vault.DefaultTemplateID, expected)
+	}
+}
+
+func assertContactTemplate(t *testing.T, db *gorm.DB, contactID, vaultID string, expected uint) {
+	t.Helper()
+	var contact models.Contact
+	if err := db.First(&contact, "id = ?", contactID).Error; err != nil {
+		t.Fatalf("load contact %s: %v", contactID, err)
+	}
+	if contact.VaultID != vaultID || contact.TemplateID == nil || *contact.TemplateID != expected {
+		t.Fatalf("contact %s has vault/template %s/%v, want %s/%d", contactID, contact.VaultID, contact.TemplateID, vaultID, expected)
+	}
+}
+
+func stringPointer(value string) *string {
+	return &value
+}

@@ -159,7 +159,7 @@ func TestEditorCanCreateContact(t *testing.T) {
 	}
 }
 
-func TestNonAdminCannotAccessPersonalize(t *testing.T) {
+func TestNonAdminCanReadButCannotMutateSharedAccountData(t *testing.T) {
 	ts := setupTestServer(t)
 
 	token1, auth1 := ts.registerTestUser(t, "personalize-admin@example.com")
@@ -168,13 +168,23 @@ func TestNonAdminCannotAccessPersonalize(t *testing.T) {
 	token2 := generateJWT(user2.ID, user2.AccountID, user2.Email, false, false)
 
 	rec := ts.doRequest(http.MethodGet, "/api/settings/personalize/genders", "", token2)
-	if rec.Code != http.StatusForbidden {
-		t.Errorf("expected 403 for non-admin accessing personalize, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for account member reading shared data, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	rec = ts.doRequest(http.MethodGet, "/api/settings/personalize/genders", "", token1)
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200 for admin accessing personalize, got %d: %s", rec.Code, rec.Body.String())
+	rec = ts.doRequest(http.MethodPost, "/api/settings/personalize/genders", `{"name":"Private override"}`, token2)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for non-admin mutating shared data, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = ts.doRequest(http.MethodPost, "/api/settings/personalize/sync", `{"locale":"en"}`, token2)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for non-admin translating shared data, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = ts.doRequest(http.MethodPost, "/api/settings/personalize/genders", `{"name":"Shared value"}`, token1)
+	if rec.Code != http.StatusCreated {
+		t.Errorf("expected 201 for account admin mutating shared data, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -2779,6 +2789,68 @@ func TestViewerCannotCreateDavSubscription(t *testing.T) {
 	}
 }
 
+func TestEditorCannotReadOrManageVaultDavIntegration(t *testing.T) {
+	ts, _, editorToken, vaultID, _ := setupEditorTest(t)
+	base := fmt.Sprintf("/api/vaults/%s/dav/subscriptions", vaultID)
+	tests := []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{http.MethodGet, base, ""},
+		{http.MethodPost, base, `{}`},
+		{http.MethodPost, base + "/test", `{}`},
+		{http.MethodGet, base + "/missing", ""},
+		{http.MethodPut, base + "/missing", `{}`},
+		{http.MethodDelete, base + "/missing", ""},
+		{http.MethodPost, base + "/missing/sync", ""},
+		{http.MethodGet, base + "/missing/logs", ""},
+	}
+	for _, test := range tests {
+		rec := ts.doRequest(test.method, test.path, test.body, editorToken)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("%s %s: expected 403, got %d: %s", test.method, test.path, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestEditorCannotManageSharedContactLayouts(t *testing.T) {
+	ts, _, editorToken, vaultID, _ := setupEditorTest(t)
+	var template models.VaultContactTemplate
+	if err := ts.db.Where("vault_id = ?", vaultID).Order("id").First(&template).Error; err != nil {
+		t.Fatalf("load contact layout: %v", err)
+	}
+	templateID := template.ID
+	base := fmt.Sprintf("/api/vaults/%s/contact-layout/templates", vaultID)
+	tests := []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{http.MethodPost, base, `{"name":"Editor layout"}`},
+		{http.MethodPut, fmt.Sprintf("%s/%d", base, templateID), `{"name":"Changed"}`},
+		{http.MethodPut, fmt.Sprintf("%s/%d/layout", base, templateID), `{"expected_revision":1,"pages":[]}`},
+		{http.MethodPut, fmt.Sprintf("%s/%d/default", base, templateID), ""},
+		{http.MethodDelete, fmt.Sprintf("%s/%d", base, templateID), ""},
+	}
+	for _, test := range tests {
+		rec := ts.doRequest(test.method, test.path, test.body, editorToken)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("%s %s: expected 403, got %d: %s", test.method, test.path, rec.Code, rec.Body.String())
+		}
+	}
+	for _, path := range []string{
+		fmt.Sprintf("/api/vaults/%s/contact-layout/modules", vaultID),
+		base,
+		fmt.Sprintf("%s/%d", base, templateID),
+	} {
+		rec := ts.doRequest(http.MethodGet, path, "", editorToken)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("Editor should read effective layouts at %s, got %d: %s", path, rec.Code, rec.Body.String())
+		}
+	}
+}
+
 func TestViewerCannotCreateLifeMetric(t *testing.T) {
 	ts, _, viewerToken, vaultID, _ := setupViewerTest(t)
 	path := fmt.Sprintf("/api/vaults/%s/lifeMetrics", vaultID)
@@ -2842,16 +2914,6 @@ func TestViewerCannotCreatePostTag(t *testing.T) {
 	rec := ts.doRequest(http.MethodPost, path, body, viewerToken)
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected 403 for Viewer creating post tag, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestViewerCannotUpdateDefaultDashboardTab(t *testing.T) {
-	ts, _, viewerToken, vaultID, _ := setupViewerTest(t)
-	path := fmt.Sprintf("/api/vaults/%s/default-dashboard-tab", vaultID)
-	body := `{"default_dashboard_tab":"feed"}`
-	rec := ts.doRequest(http.MethodPut, path, body, viewerToken)
-	if rec.Code != http.StatusForbidden {
-		t.Errorf("expected 403 for Viewer updating default tab, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

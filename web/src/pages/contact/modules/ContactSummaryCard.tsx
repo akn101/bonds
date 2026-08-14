@@ -10,7 +10,7 @@ import type {
   PersonalizeItem,
 } from "@/api";
 import { useTranslation } from "react-i18next";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 import { getReadableLabelTagColors } from "@/utils/labelColor";
 import type { ImportantDate, ImportantDateTypeResponse } from "@/api";
 import { useDateFormat } from "@/utils/dateFormat";
@@ -42,7 +42,7 @@ export default function ContactSummaryCard({
 }: ContactSummaryCardProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
   const dateFormats = useDateFormat();
 
   // --- Data fetching: reuse same query keys as existing modules for deduplication ---

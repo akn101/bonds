@@ -1,13 +1,16 @@
 import { App as AntApp, ConfigProvider } from "antd";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Layout from "@/components/Layout";
 
 const mockUseQuery = vi.fn();
+const authState = vi.hoisted(() => ({ isAdmin: false }));
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
 vi.mock("@/stores/auth", () => ({
@@ -16,6 +19,7 @@ vi.mock("@/stores/auth", () => ({
       id: "user-1",
       first_name: "Ada",
       last_name: "Lovelace",
+      is_admin: authState.isAdmin,
       is_instance_administrator: false,
     },
     logout: vi.fn(),
@@ -27,6 +31,7 @@ vi.mock("@/stores/theme", () => ({
     themeMode: "light",
     resolvedTheme: "light",
     setThemeMode: vi.fn(),
+    applyThemeMode: vi.fn(),
   }),
 }));
 
@@ -84,6 +89,7 @@ function renderLayout() {
 describe("Layout vault navigation visibility", () => {
   beforeEach(() => {
     mockUseQuery.mockReset();
+    authState.isAdmin = false;
   });
 
   it("hides configurable navigation entries when vault visibility is explicitly false", () => {
@@ -98,6 +104,7 @@ describe("Layout vault navigation visibility", () => {
         show_tasks_tab: false,
         show_reports_tab: true,
         show_files_tab: false,
+        current_user_permission: 100,
       },
       isLoading: false,
     });
@@ -124,7 +131,7 @@ describe("Layout vault navigation visibility", () => {
     }
   });
 
-  it("preserves all existing navigation while vault data is undefined", () => {
+  it("keeps shared configuration hidden until Manager permission is known", () => {
     // Given: the vault detail query is still loading and has no data.
     mockUseQuery.mockReturnValue({ data: undefined, isLoading: true });
 
@@ -143,10 +150,42 @@ describe("Layout vault navigation visibility", () => {
       "Reports",
       "Files",
       "Reminders",
-      "DAV Sync",
-      "Settings",
     ]) {
       expect(within(navigation).getByText(label)).toBeInTheDocument();
     }
+    for (const label of ["DAV Sync", "Settings"]) {
+      expect(within(navigation).queryByText(label)).not.toBeInTheDocument();
+    }
+  });
+
+  it("hides Vault configuration and DAV integration from Editors", () => {
+    mockUseQuery.mockReturnValue({
+      data: {
+        id: "vault-1",
+        current_user_permission: 200,
+      },
+      isLoading: false,
+    });
+
+    renderLayout();
+
+    const navigation = screen.getByRole("navigation");
+    expect(within(navigation).queryByText("DAV Sync")).not.toBeInTheDocument();
+    expect(within(navigation).queryByText("Settings")).not.toBeInTheDocument();
+  });
+
+  it("shows shared account data management only to account administrators", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue({ data: undefined, isLoading: false });
+    const nonAdmin = renderLayout();
+    await user.hover(screen.getByRole("img", { name: "user" }));
+    await screen.findByText("Account");
+    expect(screen.queryByText("Shared account data")).not.toBeInTheDocument();
+
+    nonAdmin.unmount();
+    authState.isAdmin = true;
+    renderLayout();
+    await user.hover(screen.getByRole("img", { name: "user" }));
+    expect(await screen.findByText("Shared account data")).toBeInTheDocument();
   });
 });

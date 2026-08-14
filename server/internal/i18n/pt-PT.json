@@ -403,5 +403,12 @@
   "notification.channel.test.body": "<p>Esta é uma notificação de teste do Bonds.</p>",
   "reminder.subject": "Lembrete: {{label}}",
   "reminder.body": "<h2>Lembrete: {{label}}</h2><p>Tens um lembrete para <strong>{{contact}}</strong> em <strong>{{date}}</strong>.</p><p>{{label}}</p>",
-  "reminder.unknown_contact": "Desconhecido"
+  "reminder.unknown_contact": "Desconhecido",
+  "err.contact_layout_not_found": "Vista de contacto não encontrada",
+  "err.contact_layout_conflict": "Esta vista foi alterada noutro local. Foi carregada a versão mais recente; reveja e guarde novamente.",
+  "err.invalid_contact_layout": "A vista é inválida. Mantenha pelo menos uma secção visível e utilize cada módulo apenas uma vez.",
+  "err.contact_layout_in_use": "Esta vista ainda está em utilização",
+  "err.contact_layout_is_default": "A vista predefinida não pode ser eliminada",
+  "err.contact_layout_name_exists": "Já existe uma vista com este nome",
+  "err.failed_to_update_contact_layout": "Falha ao atualizar a vista de contacto"
 }

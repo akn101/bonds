@@ -459,5 +459,12 @@
   "notification.channel.test.body": "<p>This is a test notification from Bonds.</p>",
   "reminder.subject": "Reminder: {{label}}",
   "reminder.body": "<h2>Reminder: {{label}}</h2><p>You have a reminder for <strong>{{contact}}</strong> on <strong>{{date}}</strong>.</p><p>{{label}}</p>",
-  "reminder.unknown_contact": "Unknown"
+  "reminder.unknown_contact": "Unknown",
+  "err.contact_layout_not_found": "Contact view not found",
+  "err.contact_layout_conflict": "This contact view changed elsewhere. The latest version has been loaded; please review and save again.",
+  "err.invalid_contact_layout": "The contact view is invalid. Keep at least one visible section and use each module only once.",
+  "err.contact_layout_in_use": "This contact view is still used by contacts",
+  "err.contact_layout_is_default": "The default contact view cannot be deleted",
+  "err.contact_layout_name_exists": "A contact view with this name already exists",
+  "err.failed_to_update_contact_layout": "Failed to update the contact view"
 }

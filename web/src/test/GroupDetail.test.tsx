@@ -142,7 +142,7 @@ describe("GroupDetail batch member management", () => {
       },
     );
     apiMocks.vaultsDetail.mockResolvedValue({
-      data: { effective_name_order: "%first_name% %last_name%" },
+      data: {},
     });
     apiMocks.preferencesList.mockResolvedValue({
       data: { name_order: "%first_name% %last_name%" },

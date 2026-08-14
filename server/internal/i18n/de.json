@@ -460,5 +460,12 @@
   "notification.channel.test.body": "<p>Dies ist eine Test-Benachrichtigung von Bonds.</p>",
   "reminder.subject": "Erinnerung: {{label}}",
   "reminder.body": "<h2>Erinnerung: {{label}}</h2><p>Sie haben eine Erinnerung für <strong>{{contact}}</strong> am <strong>{{date}}</strong>.</p><p>{{label}}</p>",
-  "reminder.unknown_contact": "Unbekannt"
+  "reminder.unknown_contact": "Unbekannt",
+  "err.contact_layout_not_found": "Kontaktansicht nicht gefunden",
+  "err.contact_layout_conflict": "Diese Ansicht wurde anderweitig geändert. Die neueste Version wurde geladen; bitte prüfen und erneut speichern.",
+  "err.invalid_contact_layout": "Die Ansicht ist ungültig. Mindestens ein Abschnitt muss sichtbar sein und jedes Modul darf nur einmal vorkommen.",
+  "err.contact_layout_in_use": "Diese Ansicht wird noch verwendet",
+  "err.contact_layout_is_default": "Die Standardansicht kann nicht gelöscht werden",
+  "err.contact_layout_name_exists": "Eine Ansicht mit diesem Namen ist bereits vorhanden",
+  "err.failed_to_update_contact_layout": "Kontaktansicht konnte nicht aktualisiert werden"
 }

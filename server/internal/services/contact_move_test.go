@@ -450,7 +450,7 @@ func TestMoveManySameVaultDoesNotCleanRelationships(t *testing.T) {
 	company := models.Company{VaultID: vaultID, Name: "Keep Company"}
 	journal := models.Journal{VaultID: vaultID, Name: "Keep Journal"}
 	lifeMetric := models.LifeMetric{VaultID: vaultID, Label: "Keep Metric"}
-	subscription := models.AddressBookSubscription{VaultID: vaultID, UserID: userID, URI: "https://dav.example.com/source/", Username: "user", Password: "encrypted", Active: true, SyncWay: SyncWayPush, Capabilities: "{}"}
+	subscription := models.AddressBookSubscription{VaultID: vaultID, CreatedByUserID: userID, URI: "https://dav.example.com/source/", Username: "user", Password: "encrypted", Active: true, SyncWay: SyncWayPush, Capabilities: "{}"}
 	for _, row := range []interface{}{&label, &group, &company, &journal, &lifeMetric, &subscription} {
 		if err := svc.db.Create(row).Error; err != nil {
 			t.Fatalf("create same-vault related row failed: %v", err)
@@ -642,8 +642,8 @@ func TestMoveManyReschedulesRemindersAndCleansSourceDavState(t *testing.T) {
 	if err := svc.db.Create(&oldScheduled).Error; err != nil {
 		t.Fatalf("create old schedule failed: %v", err)
 	}
-	sourceSub := models.AddressBookSubscription{VaultID: vault1ID, UserID: userID, URI: "https://dav.example.com/source/", Username: "user", Password: "encrypted", Active: true, SyncWay: SyncWayPush, Capabilities: "{}"}
-	targetSub := models.AddressBookSubscription{VaultID: vault2ID, UserID: userID, URI: "https://dav.example.com/target/", Username: "user", Password: "encrypted", Active: true, SyncWay: SyncWayPush, Capabilities: "{}"}
+	sourceSub := models.AddressBookSubscription{VaultID: vault1ID, CreatedByUserID: userID, URI: "https://dav.example.com/source/", Username: "user", Password: "encrypted", Active: true, SyncWay: SyncWayPush, Capabilities: "{}"}
+	targetSub := models.AddressBookSubscription{VaultID: vault2ID, CreatedByUserID: userID, URI: "https://dav.example.com/target/", Username: "user", Password: "encrypted", Active: true, SyncWay: SyncWayPush, Capabilities: "{}"}
 	if err := svc.db.Create(&sourceSub).Error; err != nil {
 		t.Fatalf("create source subscription failed: %v", err)
 	}

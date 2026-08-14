@@ -145,10 +145,6 @@ type UpdateContactTemplateRequest struct {
 	TemplateID *uint `json:"template_id" example:"1"`
 }
 
-type UpdateContactSortRequest struct {
-	SortOrder string `json:"sort_order" validate:"required" example:"first_name_asc"`
-}
-
 type ContactSearchRequest struct {
 	SearchTerm string `json:"search_term" validate:"required,min=1" example:"John"`
 }

@@ -15,6 +15,7 @@ interface ThemeContextType {
   themeMode: ThemeMode;
   resolvedTheme: ResolvedTheme;
   setThemeMode: (mode: ThemeMode) => void;
+  applyThemeMode: (mode: ThemeMode) => void;
 }
 
 const STORAGE_KEY = "bonds-theme";
@@ -74,9 +75,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setThemeModeState(mode);
   }, []);
 
+  const applyThemeMode = useCallback((mode: ThemeMode) => {
+    setThemeModeState(mode);
+  }, []);
+
   const value = useMemo(
-    () => ({ themeMode, resolvedTheme, setThemeMode }),
-    [themeMode, resolvedTheme, setThemeMode],
+    () => ({ themeMode, resolvedTheme, setThemeMode, applyThemeMode }),
+    [themeMode, resolvedTheme, setThemeMode, applyThemeMode],
   );
 
   return (

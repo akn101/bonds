@@ -459,5 +459,12 @@
   "notification.channel.test.body": "<p>这是一条来自 Bonds 的测试通知。</p>",
   "reminder.subject": "提醒：{{label}}",
   "reminder.body": "<h2>提醒：{{label}}</h2><p>你有一条关于 <strong>{{contact}}</strong> 的提醒（<strong>{{date}}</strong>）。</p><p>{{label}}</p>",
-  "reminder.unknown_contact": "未知联系人"
+  "reminder.unknown_contact": "未知联系人",
+  "err.contact_layout_not_found": "未找到联系人视图",
+  "err.contact_layout_conflict": "此联系人视图已在别处更新。已加载最新版本，请检查后重新保存。",
+  "err.invalid_contact_layout": "联系人视图无效。请至少保留一个显示的区块，并确保每个模块只使用一次。",
+  "err.contact_layout_in_use": "仍有联系人在使用此视图",
+  "err.contact_layout_is_default": "不能删除默认联系人视图",
+  "err.contact_layout_name_exists": "已存在同名联系人视图",
+  "err.failed_to_update_contact_layout": "更新联系人视图失败"
 }

@@ -24,7 +24,7 @@ vi.mock("@/api", () => ({
     },
     vaults: {
       vaultsDetail: vi.fn().mockResolvedValue({
-        data: { effective_name_order: "%first_name% %last_name%" },
+        data: {},
       }),
     },
   },

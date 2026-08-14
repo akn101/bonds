@@ -6,6 +6,8 @@ import dayjs from "dayjs";
 import i18n, { applyDayjsWeekStart } from "@/i18n";
 import { usePreferencesSync } from "@/hooks/usePreferencesSync";
 
+const applyThemeMode = vi.hoisted(() => vi.fn());
+
 // Mock the API surface — the hook gates the query on user being present,
 // so we also need to mock the auth store. The test focuses purely on whether
 // loading prefs triggers i18n.changeLanguage when the persisted locale
@@ -22,6 +24,15 @@ vi.mock("@/stores/auth", () => ({
   useAuth: () => ({ user: { id: "u1" }, isAuthenticated: true }),
 }));
 
+vi.mock("@/stores/theme", () => ({
+  useTheme: () => ({
+    themeMode: "system",
+    resolvedTheme: "light",
+    setThemeMode: vi.fn(),
+    applyThemeMode,
+  }),
+}));
+
 import { api } from "@/api";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -35,6 +46,7 @@ describe("usePreferencesSync", () => {
   beforeEach(async () => {
     applyDayjsWeekStart("sunday");
     await i18n.changeLanguage("en");
+    applyThemeMode.mockReset();
     vi.mocked(api.preferences.preferencesList).mockReset();
   });
   afterEach(async () => {
@@ -104,6 +116,18 @@ describe("usePreferencesSync", () => {
 
     await waitFor(() => {
       expect(dayjs("2026-01-15").startOf("week").format("YYYY-MM-DD")).toBe("2026-01-12");
+    });
+  });
+
+  it("applies the saved personal theme without writing it back", async () => {
+    vi.mocked(api.preferences.preferencesList).mockResolvedValue({
+      data: { locale: "en", theme: "dark" },
+    } as never);
+
+    renderHook(() => usePreferencesSync(), { wrapper });
+
+    await waitFor(() => {
+      expect(applyThemeMode).toHaveBeenCalledWith("dark");
     });
   });
 });

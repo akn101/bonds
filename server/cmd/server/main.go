@@ -76,7 +76,6 @@ func main() {
 	} else if migrated > 0 {
 		log.Printf("Migrated %d legacy Monica files to canonical storage", migrated)
 	}
-	migrateModulesToContactPage(db)
 	services.BackfillImportantDateReminderSchedules(db)
 	if err := models.BackfillTaskStatuses(db); err != nil {
 		log.Printf("WARNING: failed to backfill task statuses: %v", err)
@@ -98,15 +97,6 @@ func main() {
 	}
 	if err := models.BackfillMonicaActivityNotes(db); err != nil {
 		log.Printf("WARNING: failed to migrate Monica activity notes: %v", err)
-	}
-	if err := models.BackfillGiftContactModules(db); err != nil {
-		log.Printf("WARNING: failed to backfill gift contact modules: %v", err)
-	}
-	if err := models.BackfillContactTemplateLayout(db); err != nil {
-		log.Printf("WARNING: failed to backfill contact template layout: %v", err)
-	}
-	if err := models.BackfillContactSectionNames(db); err != nil {
-		log.Printf("WARNING: failed to backfill contact section names: %v", err)
 	}
 	scheduler := cron.NewScheduler(db)
 	scheduler.Start()

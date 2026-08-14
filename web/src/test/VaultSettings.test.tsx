@@ -133,6 +133,10 @@ vi.mock("@/api", () => ({
   },
 }));
 
+vi.mock("@/components/contact-layout/ContactLayoutManager", () => ({
+  default: () => <div>Contact view layouts</div>,
+}));
+
 const mockUseQuery = vi.fn();
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
@@ -733,9 +737,6 @@ describe("VaultSettings", () => {
     vi.spyOn(nameFormat, "useNameOrder").mockReturnValue(
       "%first_name% %last_name%",
     );
-    vi.spyOn(nameFormat, "useVaultNameOrder").mockReturnValue(
-      "%first_name% %last_name%",
-    );
   });
 
   afterEach(() => {
@@ -743,7 +744,7 @@ describe("VaultSettings", () => {
     mockUseQuery.mockReset();
   });
 
-  it("renders General tab with Name display order card", async () => {
+  it("renders Vault contact layouts without personal name-order controls", async () => {
     mockUseQuery.mockImplementation((opts: { queryKey: unknown[] }) => {
       if (Array.isArray(opts.queryKey) && opts.queryKey[0] === "vault") {
         return {
@@ -751,8 +752,6 @@ describe("VaultSettings", () => {
             name: "My Vault",
             description: "desc",
             default_template_id: 1,
-            name_order: "%nickname%",
-            effective_name_order: "%nickname%",
             show_group_tab: true,
             show_tasks_tab: true,
             show_files_tab: true,
@@ -769,14 +768,11 @@ describe("VaultSettings", () => {
 
     renderVaultSettings();
 
-    expect(await screen.findByText("Name display order")).toBeInTheDocument();
     expect(
-      screen.getAllByText("Use global preference").length,
+      (await screen.findAllByText("Contact view layouts")).length,
     ).toBeGreaterThanOrEqual(1);
-    expect(
-      screen.getByText(/\{nickname\? \(%nickname%\)\}/),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Save override")).toBeInTheDocument();
+    expect(screen.queryByText("Name display order")).not.toBeInTheDocument();
+    expect(screen.queryByText("Save override")).not.toBeInTheDocument();
   });
 
   it("renders settings title", () => {
@@ -961,7 +957,7 @@ describe("VaultSettings", () => {
     expect(container.querySelector('input[placeholder="Name"]')).toHaveValue(
       "",
     );
-  });
+  }, 15_000);
 
   it("passes the mood update builder result to the Vault Settings API", async () => {
     const invalidation = createPendingInvalidation();

@@ -145,6 +145,9 @@ func (s *ContactService) CreateContact(vaultID, userID string, req dto.CreateCon
 			return nil, err
 		}
 	}
+	if err := validateContactTemplateBelongsToVault(s.db, req.TemplateID, vaultID); err != nil {
+		return nil, err
+	}
 
 	now := time.Now()
 	contact := models.Contact{
@@ -268,6 +271,9 @@ func (s *ContactService) UpdateContact(contactID, vaultID, userID string, req dt
 		if err := validateContactBelongsToVault(s.db, *req.FirstMetThroughContactID, vaultID); err != nil {
 			return nil, err
 		}
+	}
+	if err := validateContactTemplateBelongsToVault(s.db, req.TemplateID, vaultID); err != nil {
+		return nil, err
 	}
 	if err := validateContactPromotionRequest(s.db, &contact, req); err != nil {
 		return nil, err

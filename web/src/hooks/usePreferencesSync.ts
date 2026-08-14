@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api";
 import { applyDayjsWeekStart, normalizeLanguageCode } from "@/i18n";
 import { useAuth } from "@/stores/auth";
+import { useTheme } from "@/stores/theme";
 
 // Pull the persisted UI language from /api/settings/preferences and apply it
 // to i18next when it differs from the active language. Without this hook,
@@ -16,6 +17,7 @@ import { useAuth } from "@/stores/auth";
 export function usePreferencesSync() {
   const { i18n } = useTranslation();
   const { user } = useAuth();
+  const { applyThemeMode } = useTheme();
   const { data } = useQuery({
     enabled: !!user,
     queryKey: ["settings", "preferences"],
@@ -35,4 +37,14 @@ export function usePreferencesSync() {
   useEffect(() => {
     applyDayjsWeekStart(data?.week_start);
   }, [data?.week_start]);
+
+  useEffect(() => {
+    if (
+      data?.theme === "light" ||
+      data?.theme === "dark" ||
+      data?.theme === "system"
+    ) {
+      applyThemeMode(data.theme);
+    }
+  }, [applyThemeMode, data?.theme]);
 }

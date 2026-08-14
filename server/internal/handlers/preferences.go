@@ -60,7 +60,7 @@ func (h *PreferenceHandler) UpdateAll(c echo.Context) error {
 	}
 	prefs, err := h.preferenceService.UpdateAll(userID, req)
 	if err != nil {
-		if errors.Is(err, services.ErrInvalidNameOrder) || errors.Is(err, services.ErrUnsupportedLocale) || errors.Is(err, services.ErrInvalidWeekStart) {
+		if errors.Is(err, services.ErrInvalidNameOrder) || errors.Is(err, services.ErrUnsupportedLocale) || errors.Is(err, services.ErrInvalidWeekStart) || errors.Is(err, services.ErrInvalidViewPreference) {
 			return response.ValidationError(c, map[string]string{"validation": err.Error()})
 		}
 		return response.InternalError(c, "err.failed_to_update_preferences")

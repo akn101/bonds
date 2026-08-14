@@ -47,7 +47,7 @@ func (r *FeedRecorder) Record(contactID, authorID, action string, description st
 	item := models.ContactFeedItem{
 		VaultID:             contact.VaultID,
 		ContactID:           contactID,
-		ContactNameSnapshot: utils.FormatContactNameSnapshot(contact.Vault.NameOrder, &contact),
+		ContactNameSnapshot: utils.FormatContactNameSnapshot(nil, &contact),
 		Action:              action,
 		FeedableID:          feedableID,
 		FeedableType:        feedableType,

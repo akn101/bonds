@@ -50,6 +50,9 @@ func (h *ContactTemplateHandler) Update(c echo.Context) error {
 		if errors.Is(err, services.ErrContactNotFound) {
 			return response.NotFound(c, "err.contact_not_found")
 		}
+		if errors.Is(err, services.ErrContactLayoutNotFound) {
+			return response.NotFound(c, "err.contact_layout_not_found")
+		}
 		return response.InternalError(c, "err.failed_to_update_template")
 	}
 	return response.OK(c, contact)

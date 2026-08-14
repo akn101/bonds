@@ -203,15 +203,6 @@ func (s *AdminService) deleteEntireAccount(user models.User) error {
 			}
 		}
 
-		templateSubquery := tx.Model(&models.Template{}).Select("id").Where("account_id = ?", user.AccountID)
-		templatePageSubquery := tx.Model(&models.TemplatePage{}).Select("id").Where("template_id IN (?)", templateSubquery)
-		if err := tx.Where("template_page_id IN (?)", templatePageSubquery).Delete(&models.ModuleTemplatePage{}).Error; err != nil {
-			return fmt.Errorf("delete module template pages: %w", err)
-		}
-		if err := tx.Where("template_id IN (?)", templateSubquery).Delete(&models.TemplatePage{}).Error; err != nil {
-			return fmt.Errorf("delete template pages: %w", err)
-		}
-
 		groupTypeSubquery := tx.Model(&models.GroupType{}).Select("id").Where("account_id = ?", user.AccountID)
 		if err := tx.Where("group_type_id IN (?)", groupTypeSubquery).Delete(&models.GroupTypeRole{}).Error; err != nil {
 			return fmt.Errorf("delete group type roles: %w", err)
@@ -243,8 +234,6 @@ func (s *AdminService) deleteEntireAccount(user models.User) error {
 			&models.GiftOccasion{},
 			&models.GiftState{},
 			&models.PostTemplate{},
-			&models.Template{},
-			&models.Module{},
 			&models.GroupType{},
 			&models.SyncToken{},
 		}
@@ -305,6 +294,17 @@ func (s *AdminService) deleteUserDirectData(tx *gorm.DB, userID string) error {
 }
 
 func (s *AdminService) deleteVaultData(tx *gorm.DB, vaultID string) error {
+	contactTemplateSubquery := tx.Model(&models.VaultContactTemplate{}).Select("id").Where("vault_id = ?", vaultID)
+	contactPageSubquery := tx.Model(&models.VaultContactTemplatePage{}).Select("id").Where("template_id IN (?)", contactTemplateSubquery)
+	if err := tx.Where("template_page_id IN (?)", contactPageSubquery).Delete(&models.VaultContactTemplateModule{}).Error; err != nil {
+		return fmt.Errorf("delete vault contact template modules: %w", err)
+	}
+	if err := tx.Where("template_id IN (?)", contactTemplateSubquery).Delete(&models.VaultContactTemplatePage{}).Error; err != nil {
+		return fmt.Errorf("delete vault contact template pages: %w", err)
+	}
+	if err := tx.Where("vault_id = ?", vaultID).Delete(&models.VaultContactTemplate{}).Error; err != nil {
+		return fmt.Errorf("delete vault contact templates: %w", err)
+	}
 	var contacts []models.Contact
 	if err := tx.Where("vault_id = ?", vaultID).Find(&contacts).Error; err != nil {
 		return err

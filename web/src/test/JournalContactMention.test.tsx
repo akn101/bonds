@@ -7,12 +7,10 @@ import ContactMentionText from "@/components/journal/ContactMentionText";
 
 const CONTACT_ID = "550e8400-e29b-41d4-a716-446655440000";
 const mockAvatarGet = vi.fn().mockResolvedValue({ data: new Blob([]) });
-const mockVaultDetail = vi.fn();
 const mockPreferencesList = vi.fn();
 
 vi.mock("@/api", () => ({
   api: {
-    vaults: { vaultsDetail: (...args: unknown[]) => mockVaultDetail(...args) },
     preferences: {
       preferencesList: (...args: unknown[]) => mockPreferencesList(...args),
     },
@@ -86,18 +84,15 @@ function renderUnassociatedMentionText(
 describe("ContactMentionText", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockVaultDetail.mockResolvedValue({
-      data: { effective_name_order: "%first_name% %last_name%" },
-    });
     mockPreferencesList.mockResolvedValue({
       data: { name_order: "%first_name% %last_name%" },
     });
   });
 
   it("renders exact UUID mentions with the current custom-order contact name and preserves ordinary linkification", async () => {
-    mockVaultDetail.mockResolvedValue({
+    mockPreferencesList.mockResolvedValue({
       data: {
-        effective_name_order:
+        name_order:
           "%last_name%, %first_name% {nickname? (%nickname%)}",
       },
     });
@@ -140,8 +135,8 @@ describe("ContactMentionText", () => {
   });
 
   it("renders a nickname-only current name when generated contact fields provide it", async () => {
-    mockVaultDetail.mockResolvedValue({
-      data: { effective_name_order: "%nickname%" },
+    mockPreferencesList.mockResolvedValue({
+      data: { name_order: "%nickname%" },
     });
     renderMentionText(vi.fn(), [{ id: CONTACT_ID, nickname: "Ace" }]);
 

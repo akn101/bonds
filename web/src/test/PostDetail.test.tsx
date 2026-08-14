@@ -205,12 +205,12 @@ function mockLoadedPostQueries(
       }
       if (key[0] === "vaults" && key.length === 2) {
         return {
-          data: { effective_name_order: nameOrder },
+          data: {},
           isLoading: false,
         };
       }
       if (key[0] === "settings") {
-        return { data: {}, isLoading: false };
+        return { data: { name_order: nameOrder }, isLoading: false };
       }
       return { data: [], isLoading: false };
     },

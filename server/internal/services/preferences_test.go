@@ -107,11 +107,17 @@ func TestPreferenceUpdateAll(t *testing.T) {
 	svc, userID := setupPreferenceTest(t)
 
 	prefs, err := svc.UpdateAll(userID, dto.UpdatePreferencesRequest{
-		NameOrder:  "%last_name% %first_name%",
-		DateFormat: "DD/MM/YYYY",
-		Timezone:   "Asia/Shanghai",
-		Locale:     "zh",
-		WeekStart:  "monday",
+		NameOrder:          "%last_name% %first_name%",
+		DateFormat:         "DD/MM/YYYY",
+		Timezone:           "Asia/Shanghai",
+		Locale:             "zh",
+		WeekStart:          "monday",
+		ContactSortOrder:   "first_met_at",
+		ContactListColumns: []string{"name", "birthday", "groups"},
+		DashboardTab:       "activities",
+		TaskView:           "kanban",
+		TaskSort:           "due_date",
+		Theme:              "dark",
 	})
 	if err != nil {
 		t.Fatalf("UpdateAll failed: %v", err)
@@ -130,6 +136,13 @@ func TestPreferenceUpdateAll(t *testing.T) {
 	}
 	if prefs.WeekStart != "monday" {
 		t.Errorf("Expected week_start 'monday', got '%s'", prefs.WeekStart)
+	}
+	if prefs.ContactSortOrder != "first_met_at" || prefs.DashboardTab != "activities" ||
+		prefs.TaskView != "kanban" || prefs.TaskSort != "due_date" || prefs.Theme != "dark" {
+		t.Fatalf("view preferences were not persisted: %+v", prefs)
+	}
+	if len(prefs.ContactListColumns) != 3 || prefs.ContactListColumns[1] != "birthday" {
+		t.Fatalf("contact columns were not persisted: %v", prefs.ContactListColumns)
 	}
 }
 
@@ -293,5 +306,59 @@ func TestPreferenceUpdateAllRejectsInvalidWeekStart(t *testing.T) {
 	}
 	if prefs.WeekStart != "sunday" {
 		t.Errorf("Expected week_start to remain sunday, got %q", prefs.WeekStart)
+	}
+}
+
+func TestPreferenceViewFieldsRejectInvalidValuesAtomically(t *testing.T) {
+	svc, userID := setupPreferenceTest(t)
+	tests := []dto.UpdatePreferencesRequest{
+		{ContactSortOrder: "last_updated"},
+		{ContactListColumns: []string{"nickname"}},
+		{ContactListColumns: []string{"name", "name"}},
+		{DashboardTab: "reports"},
+		{TaskView: "grid"},
+		{TaskSort: "priority"},
+		{Theme: "blue"},
+	}
+	for _, req := range tests {
+		request := req
+		request.DateFormat = "SHOULD-NOT-BE-SAVED"
+		if _, err := svc.UpdateAll(userID, request); !errors.Is(err, ErrInvalidViewPreference) {
+			t.Fatalf("request %+v returned %v", req, err)
+		}
+		current, err := svc.Get(userID)
+		if err != nil {
+			t.Fatalf("get preferences: %v", err)
+		}
+		if current.DateFormat == "SHOULD-NOT-BE-SAVED" {
+			t.Fatalf("invalid request partially updated the user: %+v", req)
+		}
+	}
+}
+
+func TestPreferencesAreIsolatedPerSystemUser(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	auth := NewAuthService(db, testutil.TestJWTConfig())
+	first, err := auth.Register(dto.RegisterRequest{FirstName: "First", Email: "first-prefs@example.com", Password: "password123"}, "en")
+	if err != nil {
+		t.Fatalf("register first user: %v", err)
+	}
+	second, err := auth.Register(dto.RegisterRequest{FirstName: "Second", Email: "second-prefs@example.com", Password: "password123"}, "en")
+	if err != nil {
+		t.Fatalf("register second user: %v", err)
+	}
+	svc := NewPreferenceService(db)
+	if _, err := svc.UpdateAll(first.User.ID, dto.UpdatePreferencesRequest{
+		DashboardTab: "life_metrics", TaskView: "kanban", Theme: "dark",
+	}); err != nil {
+		t.Fatalf("update first user: %v", err)
+	}
+	firstPrefs, _ := svc.Get(first.User.ID)
+	secondPrefs, _ := svc.Get(second.User.ID)
+	if firstPrefs.DashboardTab != "life_metrics" || firstPrefs.TaskView != "kanban" || firstPrefs.Theme != "dark" {
+		t.Fatalf("first preferences not saved: %+v", firstPrefs)
+	}
+	if secondPrefs.DashboardTab != "feed" || secondPrefs.TaskView != "list" || secondPrefs.Theme != "system" {
+		t.Fatalf("first user's preferences leaked to second user: %+v", secondPrefs)
 	}
 }

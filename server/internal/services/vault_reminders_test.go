@@ -155,8 +155,8 @@ func TestListVaultRemindersUsesVaultNameOrderForContactName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateVault failed: %v", err)
 	}
-	if err := db.Model(&models.Vault{}).Where("id = ?", vault.ID).Update("name_order", "%last_name%, %first_name% {middle_name? %middle_name%} {nickname? (%nickname%)} {maiden_name? %maiden_name%}").Error; err != nil {
-		t.Fatalf("Update vault name_order failed: %v", err)
+	if err := db.Model(&models.User{}).Where("id = ?", resp.User.ID).Update("name_order", "%last_name%, %first_name% {middle_name? %middle_name%} {nickname? (%nickname%)} {maiden_name? %maiden_name%}").Error; err != nil {
+		t.Fatalf("Update user name_order failed: %v", err)
 	}
 	contact, err := NewContactService(db).CreateContact(vault.ID, resp.User.ID, dto.CreateContactRequest{
 		FirstName:  "Alice",

@@ -403,5 +403,12 @@
   "notification.channel.test.body": "<p>Esta é uma notificação de teste do Bonds.</p>",
   "reminder.subject": "Lembrete: {{label}}",
   "reminder.body": "<h2>Lembrete: {{label}}</h2><p>Você tem um lembrete para <strong>{{contact}}</strong> em <strong>{{date}}</strong>.</p><p>{{label}}</p>",
-  "reminder.unknown_contact": "Desconhecido"
+  "reminder.unknown_contact": "Desconhecido",
+  "err.contact_layout_not_found": "Visualização de contato não encontrada",
+  "err.contact_layout_conflict": "Esta visualização foi alterada em outro lugar. A versão mais recente foi carregada; revise e salve novamente.",
+  "err.invalid_contact_layout": "A visualização é inválida. Mantenha ao menos uma seção visível e use cada módulo apenas uma vez.",
+  "err.contact_layout_in_use": "Esta visualização ainda está em uso",
+  "err.contact_layout_is_default": "A visualização padrão não pode ser excluída",
+  "err.contact_layout_name_exists": "Já existe uma visualização com este nome",
+  "err.failed_to_update_contact_layout": "Falha ao atualizar a visualização de contato"
 }

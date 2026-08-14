@@ -80,8 +80,8 @@ func setupMCPNameOrderTest(t *testing.T) *mcpNameOrderContext {
 		t.Fatalf("CreateVault failed: %v", err)
 	}
 	override := "%last_name%, %first_name% {nickname? (%nickname%)}"
-	if err := db.Model(&models.Vault{}).Where("id = ?", vault.ID).Update("name_order", override).Error; err != nil {
-		t.Fatalf("Update vault name_order failed: %v", err)
+	if err := db.Model(&models.User{}).Where("id = ?", resp.User.ID).Update("name_order", override).Error; err != nil {
+		t.Fatalf("Update user name_order failed: %v", err)
 	}
 	contact, err := services.NewContactService(db).CreateContact(vault.ID, resp.User.ID, dto.CreateContactRequest{
 		FirstName: "Alice",

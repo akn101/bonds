@@ -160,7 +160,7 @@ func itemsFromBleve(resp *search.SearchResponse) []SearchItem {
 func (s *BondsSearcher) sqlSearch(vaultID, userID, query string, limit int) ([]SearchItem, error) {
 	items := make([]SearchItem, 0)
 	likeTerm := "%" + strings.ToLower(query) + "%"
-	nameOrder, err := services.GetEffectiveVaultNameOrder(s.db, vaultID, userID)
+	nameOrder, err := services.GetUserNameOrder(s.db, userID)
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ func NewCalendarService(db *gorm.DB) *CalendarService {
 }
 
 func (s *CalendarService) GetCalendar(vaultID, userID string, month, year int, locale string) (*dto.CalendarResponse, error) {
-	nameOrder, err := GetEffectiveVaultNameOrder(s.db, vaultID, userID)
+	nameOrder, err := GetUserNameOrder(s.db, userID)
 	if err != nil {
 		return nil, err
 	}

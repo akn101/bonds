@@ -52,7 +52,7 @@ import {
   appendMissingContactMentions,
   contactIdsFromMentions,
 } from "@/components/journal/contactMentionSerialization";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 
 const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
@@ -77,7 +77,7 @@ export default function PostDetail() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const dateFormats = useDateFormat();
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
   const editRevisionRef = useRef(0);
 
   const [editing, setEditing] = useState(false);

@@ -15,7 +15,7 @@ import type { SelectableGroupContact } from "@/components/groups/GroupMemberAddP
 import GroupMemberList from "@/components/groups/GroupMemberList";
 import type { GroupMemberListItem } from "@/components/groups/GroupMemberList";
 import { getGroupMemberFeedbackKey } from "@/components/groups/groupMemberFeedback";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 
 const { Title } = Typography;
 
@@ -35,7 +35,7 @@ export default function GroupDetail() {
   const { message } = App.useApp();
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
   const [adding, setAdding] = useState(false);
   const [contactsToAdd, setContactsToAdd] = useState<SelectableGroupContact[]>(
     [],

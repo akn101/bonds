@@ -9,12 +9,9 @@ func AllModels() []interface{} {
 		&UserVault{},
 		&ContactVaultUser{},
 
-		&Template{},
-		&TemplatePage{},
-		&Module{},
-		&ModuleRow{},
-		&ModuleRowField{},
-		&ModuleTemplatePage{},
+		&VaultContactTemplate{},
+		&VaultContactTemplatePage{},
+		&VaultContactTemplateModule{},
 
 		&Gender{},
 		&Pronoun{},

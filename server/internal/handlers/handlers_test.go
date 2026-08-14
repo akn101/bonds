@@ -2697,28 +2697,28 @@ func TestInvitationAccept_PersistsAcceptLanguageLocaleWithoutSeeders(t *testing.
 
 // ==================== Avatar ====================
 
-func TestAvatar_GetInitialsUsesVaultNameOrder(t *testing.T) {
+func TestAvatar_GetInitialsUsesUserNameOrder(t *testing.T) {
 	ts := setupTestServer(t)
 	token, auth := ts.registerTestUser(t, "avatar-name-order@example.com")
 	vault := ts.createTestVault(t, token, "Avatar Name Order Vault")
 	contact := ts.createTestContact(t, token, vault.ID, "Alice")
 	override := "%last_name% %first_name%"
-	if err := ts.db.Model(&models.Vault{}).Where("id = ?", vault.ID).Update("name_order", override).Error; err != nil {
-		t.Fatalf("Update vault name_order failed: %v", err)
+	if err := ts.db.Model(&models.User{}).Where("id = ?", auth.User.ID).Update("name_order", override).Error; err != nil {
+		t.Fatalf("Update user name_order failed: %v", err)
 	}
 
 	var storedContact models.Contact
 	if err := ts.db.First(&storedContact, "id = ?", contact.ID).Error; err != nil {
 		t.Fatalf("load contact failed: %v", err)
 	}
-	nameOrder, err := services.GetEffectiveVaultNameOrder(ts.db, vault.ID, auth.User.ID)
+	nameOrder, err := services.GetUserNameOrder(ts.db, auth.User.ID)
 	if err != nil {
-		t.Fatalf("GetEffectiveVaultNameOrder failed: %v", err)
+		t.Fatalf("GetUserNameOrder failed: %v", err)
 	}
 	legacyAvatar := avatar.GenerateInitials(utils.BuildContactName(&storedContact), 128)
-	vaultAwareAvatar := avatar.GenerateInitials(utils.FormatContactName(nameOrder, &storedContact, ""), 128)
-	if bytes.Equal(legacyAvatar, vaultAwareAvatar) {
-		t.Fatal("test fixture should produce different initials for legacy and vault-aware name order")
+	userFormattedAvatar := avatar.GenerateInitials(utils.FormatContactName(nameOrder, &storedContact, ""), 128)
+	if bytes.Equal(legacyAvatar, userFormattedAvatar) {
+		t.Fatal("test fixture should produce different initials for legacy and user name order")
 	}
 
 	rec := ts.doRequest(http.MethodGet,
@@ -2727,8 +2727,8 @@ func TestAvatar_GetInitialsUsesVaultNameOrder(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if !bytes.Equal(rec.Body.Bytes(), vaultAwareAvatar) {
-		t.Fatal("generated avatar should use vault-aware contact name order")
+	if !bytes.Equal(rec.Body.Bytes(), userFormattedAvatar) {
+		t.Fatal("generated avatar should use the current user's name order")
 	}
 }
 
@@ -4733,8 +4733,17 @@ func TestContactTabs_Success(t *testing.T) {
 	if tabs.Pages[0].Slug != "summary" {
 		t.Errorf("expected first page slug 'summary', got '%s'", tabs.Pages[0].Slug)
 	}
-	if len(tabs.Pages[1].Modules) != 11 {
-		t.Errorf("expected 11 modules on contact page, got %d", len(tabs.Pages[1].Modules))
+	if len(tabs.Pages[1].Modules) != 6 {
+		t.Errorf("expected 6 modules on contact page, got %d", len(tabs.Pages[1].Modules))
+	}
+	moduleCounts := map[string]int{}
+	for _, page := range tabs.Pages {
+		for _, module := range page.Modules {
+			moduleCounts[module.Type]++
+		}
+	}
+	if moduleCounts["relationships"] != 1 || moduleCounts["relationship_network"] != 1 {
+		t.Fatalf("relationship list and graph must each appear exactly once: %v", moduleCounts)
 	}
 }
 
@@ -6923,7 +6932,7 @@ func TestSyncTranslations_Success(t *testing.T) {
 	ts.e.Use(middleware.Locale())
 	token, _ := ts.registerTestUser(t, "sync-handler@example.com")
 
-	rec := ts.doRequestWithLocale(http.MethodPost, "/api/settings/personalize/sync", "", token, "zh")
+	rec := ts.doRequestWithLocale(http.MethodPost, "/api/settings/personalize/sync", `{"locale":"zh"}`, token, "en")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}

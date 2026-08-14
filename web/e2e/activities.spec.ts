@@ -183,6 +183,14 @@ async function navigateToActivitiesTab(page: import("@playwright/test").Page) {
   await page.waitForLoadState("networkidle");
 }
 
+function getActivitiesSettingsCard(page: import("@playwright/test").Page) {
+  // Contact layout cards can also contain the word "Activities". The settings
+  // card is the one that owns the nested category collapse.
+  return page.locator(".ant-card").filter({
+    has: page.locator(".ant-collapse"),
+  });
+}
+
 test.describe("Vault Settings - Activities", () => {
   test("should navigate to vault settings activities tab", async ({ page }) => {
     await setupVault(page);
@@ -269,9 +277,7 @@ test.describe("Vault Settings - Activities", () => {
   }) => {
     await setupVault(page);
     await navigateToActivitiesTab(page);
-    const activitiesCard = page
-      .locator(".ant-card")
-      .filter({ hasText: "Activities" });
+    const activitiesCard = getActivitiesSettingsCard(page);
     await expect(activitiesCard).toBeVisible({ timeout: 30000 });
     const collapseItems = activitiesCard.locator(".ant-collapse-item");
     await expect(collapseItems.first()).toBeVisible({ timeout: 30000 });
@@ -331,9 +337,7 @@ test.describe("Vault Settings - Activities", () => {
     await setupVault(page);
     await navigateToActivitiesTab(page);
 
-    const activitiesCard = page
-      .locator(".ant-card")
-      .filter({ hasText: "Activities" });
+    const activitiesCard = getActivitiesSettingsCard(page);
     await expect(activitiesCard).toBeVisible({ timeout: 30000 });
     const firstPanel = activitiesCard.locator(".ant-collapse-item").first();
     await expect(firstPanel).toBeVisible({ timeout: 30000 });

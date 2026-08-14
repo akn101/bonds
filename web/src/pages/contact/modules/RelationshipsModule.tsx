@@ -24,7 +24,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
 import { Link } from "react-router-dom";
-import NetworkGraph from "@/components/NetworkGraph";
 import {
   affectedNetworkGraphQueryKeys,
   exactNetworkGraphInvalidationFilter,
@@ -915,20 +914,6 @@ export default function RelationshipsModule({
         </Modal>
       </Card>
 
-      <Card
-        title={
-          <span style={{ fontWeight: 500 }}>
-            {t("modules.relationships.graph_title")}
-          </span>
-        }
-        styles={{
-          header: { borderBottom: `1px solid ${token.colorBorderSecondary}` },
-          body: { padding: "16px 24px" },
-        }}
-        style={{ marginTop: 16 }}
-      >
-        <NetworkGraph vaultId={String(vaultId)} contactId={String(contactId)} />
-      </Card>
     </>
   );
 }

@@ -41,7 +41,7 @@ import type { ThemeMode } from "@/stores/theme";
 import { useTranslation } from "react-i18next";
 import SearchBar from "@/components/SearchBar";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
 import { usePreferencesSync } from "@/hooks/usePreferencesSync";
 
@@ -49,6 +49,7 @@ const { Header, Content } = AntLayout;
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const queryClient = useQueryClient();
   // Apply the user's saved UI language to i18next so reloading the page
   // doesn't drop you back into browser-detected English.
   usePreferencesSync();
@@ -58,7 +59,7 @@ export default function Layout() {
   const { token } = theme.useToken();
   const nameOrder = useNameOrder();
   const { t } = useTranslation();
-  const { themeMode, setThemeMode } = useTheme();
+  const { themeMode, applyThemeMode } = useTheme();
   const themeModeOrder: ThemeMode[] = ["light", "dark", "system"];
   const themeModeIcons: Record<ThemeMode, React.ReactNode> = {
     light: <SunOutlined />,
@@ -106,8 +107,8 @@ export default function Layout() {
         // Activity
         [
           { key: `/vaults/${vaultId}/reminders`, icon: <BellOutlined />, label: t("nav.reminders") },
-          { key: `/vaults/${vaultId}/dav-subscriptions`, icon: <CloudServerOutlined />, label: t("nav.davSubscriptions") },
-          { key: `/vaults/${vaultId}/settings`, icon: <SettingOutlined />, label: t("nav.settings") },
+          { key: `/vaults/${vaultId}/dav-subscriptions`, icon: <CloudServerOutlined />, label: t("nav.davSubscriptions"), visible: currentVault?.current_user_permission === 100 },
+          { key: `/vaults/${vaultId}/settings`, icon: <SettingOutlined />, label: t("nav.settings"), visible: currentVault?.current_user_permission === 100 },
         ],
       ]
         // The duplicated static lists ignored vault visibility; only explicit false hides an entry during loading.
@@ -126,7 +127,9 @@ export default function Layout() {
     { key: "/settings", icon: <SettingOutlined />, label: t("nav.account") },
     { key: "/settings/preferences", icon: <ControlOutlined />, label: t("nav.preferences") },
     { key: "/settings/notifications", icon: <BellOutlined />, label: t("nav.notifications") },
-    { key: "/settings/personalize", icon: <EditOutlined />, label: t("nav.personalize") },
+    ...(user?.is_admin
+      ? [{ key: "/settings/personalize", icon: <EditOutlined />, label: t("nav.personalize") }]
+      : []),
     { key: "/settings/users", icon: <UserSwitchOutlined />, label: t("nav.users") },
     { key: "/settings/2fa", icon: <LockOutlined />, label: t("nav.twoFactor") },
     { key: "/settings/invitations", icon: <MailOutlined />, label: t("nav.invitations") },
@@ -146,7 +149,16 @@ export default function Layout() {
 
   const nextThemeMode = () => {
     const idx = themeModeOrder.indexOf(themeMode);
-    setThemeMode(themeModeOrder[(idx + 1) % themeModeOrder.length]);
+    const next = themeModeOrder[(idx + 1) % themeModeOrder.length];
+    applyThemeMode(next);
+    api.preferences
+      .preferencesUpdate({ theme: next })
+      .then(() =>
+        queryClient.invalidateQueries({ queryKey: ["settings", "preferences"] }),
+      )
+      .catch(() =>
+        queryClient.invalidateQueries({ queryKey: ["settings", "preferences"] }),
+      );
   };
 
   const initials = user ? formatContactInitials(nameOrder, user) : "";

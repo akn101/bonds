@@ -15,8 +15,6 @@ type Account struct {
 
 	Users                   []User                   `json:"users,omitempty" gorm:"foreignKey:AccountID"`
 	Vaults                  []Vault                  `json:"vaults,omitempty" gorm:"foreignKey:AccountID"`
-	Templates               []Template               `json:"templates,omitempty" gorm:"foreignKey:AccountID"`
-	Modules                 []Module                 `json:"modules,omitempty" gorm:"foreignKey:AccountID"`
 	GroupTypes              []GroupType              `json:"group_types,omitempty" gorm:"foreignKey:AccountID"`
 	RelationshipGroupTypes  []RelationshipGroupType  `json:"relationship_group_types,omitempty" gorm:"foreignKey:AccountID"`
 	Genders                 []Gender                 `json:"genders,omitempty" gorm:"foreignKey:AccountID"`

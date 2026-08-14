@@ -1,7 +1,7 @@
 import { Space, Tag } from "antd";
 import { Link } from "react-router-dom";
 import type { PostContactReference } from "@/components/journal/contactMentionTypes";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 
 type PostContactTagsProps = {
   readonly vaultId: string;
@@ -12,7 +12,7 @@ export default function PostContactTags({
   vaultId,
   contacts,
 }: PostContactTagsProps) {
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
   const linkedContacts = contacts.filter(
     (contact): contact is PostContactReference & { readonly id: string } =>
       typeof contact.id === "string",

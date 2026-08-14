@@ -1,209 +1,145 @@
 package services
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/internal/testutil"
+	"gorm.io/gorm"
 )
 
-func setupContactTabsTest(t *testing.T) (*ContactTabService, string, string, string) {
+type contactTabsTestContext struct {
+	db        *gorm.DB
+	service   *ContactTabService
+	contactID string
+	vaultID   string
+	userID    string
+}
+
+func setupContactTabsTest(t *testing.T) *contactTabsTestContext {
 	t.Helper()
 	db := testutil.SetupTestDB(t)
-	cfg := testutil.TestJWTConfig()
-	authSvc := NewAuthService(db, cfg)
-	vaultSvc := NewVaultService(db)
-
-	resp, err := authSvc.Register(dto.RegisterRequest{
-		FirstName: "Test",
-		LastName:  "User",
-		Email:     "tabs-test@example.com",
-		Password:  "password123",
+	authSvc := NewAuthService(db, testutil.TestJWTConfig())
+	registered, err := authSvc.Register(dto.RegisterRequest{
+		FirstName: "Test", LastName: "User", Email: "tabs-test@example.com", Password: "password123",
 	}, "en")
 	if err != nil {
-		t.Fatalf("Register failed: %v", err)
+		t.Fatalf("register: %v", err)
 	}
-
-	vault, err := vaultSvc.CreateVault(resp.User.AccountID, resp.User.ID, dto.CreateVaultRequest{Name: "Test Vault"}, "en")
+	vault, err := NewVaultService(db).CreateVault(registered.User.AccountID, registered.User.ID, dto.CreateVaultRequest{Name: "Test Vault"}, "en")
 	if err != nil {
-		t.Fatalf("CreateVault failed: %v", err)
+		t.Fatalf("create vault: %v", err)
 	}
-
-	contactSvc := NewContactService(db)
-	contact, err := contactSvc.CreateContact(vault.ID, resp.User.ID, dto.CreateContactRequest{FirstName: "John"})
+	contact, err := NewContactService(db).CreateContact(vault.ID, registered.User.ID, dto.CreateContactRequest{FirstName: "John"})
 	if err != nil {
-		t.Fatalf("CreateContact failed: %v", err)
+		t.Fatalf("create contact: %v", err)
 	}
-
-	return NewContactTabService(db), contact.ID, vault.ID, resp.User.AccountID
+	return &contactTabsTestContext{db: db, service: NewContactTabService(db), contactID: contact.ID, vaultID: vault.ID, userID: registered.User.ID}
 }
 
-func TestGetTabs_WithTemplate(t *testing.T) {
-	svc, contactID, vaultID, accountID := setupContactTabsTest(t)
-
-	var tmpl models.Template
-	svc.db.Where("account_id = ? AND can_be_deleted = ?", accountID, false).First(&tmpl)
-
-	svc.db.Model(&models.Contact{}).Where("id = ?", contactID).Update("template_id", tmpl.ID)
-
-	tabs, err := svc.GetTabs(contactID, vaultID)
+func TestGetTabsUsesVaultDefaultLayout(t *testing.T) {
+	ctx := setupContactTabsTest(t)
+	tabs, err := ctx.service.GetTabs(ctx.contactID, ctx.vaultID, "en")
 	if err != nil {
-		t.Fatalf("GetTabs failed: %v", err)
+		t.Fatalf("GetTabs: %v", err)
 	}
-
-	if tabs.TemplateID != tmpl.ID {
-		t.Errorf("Expected template ID %d, got %d", tmpl.ID, tabs.TemplateID)
+	if tabs.TemplateName != "Default template" || len(tabs.Pages) != 8 {
+		t.Fatalf("unexpected default tabs: %+v", tabs)
 	}
-	if tabs.TemplateName != "Default template" {
-		t.Errorf("Expected template name 'Default template', got '%s'", tabs.TemplateName)
+	expected := map[string][]string{
+		"summary":              {"contact_summary"},
+		"contact":              {"important_dates", "labels", "quick_facts", "extra_information", "addresses", "contact_information"},
+		"feed":                 {"feed"},
+		"social":               {"relationships", "pets", "groups"},
+		"relationship-network": {"relationship_network"},
+		"activities":           {"activities"},
+		"goals":                {"goals"},
+		"information":          {"documents", "photos", "notes", "reminders", "loans", "gifts", "tasks", "calls"},
 	}
-	if len(tabs.Pages) != 8 {
-		t.Fatalf("Expected 8 pages, got %d", len(tabs.Pages))
-	}
-
-	summaryPage := tabs.Pages[0]
-	if summaryPage.Slug != "summary" || len(summaryPage.Modules) != 1 || summaryPage.Modules[0].Type != "contact_summary" {
-		t.Fatalf("unexpected summary page: %+v", summaryPage)
-	}
-
-	contactPage := tabs.Pages[1]
-	if contactPage.Slug != "contact" {
-		t.Errorf("Expected first page slug 'contact', got '%s'", contactPage.Slug)
-	}
-	// 11 modules: avatar, contact_names, family_summary, important_dates, gender_pronoun,
-	// labels, quick_facts, company, religions, addresses, contact_information
-	if len(contactPage.Modules) != 11 {
-		t.Errorf("Expected 11 modules on contact page, got %d", len(contactPage.Modules))
-	}
-
-	feedPage := tabs.Pages[2]
-	if feedPage.Slug != "feed" {
-		t.Errorf("Expected second page slug 'feed', got '%s'", feedPage.Slug)
-	}
-	if len(feedPage.Modules) != 1 {
-		t.Errorf("Expected 1 module on feed page, got %d", len(feedPage.Modules))
-	}
-
-	socialPage := tabs.Pages[3]
-	if socialPage.Slug != "social" {
-		t.Errorf("Expected third page slug 'social', got '%s'", socialPage.Slug)
-	}
-	if len(socialPage.Modules) != 3 {
-		t.Errorf("Expected 3 modules on social page, got %d", len(socialPage.Modules))
-	}
-
-	networkPage := tabs.Pages[4]
-	if networkPage.Slug != "relationship-network" || len(networkPage.Modules) != 1 || networkPage.Modules[0].Type != "relationship_network" {
-		t.Fatalf("unexpected relationship network page: %+v", networkPage)
-	}
-
-	activitiesPage := tabs.Pages[5]
-	if activitiesPage.Slug != "activities" {
-		t.Errorf("Expected activities page slug 'activities', got '%s'", activitiesPage.Slug)
-	}
-	if len(activitiesPage.Modules) != 1 || activitiesPage.Modules[0].Type != "activities" {
-		t.Errorf("unexpected activities page modules: %+v", activitiesPage.Modules)
-	}
-
-	goalsPage := tabs.Pages[6]
-	if goalsPage.Slug != "goals" {
-		t.Errorf("Expected goals page slug 'goals', got '%s'", goalsPage.Slug)
-	}
-	if len(goalsPage.Modules) != 1 || goalsPage.Modules[0].Type != "goals" {
-		t.Errorf("unexpected goals page modules: %+v", goalsPage.Modules)
-	}
-
-	infoPage := tabs.Pages[7]
-	if infoPage.Slug != "information" {
-		t.Errorf("Expected fifth page slug 'information', got '%s'", infoPage.Slug)
-	}
-	expectedInformationTypes := []string{"documents", "photos", "notes", "reminders", "loans", "gifts", "tasks", "calls", "posts"}
-	if len(infoPage.Modules) != len(expectedInformationTypes) {
-		t.Fatalf("Expected %d modules on information page, got %d", len(expectedInformationTypes), len(infoPage.Modules))
-	}
-	for i, mod := range infoPage.Modules {
-		if mod.Type != expectedInformationTypes[i] {
-			t.Errorf("Information module %d: expected type '%s', got '%s'", i, expectedInformationTypes[i], mod.Type)
+	seenModules := map[string]int{}
+	for pageIndex, page := range tabs.Pages {
+		if page.Position != pageIndex {
+			t.Fatalf("page %s position = %d, want %d", page.Slug, page.Position, pageIndex)
 		}
-		if mod.Position != i+1 {
-			t.Errorf("Information module %d: expected position %d, got %d", i, i+1, mod.Position)
+		want := expected[page.Slug]
+		if len(page.Modules) != len(want) {
+			t.Fatalf("page %s modules = %+v, want %v", page.Slug, page.Modules, want)
+		}
+		for moduleIndex, module := range page.Modules {
+			if module.Type != want[moduleIndex] || module.Position != moduleIndex {
+				t.Fatalf("page %s module %d = %+v, want %s at %d", page.Slug, moduleIndex, module, want[moduleIndex], moduleIndex)
+			}
+			seenModules[module.Type]++
+		}
+	}
+	for module, count := range seenModules {
+		if count != 1 {
+			t.Fatalf("module %s appears %d times", module, count)
 		}
 	}
 }
 
-func TestGetTabs_WithoutTemplate(t *testing.T) {
-	svc, contactID, vaultID, _ := setupContactTabsTest(t)
-
-	tabs, err := svc.GetTabs(contactID, vaultID)
+func TestGetTabsUsesContactSelectedVaultTemplate(t *testing.T) {
+	ctx := setupContactTabsTest(t)
+	layoutSvc := NewContactLayoutService(ctx.db)
+	items, err := layoutSvc.List(ctx.vaultID, "en")
+	if err != nil || len(items) != 1 {
+		t.Fatalf("list layouts: %v, %+v", err, items)
+	}
+	custom, err := layoutSvc.Create(ctx.vaultID, "en", dto.CreateContactLayoutTemplateRequest{Name: "Compact", SourceTemplateID: &items[0].ID})
 	if err != nil {
-		t.Fatalf("GetTabs failed: %v", err)
+		t.Fatalf("create custom layout: %v", err)
 	}
-
-	if tabs.TemplateName != "Default template" {
-		t.Errorf("Expected fallback to 'Default template', got '%s'", tabs.TemplateName)
+	if _, err := NewContactTemplateService(ctx.db).UpdateTemplate(ctx.contactID, ctx.vaultID, ctx.userID, dto.UpdateContactTemplateRequest{TemplateID: &custom.ID}); err != nil {
+		t.Fatalf("select contact template: %v", err)
 	}
-	if len(tabs.Pages) != 8 {
-		t.Fatalf("Expected 8 pages, got %d", len(tabs.Pages))
+	tabs, err := ctx.service.GetTabs(ctx.contactID, ctx.vaultID, "en")
+	if err != nil {
+		t.Fatalf("GetTabs: %v", err)
+	}
+	if tabs.TemplateID != custom.ID || tabs.TemplateName != "Compact" {
+		t.Fatalf("selected template not used: %+v", tabs)
 	}
 }
 
-func TestGetTabs_ContactNotFound(t *testing.T) {
-	svc, _, vaultID, _ := setupContactTabsTest(t)
-
-	_, err := svc.GetTabs("nonexistent-id", vaultID)
-	if err != ErrContactNotFound {
-		t.Errorf("Expected ErrContactNotFound, got %v", err)
+func TestGetTabsHidesPageAndAllOfItsModules(t *testing.T) {
+	ctx := setupContactTabsTest(t)
+	var vault models.Vault
+	if err := ctx.db.First(&vault, "id = ?", ctx.vaultID).Error; err != nil {
+		t.Fatalf("load vault: %v", err)
 	}
-}
-
-func TestGetTabs_ModuleOrdering(t *testing.T) {
-	svc, contactID, vaultID, _ := setupContactTabsTest(t)
-
-	tabs, err := svc.GetTabs(contactID, vaultID)
+	if err := ctx.db.Model(&models.VaultContactTemplatePage{}).
+		Where("template_id = ? AND slug = ?", *vault.DefaultTemplateID, "relationship-network").
+		Update("visible", false).Error; err != nil {
+		t.Fatalf("hide network page: %v", err)
+	}
+	tabs, err := ctx.service.GetTabs(ctx.contactID, ctx.vaultID, "en")
 	if err != nil {
-		t.Fatalf("GetTabs failed: %v", err)
+		t.Fatalf("GetTabs: %v", err)
 	}
-
-	contactPage := tabs.Pages[1]
-	for i, mod := range contactPage.Modules {
-		expectedPos := i + 1
-		if mod.Position != expectedPos {
-			t.Errorf("Module %d: expected position %d, got %d", i, expectedPos, mod.Position)
+	for _, page := range tabs.Pages {
+		if page.Slug == "relationship-network" {
+			t.Fatal("hidden network page was returned")
 		}
-	}
-
-	expectedTypes := []string{"avatar", "contact_names", "family_summary", "important_dates", "gender_pronoun", "labels", "quick_facts", "company", "religions", "addresses", "contact_information"}
-	for i, mod := range contactPage.Modules {
-		if mod.Type != expectedTypes[i] {
-			t.Errorf("Module %d: expected type '%s', got '%s'", i, expectedTypes[i], mod.Type)
+		for _, module := range page.Modules {
+			if module.Type == "relationship_network" {
+				t.Fatal("module from hidden network page was returned")
+			}
 		}
 	}
 }
 
-func TestGetTabs_HidesInvisiblePages(t *testing.T) {
-	svc, contactID, vaultID, accountID := setupContactTabsTest(t)
-
-	var page models.TemplatePage
-	if err := svc.db.Joins("JOIN templates ON templates.id = template_pages.template_id").
-		Where("templates.account_id = ? AND template_pages.slug = ?", accountID, "relationship-network").
-		First(&page).Error; err != nil {
-		t.Fatalf("find relationship network page: %v", err)
+func TestGetTabsReturnsDomainErrors(t *testing.T) {
+	ctx := setupContactTabsTest(t)
+	if _, err := ctx.service.GetTabs("missing", ctx.vaultID, "en"); !errors.Is(err, ErrContactNotFound) {
+		t.Fatalf("missing contact returned %v", err)
 	}
-	if err := svc.db.Model(&page).Update("visible", false).Error; err != nil {
-		t.Fatalf("hide page: %v", err)
+	if err := ctx.db.Model(&models.Vault{}).Where("id = ?", ctx.vaultID).Update("default_template_id", nil).Error; err != nil {
+		t.Fatalf("clear default template: %v", err)
 	}
-
-	tabs, err := svc.GetTabs(contactID, vaultID)
-	if err != nil {
-		t.Fatalf("GetTabs failed: %v", err)
-	}
-	if len(tabs.Pages) != 7 {
-		t.Fatalf("Expected 7 visible pages, got %d", len(tabs.Pages))
-	}
-	for _, visiblePage := range tabs.Pages {
-		if visiblePage.Slug == "relationship-network" {
-			t.Fatal("hidden relationship network page was returned")
-		}
+	if _, err := ctx.service.GetTabs(ctx.contactID, ctx.vaultID, "en"); !errors.Is(err, ErrContactLayoutNotFound) {
+		t.Fatalf("missing layout returned %v", err)
 	}
 }

@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useParams, useNavigate, Outlet } from "react-router-dom";
-import { formatContactName, useVaultNameOrder } from "@/utils/nameFormat";
+import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 import { useDateFormat, formatShortDate } from "@/utils/dateFormat";
 import { formatShortDateOnly } from "@/utils/dateOnlyInput";
 import {
@@ -38,7 +38,7 @@ import {
 import ContactAvatar from "@/components/ContactAvatar";
 import ActivitiesModule from "@/pages/contact/modules/ActivitiesModule";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, httpClient } from "@/api";
+import { api } from "@/api";
 import type {
   FeedItem,
   PaginationMeta,
@@ -48,6 +48,7 @@ import type {
   MoodTrackingParameterResponse,
   CatchUpPrompt,
   Reminder,
+  UserPreferences,
 } from "@/api";
 import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
@@ -84,7 +85,7 @@ export default function VaultDetail() {
   const vaultId = id!;
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [form] = Form.useForm();
   const { message } = App.useApp();
@@ -98,6 +99,11 @@ export default function VaultDetail() {
       return res.data!;
     },
     enabled: !!vaultId,
+  });
+
+  const { data: preferences } = useQuery<UserPreferences>({
+    queryKey: ["settings", "preferences"],
+    queryFn: async () => (await api.preferences.preferencesList()).data!,
   });
 
   const { data: contacts } = useQuery({
@@ -140,24 +146,26 @@ export default function VaultDetail() {
   });
 
   // ─── Tab State — persisted to backend ─────────────────────────
-  const defaultDashboardTab =
-    (vault?.default_dashboard_tab as DashboardTab) || "feed";
+  const defaultDashboardTab: DashboardTab =
+    preferences?.dashboard_tab === "activities" ||
+    preferences?.dashboard_tab === "life_metrics"
+      ? preferences.dashboard_tab
+      : "feed";
   const [activeTab, setActiveTab] = useState<DashboardTab | null>(null);
   const [activityCreateSignal, setActivityCreateSignal] = useState(0);
   const currentTab = activeTab ?? defaultDashboardTab;
 
-  const handleTabChange = useCallback(
-    (tab: DashboardTab) => {
-      setActiveTab(tab);
-      // Fire-and-forget: persist the tab preference
-      httpClient.instance
-        .put(`/vaults/${vaultId}/default-dashboard-tab`, { default_dashboard_tab: tab })
-        .catch(() => {
-          /* silent — non-critical */
-        });
-    },
-    [vaultId],
-  );
+  const dashboardPreferenceMutation = useMutation({
+    mutationFn: (tab: DashboardTab) =>
+      api.preferences.preferencesUpdate({ dashboard_tab: tab }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["settings", "preferences"] }),
+  });
+
+  const handleTabChange = (tab: DashboardTab) => {
+    setActiveTab(tab);
+    dashboardPreferenceMutation.mutate(tab);
+  };
 
   // ─── Loading / Null Guard ─────────────────────────────────────
   if (vaultLoading) {
@@ -242,9 +250,11 @@ export default function VaultDetail() {
           <Title level={4} style={{ margin: 0 }}>
             {vault.name}
           </Title>
-          <Dropdown menu={{ items: settingsMenu }} trigger={["click"]}>
-            <Button type="text" icon={<SettingOutlined />} />
-          </Dropdown>
+          {vault.current_user_permission === 100 && (
+            <Dropdown menu={{ items: settingsMenu }} trigger={["click"]}>
+              <Button type="text" icon={<SettingOutlined />} />
+            </Dropdown>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <Button
@@ -1338,7 +1348,7 @@ function CatchUpWidget({ vaultId }: { vaultId: string }) {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const dateFormats = useDateFormat();
-  const nameOrder = useVaultNameOrder(vaultId);
+  const nameOrder = useNameOrder();
 
   const { data: prompts = [], isLoading } = useQuery<CatchUpPrompt[]>({
     queryKey: ["vaults", vaultId, "catchUp"],
