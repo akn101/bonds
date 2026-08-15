@@ -167,6 +167,32 @@ func dropLegacyVaultPreferenceColumns(db *gorm.DB) error {
 }
 
 func dropLegacyContactTemplateForeignKeys(db *gorm.DB) error {
+	if db.Dialector.Name() == "sqlite" {
+		return db.Connection(func(conn *gorm.DB) (err error) {
+			var foreignKeys int
+			if err := conn.Raw("PRAGMA foreign_keys").Scan(&foreignKeys).Error; err != nil {
+				return fmt.Errorf("inspect SQLite foreign key enforcement: %w", err)
+			}
+			if foreignKeys == 0 {
+				return dropLegacyContactTemplateForeignKeysWithMigrator(conn)
+			}
+
+			if err := conn.Exec("PRAGMA foreign_keys = OFF").Error; err != nil {
+				return fmt.Errorf("disable SQLite foreign key enforcement for contact layout migration: %w", err)
+			}
+			defer func() {
+				if restoreErr := conn.Exec("PRAGMA foreign_keys = ON").Error; restoreErr != nil && err == nil {
+					err = fmt.Errorf("restore SQLite foreign key enforcement after contact layout migration: %w", restoreErr)
+				}
+			}()
+
+			return dropLegacyContactTemplateForeignKeysWithMigrator(conn)
+		})
+	}
+	return dropLegacyContactTemplateForeignKeysWithMigrator(db)
+}
+
+func dropLegacyContactTemplateForeignKeysWithMigrator(db *gorm.DB) error {
 	constraints := []struct {
 		table string
 		name  string

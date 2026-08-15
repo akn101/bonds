@@ -10,6 +10,83 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestDropLegacyContactTemplateForeignKeysWithDependentRows(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:drop-contact-layout-constraints?mode=memory&cache=shared"), &gorm.Config{
+		PrepareStmt: false,
+	})
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
+		t.Fatalf("enable foreign keys: %v", err)
+	}
+
+	statements := []string{
+		"CREATE TABLE `templates` (`id` integer PRIMARY KEY AUTOINCREMENT)",
+		`CREATE TABLE "vaults" ("id" text PRIMARY KEY, "default_template_id" integer, CONSTRAINT "fk_vaults_template" FOREIGN KEY ("default_template_id") REFERENCES "templates"("id"))`,
+		`CREATE TABLE "contacts" ("id" text PRIMARY KEY, "vault_id" text NOT NULL, "template_id" integer, CONSTRAINT "fk_vaults_contacts" FOREIGN KEY ("vault_id") REFERENCES "vaults"("id"), CONSTRAINT "fk_templates_contacts" FOREIGN KEY ("template_id") REFERENCES "templates"("id"))`,
+		`CREATE TABLE "notes" ("id" integer PRIMARY KEY AUTOINCREMENT, "contact_id" text NOT NULL, CONSTRAINT "fk_contacts_notes" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id"))`,
+		`CREATE TABLE "labels" ("id" integer PRIMARY KEY AUTOINCREMENT, "vault_id" text NOT NULL, CONSTRAINT "fk_vaults_labels" FOREIGN KEY ("vault_id") REFERENCES "vaults"("id"))`,
+		`INSERT INTO templates (id) VALUES (1)`,
+		`INSERT INTO vaults (id, default_template_id) VALUES ('vault-1', 1)`,
+		`INSERT INTO contacts (id, vault_id, template_id) VALUES ('contact-1', 'vault-1', 1)`,
+		`INSERT INTO notes (contact_id) VALUES ('contact-1')`,
+		`INSERT INTO labels (vault_id) VALUES ('vault-1')`,
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			t.Fatalf("prepare legacy contact layout schema: %v", err)
+		}
+	}
+	if err := dropLegacyContactTemplateForeignKeys(db); err != nil {
+		t.Fatalf("drop legacy contact layout foreign keys: %v", err)
+	}
+
+	if db.Migrator().HasConstraint("contacts", "fk_templates_contacts") {
+		t.Fatal("contacts legacy template constraint still exists")
+	}
+	if db.Migrator().HasConstraint("vaults", "fk_vaults_template") {
+		t.Fatal("vaults legacy template constraint still exists")
+	}
+	for _, constraint := range []struct {
+		table string
+		name  string
+	}{
+		{table: "contacts", name: "fk_vaults_contacts"},
+		{table: "notes", name: "fk_contacts_notes"},
+		{table: "labels", name: "fk_vaults_labels"},
+	} {
+		if !db.Migrator().HasConstraint(constraint.table, constraint.name) {
+			t.Fatalf("unrelated constraint %s on %s was removed", constraint.name, constraint.table)
+		}
+	}
+	for _, table := range []string{"templates", "vaults", "contacts", "notes", "labels"} {
+		var count int64
+		if err := db.Table(table).Count(&count).Error; err != nil {
+			t.Fatalf("count %s rows: %v", table, err)
+		}
+		if count != 1 {
+			t.Fatalf("%s rows = %d, want 1", table, count)
+		}
+	}
+	if foreignKeysEnabled(t, db) != 1 {
+		t.Fatal("foreign key enforcement was not restored")
+	}
+	var violations []struct {
+		Table string
+	}
+	if err := db.Raw("PRAGMA foreign_key_check").Scan(&violations).Error; err != nil {
+		t.Fatalf("check foreign keys: %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("migration left foreign key violations: %+v", violations)
+	}
+
+	if err := dropLegacyContactTemplateForeignKeys(db); err != nil {
+		t.Fatalf("rerun legacy constraint cleanup: %v", err)
+	}
+}
+
 func TestMigrateVaultContactLayoutsPreservesAndIsolatesLegacyAccountLayouts(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:contact-layout-migration?mode=memory&cache=shared"), &gorm.Config{
 		PrepareStmt: false,
