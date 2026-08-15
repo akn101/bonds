@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { App as AntApp, ConfigProvider } from "antd";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import ActivitiesModule from "@/pages/contact/modules/ActivitiesModule";
 
 const mockActivitiesList = vi.fn();
@@ -38,11 +40,19 @@ function renderModule(initiallyOpen = false) {
     <QueryClientProvider client={queryClient}>
       <ConfigProvider>
         <AntApp>
-          <ActivitiesModule vaultId="vault-1" initiallyOpen={initiallyOpen} />
+          <MemoryRouter>
+            <ActivitiesModule vaultId="vault-1" initiallyOpen={initiallyOpen} />
+            <LocationProbe />
+          </MemoryRouter>
         </AntApp>
       </ConfigProvider>
     </QueryClientProvider>,
   );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}</output>;
 }
 
 describe("ActivitiesModule on the vault dashboard", () => {
@@ -82,6 +92,51 @@ describe("ActivitiesModule on the vault dashboard", () => {
 
     expect(await screen.findByText("You")).toBeInTheDocument();
     expect(screen.queryByText("user-1")).not.toBeInTheDocument();
+  });
+
+  it("links every activity to its canonical detail and does not append participants to description", async () => {
+    mockActivitiesList.mockResolvedValue({
+      data: [
+        {
+          id: 42,
+          title: "Dinner",
+          description: "A quiet evening",
+          participants: [{ id: "contact-1", name: "Alice Participant" }],
+          mentioned_contacts: [],
+        },
+      ],
+      meta: { page: 1, total_pages: 1 },
+    });
+
+    renderModule();
+
+    expect(await screen.findByRole("link", { name: "Dinner" })).toHaveAttribute(
+      "href",
+      "/vaults/vault-1/activities/42",
+    );
+    expect(screen.getByText("A quiet evening")).toBeInTheDocument();
+    expect(screen.queryByText(/Alice Participant/)).not.toBeInTheDocument();
+  });
+
+  it("keeps edit and delete controls from opening activity details", async () => {
+    const user = userEvent.setup();
+    mockActivitiesList.mockResolvedValue({
+      data: [{ id: 42, title: "Dinner", participants: [] }],
+      meta: { page: 1, total_pages: 1 },
+    });
+
+    renderModule();
+    await user.click(
+      await screen.findByRole("button", { name: "Edit activity: Dinner" }),
+    );
+    expect(screen.getByTestId("location")).toHaveTextContent("/");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(
+      screen.getByRole("button", { name: "Delete activity: Dinner" }),
+    );
+    expect(screen.getByTestId("location")).toHaveTextContent("/");
   });
 
   it("uses activity wording and the Title field for the dashboard quick action", async () => {

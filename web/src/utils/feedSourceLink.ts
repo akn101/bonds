@@ -147,6 +147,9 @@ export function buildContactSourcePath(
   const basePath = `/vaults/${vaultId}/contacts/${contactId}`;
   const normalizedSource = normalizeFeedSource(source);
   if (!normalizedSource) return basePath;
+  if (normalizedSource.kind === "Activity") {
+    return `/vaults/${vaultId}/activities/${normalizedSource.id}`;
+  }
 
   return `${basePath}?focus=${normalizedSource.module}&source=${normalizedSource.kind}:${normalizedSource.id}`;
 }

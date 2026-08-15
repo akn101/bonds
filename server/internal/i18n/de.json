@@ -139,6 +139,7 @@
 
   "err.failed_to_create_activity": "Aktivität konnte nicht hinzugefügt werden",
   "err.failed_to_list_activities": "Aktivitäten konnten nicht aufgelistet werden",
+  "err.failed_to_get_activity": "Aktivität konnte nicht geladen werden",
   "err.invalid_activity_time": "Ungültiger Zeitpunkt der Aktivität",
   "err.invalid_activity_id": "Ungültige Aktivitäts-ID",
   "err.activity_not_found": "Aktivität nicht gefunden",
@@ -370,6 +371,7 @@
   "seed.modules.quick_facts": "Quick Facts",
   "seed.modules.job_information": "Berufliche Informationen",
   "seed.modules.religions": "Religionen",
+  "seed.modules.religion": "Religion",
   "seed.modules.contact_feed": "Kontakt-Feed",
   "seed.modules.relationships": "Beziehungen",
   "seed.modules.relationship_network": "Beziehungsnetzwerk",

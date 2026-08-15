@@ -4733,8 +4733,8 @@ func TestContactTabs_Success(t *testing.T) {
 	if tabs.Pages[0].Slug != "summary" {
 		t.Errorf("expected first page slug 'summary', got '%s'", tabs.Pages[0].Slug)
 	}
-	if len(tabs.Pages[1].Modules) != 6 {
-		t.Errorf("expected 6 modules on contact page, got %d", len(tabs.Pages[1].Modules))
+	if len(tabs.Pages[1].Modules) != 7 {
+		t.Errorf("expected 7 modules on contact page, got %d", len(tabs.Pages[1].Modules))
 	}
 	moduleCounts := map[string]int{}
 	for _, page := range tabs.Pages {
@@ -6214,9 +6214,10 @@ func TestActivity_CreateListUpdateDelete(t *testing.T) {
 	vault := ts.createTestVault(t, token, "Activity Vault")
 	contact := ts.createTestContact(t, token, vault.ID, "Primary")
 	mentioned := ts.createTestContact(t, token, vault.ID, "Mentioned")
+	additional := ts.createTestContact(t, token, vault.ID, "Additional")
 	var typeID uint
 	ts.db.Raw("SELECT activity_types.id FROM activity_types JOIN activity_categories ON activity_categories.id = activity_types.activity_category_id WHERE activity_categories.vault_id = ? LIMIT 1", vault.ID).Scan(&typeID)
-	body := fmt.Sprintf("{\"primary_contact_id\":%q,\"activity_type_id\":%d,\"title\":\"Dinner\",\"description\":\"Dinner with @[Mentioned](contact:%s)\",\"start_date\":\"2026-06-20T00:00:00Z\",\"start_precision\":\"day\",\"end_status\":\"none\"}", contact.ID, typeID, mentioned.ID)
+	body := fmt.Sprintf("{\"primary_contact_id\":%q,\"participant_ids\":[%q,%q],\"activity_type_id\":%d,\"title\":\"Dinner\",\"description\":\"Dinner with @[Mentioned](contact:%s)\",\"start_date\":\"2026-06-20T00:00:00Z\",\"start_precision\":\"day\",\"end_status\":\"none\",\"place\":\"Cafe\"}", contact.ID, mentioned.ID, additional.ID, typeID, mentioned.ID)
 	rec := ts.doRequest(http.MethodPost, fmt.Sprintf("/api/vaults/%s/activities", vault.ID), body, token)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
@@ -6236,7 +6237,27 @@ func TestActivity_CreateListUpdateDelete(t *testing.T) {
 	if created.Title != "Dinner" {
 		t.Fatalf("title = %q", created.Title)
 	}
-	assertHandlerParticipantIDs(t, created.Participants, contact.ID, mentioned.ID)
+	assertHandlerParticipantIDs(t, created.Participants, contact.ID, mentioned.ID, additional.ID)
+
+	rec = ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/activities/%d", vault.ID, created.ID), "", token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("detail: %d %s", rec.Code, rec.Body.String())
+	}
+	var detail dto.ActivityResponse
+	if err := json.Unmarshal(parseResponse(t, rec).Data, &detail); err != nil {
+		t.Fatalf("decode detail: %v", err)
+	}
+	if detail.Title != "Dinner" || detail.Description == "" || detail.Place != "Cafe" {
+		t.Fatalf("activity detail fields = %+v", detail)
+	}
+	if len(detail.Participants) != 3 || len(detail.MentionedContacts) != 1 || detail.MentionedContacts[0].ID != mentioned.ID {
+		t.Fatalf("activity detail associations = participants:%+v mentions:%+v", detail.Participants, detail.MentionedContacts)
+	}
+
+	rec = ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/activities/%d", vault.ID, created.ID+999999), "", token)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("missing detail: expected 404, got %d %s", rec.Code, rec.Body.String())
+	}
 
 	rec = ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/activities?contact_id=%s", vault.ID, mentioned.ID), "", token)
 	if rec.Code != http.StatusOK {

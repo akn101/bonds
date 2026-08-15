@@ -1033,7 +1033,22 @@
       "edit": "Aktivität bearbeiten",
       "delete_confirm": "Diese Aktivität löschen?",
       "deleted": "Aktivität gelöscht",
-      "add_first": "Erste Aktivität hinzufügen"
+      "add_first": "Erste Aktivität hinzufügen",
+      "detail_title": "Aktivitätsdetails",
+      "view_detail_named": "Aktivität anzeigen: {{title}}",
+      "edit_named": "Aktivität bearbeiten: {{title}}",
+      "delete_named": "Aktivität löschen: {{title}}",
+      "not_found": "Aktivität nicht gefunden",
+      "not_found_description": "Diese Aktivität wurde möglicherweise gelöscht oder ist in diesem Tresor nicht verfügbar.",
+      "no_description": "Keine Beschreibung",
+      "subject": "Subjekt",
+      "contact_subject": "Tresorkontakte",
+      "participant_section": "Teilnehmende",
+      "no_participants": "Keine Kontakte als Teilnehmende",
+      "from_place": "Von",
+      "to_place": "Nach",
+      "distance": "Entfernung",
+      "view_parent": "Zugehörige Erfahrung anzeigen"
     },
     "mood_tracking": {
       "title": "Stimmungsverfolgung",

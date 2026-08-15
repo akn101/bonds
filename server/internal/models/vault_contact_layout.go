@@ -23,7 +23,8 @@ var ContactModuleDefinitions = []ContactModuleDefinition{
 	{Key: "important_dates", TranslationKey: "seed.modules.important_dates"},
 	{Key: "labels", TranslationKey: "seed.modules.labels"},
 	{Key: "quick_facts", TranslationKey: "seed.modules.quick_facts"},
-	{Key: "extra_information", TranslationKey: "seed.template_pages.contact_information"},
+	{Key: "religion", TranslationKey: "seed.modules.religion"},
+	{Key: "jobs", TranslationKey: "seed.modules.job_information"},
 	{Key: "addresses", TranslationKey: "seed.modules.addresses"},
 	{Key: "contact_information", TranslationKey: "seed.modules.contact_information"},
 	{Key: "feed", TranslationKey: "seed.modules.contact_feed"},
@@ -149,7 +150,7 @@ type defaultContactPageDefinition struct {
 
 var defaultContactPageDefinitions = []defaultContactPageDefinition{
 	{TranslationKey: "seed.template_pages.summary", Slug: "summary", ModuleKeys: []string{"contact_summary"}},
-	{TranslationKey: "seed.template_pages.contact_information", Slug: "contact", Type: "contact", ModuleKeys: []string{"important_dates", "labels", "quick_facts", "extra_information", "addresses", "contact_information"}},
+	{TranslationKey: "seed.template_pages.contact_information", Slug: "contact", Type: "contact", ModuleKeys: []string{"important_dates", "labels", "quick_facts", "religion", "jobs", "addresses", "contact_information"}},
 	{TranslationKey: "seed.template_pages.feed", Slug: "feed", ModuleKeys: []string{"feed"}},
 	{TranslationKey: "seed.template_pages.social", Slug: "social", ModuleKeys: []string{"relationships", "pets", "groups"}},
 	{TranslationKey: "seed.template_pages.relationship_network", Slug: "relationship-network", ModuleKeys: []string{"relationship_network"}},

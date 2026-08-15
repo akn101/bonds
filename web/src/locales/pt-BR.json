@@ -1033,7 +1033,22 @@
       "edit": "Editar atividade",
       "delete_confirm": "Excluir esta atividade?",
       "deleted": "Atividade excluída",
-      "add_first": "Adicionar a primeira atividade"
+      "add_first": "Adicionar a primeira atividade",
+      "detail_title": "Detalhes da atividade",
+      "view_detail_named": "Ver atividade: {{title}}",
+      "edit_named": "Editar atividade: {{title}}",
+      "delete_named": "Excluir atividade: {{title}}",
+      "not_found": "Atividade não encontrada",
+      "not_found_description": "Esta atividade pode ter sido removida ou não está disponível neste cofre.",
+      "no_description": "Sem descrição",
+      "subject": "Sujeito",
+      "contact_subject": "Contatos do cofre",
+      "participant_section": "Participantes",
+      "no_participants": "Nenhum contato participante",
+      "from_place": "De",
+      "to_place": "Para",
+      "distance": "Distância",
+      "view_parent": "Ver experiência relacionada"
     },
     "mood_tracking": {
       "title": "Registro de Humor",

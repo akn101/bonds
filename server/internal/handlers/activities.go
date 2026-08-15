@@ -42,6 +42,28 @@ func (h *ActivityHandler) List(c echo.Context) error {
 	return response.Paginated(c, items, meta)
 }
 
+// Get godoc
+//
+//	@Summary Get activity details
+//	@Tags activities
+//	@Produce json
+//	@Security BearerAuth
+//	@Param vault_id path string true "Vault ID"
+//	@Param id path integer true "Activity ID"
+//	@Success 200 {object} response.APIResponse{data=dto.ActivityResponse}
+//	@Router /vaults/{vault_id}/activities/{id} [get]
+func (h *ActivityHandler) Get(c echo.Context) error {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "err.invalid_activity_id", nil)
+	}
+	item, err := h.activityService.Get(c.Param("vault_id"), middleware.GetUserID(c), uint(id))
+	if err != nil {
+		return activityError(c, err, "err.failed_to_get_activity")
+	}
+	return response.OK(c, item)
+}
+
 // Create godoc
 //
 //	@Summary Create an activity

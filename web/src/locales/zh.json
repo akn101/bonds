@@ -1033,7 +1033,22 @@
       "edit": "编辑活动",
       "delete_confirm": "删除这条活动？",
       "deleted": "活动已删除",
-      "add_first": "添加第一条活动"
+      "add_first": "添加第一条活动",
+      "detail_title": "活动详情",
+      "view_detail_named": "查看活动：{{title}}",
+      "edit_named": "编辑活动：{{title}}",
+      "delete_named": "删除活动：{{title}}",
+      "not_found": "未找到活动",
+      "not_found_description": "该活动可能已被删除，或不属于当前保险库。",
+      "no_description": "暂无描述",
+      "subject": "主体",
+      "contact_subject": "保险库联系人",
+      "participant_section": "参与者",
+      "no_participants": "暂无联系人参与者",
+      "from_place": "起点",
+      "to_place": "终点",
+      "distance": "距离",
+      "view_parent": "查看关联经历"
     },
     "mood_tracking": {
       "title": "心情追踪",

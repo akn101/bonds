@@ -92,8 +92,7 @@ describe("ContactMentionText", () => {
   it("renders exact UUID mentions with the current custom-order contact name and preserves ordinary linkification", async () => {
     mockPreferencesList.mockResolvedValue({
       data: {
-        name_order:
-          "%last_name%, %first_name% {nickname? (%nickname%)}",
+        name_order: "%last_name%, %first_name% {nickname? (%nickname%)}",
       },
     });
     renderMentionText(vi.fn(), [
@@ -214,5 +213,37 @@ describe("ContactMentionText", () => {
     expect(
       await screen.findByRole("link", { name: "@Alice Example" }),
     ).toHaveAttribute("href", `/vaults/v1/contacts/${CONTACT_ID}`);
+  });
+
+  it("can keep unmentioned associations out of explicit description text", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider>
+          <AntApp>
+            <MemoryRouter>
+              <ContactMentionText
+                vaultId="v1"
+                contacts={[
+                  {
+                    id: CONTACT_ID,
+                    first_name: "Alice",
+                    last_name: "Participant",
+                  },
+                ]}
+                appendUnmentionedContacts={false}
+              >
+                Plain activity description.
+              </ContactMentionText>
+            </MemoryRouter>
+          </AntApp>
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(container).toHaveTextContent("Plain activity description.");
+    expect(container).not.toHaveTextContent("Alice Participant");
   });
 });

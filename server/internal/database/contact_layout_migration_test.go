@@ -1,6 +1,8 @@
 package database
 
 import (
+	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/naiba/bonds/internal/models"
@@ -222,6 +224,97 @@ func TestMigrateVaultContactLayoutsPreservesAndIsolatesLegacyAccountLayouts(t *t
 	}
 	if got := len(loadVaultLayoutTemplates(t, db, vaultB.ID)); got != beforeB {
 		t.Fatalf("idempotent rerun changed vault B template count: %d -> %d", beforeB, got)
+	}
+}
+
+func TestSplitLegacyExtraInformationModulesPreservesLayoutAndIsIdempotent(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:split-extra-information?mode=memory&cache=shared"), &gorm.Config{PrepareStmt: false})
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	if err := db.AutoMigrate(models.AllModels()...); err != nil {
+		t.Fatalf("migrate schema: %v", err)
+	}
+
+	account := models.Account{ID: "account-split-extra"}
+	vault := models.Vault{ID: "vault-split-extra", AccountID: account.ID, Type: "personal", Name: "Split"}
+	if err := db.Create(&account).Error; err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+	if err := db.Create(&vault).Error; err != nil {
+		t.Fatalf("create vault: %v", err)
+	}
+	if err := models.SeedVaultContactLayout(db, vault.ID); err != nil {
+		t.Fatalf("seed current layout: %v", err)
+	}
+
+	var template models.VaultContactTemplate
+	if err := db.Where("vault_id = ?", vault.ID).First(&template).Error; err != nil {
+		t.Fatalf("load template: %v", err)
+	}
+	if err := db.Model(&template).Update("revision", 7).Error; err != nil {
+		t.Fatalf("set revision: %v", err)
+	}
+	var page models.VaultContactTemplatePage
+	if err := db.Where("template_id = ? AND slug = ?", template.ID, "contact").First(&page).Error; err != nil {
+		t.Fatalf("load contact page: %v", err)
+	}
+	if err := db.Model(&page).Update("visible", false).Error; err != nil {
+		t.Fatalf("hide contact page: %v", err)
+	}
+	if err := db.Where("template_page_id = ? AND module_key IN ?", page.ID, []string{"religion", "jobs"}).
+		Delete(&models.VaultContactTemplateModule{}).Error; err != nil {
+		t.Fatalf("remove current split modules: %v", err)
+	}
+	if err := db.Table("vault_contact_template_modules").
+		Where("template_page_id = ? AND position > ?", page.ID, 4).
+		Update("position", gorm.Expr("position - 1")).Error; err != nil {
+		t.Fatalf("restore legacy neighboring positions: %v", err)
+	}
+	if err := db.Table("vault_contact_template_modules").Create(map[string]interface{}{
+		"template_id": template.ID, "template_page_id": page.ID, "module_key": "extra_information", "position": 3,
+	}).Error; err != nil {
+		t.Fatalf("insert retired placement: %v", err)
+	}
+
+	if err := splitLegacyExtraInformationModules(db); err != nil {
+		t.Fatalf("split legacy placement: %v", err)
+	}
+	assertSplitContactModules(t, db, template.ID, page.ID, 8, false)
+
+	if err := splitLegacyExtraInformationModules(db); err != nil {
+		t.Fatalf("rerun split migration: %v", err)
+	}
+	assertSplitContactModules(t, db, template.ID, page.ID, 8, false)
+}
+
+func assertSplitContactModules(t *testing.T, db *gorm.DB, templateID, pageID uint, revision uint, visible bool) {
+	t.Helper()
+	var template models.VaultContactTemplate
+	if err := db.First(&template, templateID).Error; err != nil {
+		t.Fatalf("reload template: %v", err)
+	}
+	if template.Revision != revision {
+		t.Fatalf("template revision = %d, want %d", template.Revision, revision)
+	}
+	var page models.VaultContactTemplatePage
+	if err := db.First(&page, pageID).Error; err != nil {
+		t.Fatalf("reload page: %v", err)
+	}
+	if page.Visible != visible {
+		t.Fatalf("page visibility = %v, want %v", page.Visible, visible)
+	}
+	var modules []models.VaultContactTemplateModule
+	if err := db.Where("template_page_id = ?", pageID).Order("position ASC, id ASC").Find(&modules).Error; err != nil {
+		t.Fatalf("load modules: %v", err)
+	}
+	got := make([]string, len(modules))
+	for index, module := range modules {
+		got[index] = fmt.Sprintf("%s:%d", module.ModuleKey, module.Position)
+	}
+	want := []string{"important_dates:0", "labels:1", "quick_facts:2", "religion:3", "jobs:4", "addresses:5", "contact_information:6"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("module order = %v, want %v", got, want)
 	}
 }
 

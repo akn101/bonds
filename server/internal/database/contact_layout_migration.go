@@ -63,6 +63,9 @@ func migrateVaultContactLayouts(db *gorm.DB) error {
 			return fmt.Errorf("migrate contact layouts for vault %s: %w", vault.ID, err)
 		}
 	}
+	if err := splitLegacyExtraInformationModules(db); err != nil {
+		return err
+	}
 	if err := normalizeUserViewPreferences(db); err != nil {
 		return err
 	}
@@ -73,6 +76,45 @@ func migrateVaultContactLayouts(db *gorm.DB) error {
 		return err
 	}
 	return dropLegacyVaultPreferenceColumns(db)
+}
+
+// splitLegacyExtraInformationModules upgrades the v0.22 combined placement to
+// the two independently configurable content blocks it represented. The
+// transaction and removal of the retired key make the migration atomic and
+// idempotent: a template revision advances exactly once when its layout changes.
+func splitLegacyExtraInformationModules(db *gorm.DB) error {
+	if !db.Migrator().HasTable(&models.VaultContactTemplateModule{}) {
+		return nil
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		var legacyPlacements []models.VaultContactTemplateModule
+		if err := tx.Where("module_key = ?", "extra_information").Order("template_id ASC, id ASC").Find(&legacyPlacements).Error; err != nil {
+			return err
+		}
+		for _, legacy := range legacyPlacements {
+			if err := tx.Table("vault_contact_template_modules").
+				Where("template_page_id = ? AND position > ?", legacy.TemplatePageID, legacy.Position).
+				Update("position", gorm.Expr("position + 1")).Error; err != nil {
+				return err
+			}
+			if err := tx.Delete(&legacy).Error; err != nil {
+				return err
+			}
+			placements := []models.VaultContactTemplateModule{
+				{TemplateID: legacy.TemplateID, TemplatePageID: legacy.TemplatePageID, ModuleKey: "religion", Position: legacy.Position},
+				{TemplateID: legacy.TemplateID, TemplatePageID: legacy.TemplatePageID, ModuleKey: "jobs", Position: legacy.Position + 1},
+			}
+			if err := tx.Create(&placements).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&models.VaultContactTemplate{}).
+				Where("id = ?", legacy.TemplateID).
+				Update("revision", gorm.Expr("revision + 1")).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func validateVaultContactLayoutReferences(db *gorm.DB) error {
@@ -312,8 +354,12 @@ func normalizedLegacyContactModuleKey(key string) string {
 	switch key {
 	case "avatar", "contact_names", "family_summary", "posts", "":
 		return ""
-	case "gender_pronoun", "religions", "company":
-		return "extra_information"
+	case "gender_pronoun":
+		return ""
+	case "religions":
+		return "religion"
+	case "company":
+		return "jobs"
 	default:
 		return key
 	}

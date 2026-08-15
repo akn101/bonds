@@ -19,6 +19,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { App as AntApp, ConfigProvider, Modal } from "antd";
 import ContactDetail from "@/pages/contact/ContactDetail";
+import { CONTACT_MODULE_RENDERER_KEYS } from "@/pages/contact/contactModuleRegistry";
 import ContactAvatar from "@/components/ContactAvatar";
 import { api, httpClient } from "@/api";
 import type { Contact, ContactTabsResponse } from "@/api";
@@ -443,11 +444,18 @@ vi.mock("@/pages/contact/modules/LoansModule", () => ({
 vi.mock("@/pages/contact/modules/PetsModule", () => ({
   default: () => <div>PetsModule</div>,
 }));
+vi.mock("@/pages/contact/modules/GroupsModule", () => ({
+  default: () => <div>GroupsModule</div>,
+}));
 vi.mock("@/pages/contact/modules/RelationshipsModule", () => ({
   default: () => <div>RelationshipsModule</div>,
 }));
 vi.mock("@/pages/contact/modules/RelationshipNetworkModule", () => ({
-  default: () => <div data-testid="relationship-network-module">RelationshipNetworkModule</div>,
+  default: () => (
+    <div data-testid="relationship-network-module">
+      RelationshipNetworkModule
+    </div>
+  ),
 }));
 vi.mock("@/pages/contact/modules/GoalsModule", () => ({
   default: () => <div>GoalsModule</div>,
@@ -479,8 +487,11 @@ vi.mock("@/pages/contact/modules/LabelsModule", () => ({
 vi.mock("@/pages/contact/modules/FeedModule", () => ({
   default: () => <div>FeedModule</div>,
 }));
-vi.mock("@/pages/contact/modules/ExtraInfoModule", () => ({
-  default: () => <div>ExtraInfoModule</div>,
+vi.mock("@/pages/contact/modules/ReligionModule", () => ({
+  default: () => <div>ReligionModule</div>,
+}));
+vi.mock("@/pages/contact/modules/JobsModule", () => ({
+  default: () => <div>JobsModule</div>,
 }));
 vi.mock("@/pages/contact/modules/ContactSummaryCard", () => ({
   default: ({ readOnly }: { readOnly?: boolean }) => (
@@ -672,6 +683,36 @@ function contactDetailView(initialUrl = "/vaults/1/contacts/2") {
 function renderContactDetail(initialUrl = "/vaults/1/contacts/2") {
   return render(contactDetailView(initialUrl));
 }
+
+it("covers every stable backend contact module key", () => {
+  expect([...CONTACT_MODULE_RENDERER_KEYS].sort()).toEqual(
+    [
+      "activities",
+      "addresses",
+      "calls",
+      "contact_information",
+      "contact_summary",
+      "documents",
+      "feed",
+      "gifts",
+      "goals",
+      "groups",
+      "important_dates",
+      "jobs",
+      "labels",
+      "loans",
+      "notes",
+      "pets",
+      "photos",
+      "quick_facts",
+      "relationships",
+      "relationship_network",
+      "religion",
+      "reminders",
+      "tasks",
+    ].sort(),
+  );
+});
 
 function CachedSourceContactAvatars({
   queryClient,
@@ -950,6 +991,43 @@ describe("ContactDetail", () => {
     expect(screen.getByText("John Doe")).toBeInTheDocument();
   });
 
+  it("renders religion and jobs independently from the saved layout", () => {
+    mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
+    mockTabsData = {
+      template_id: 42,
+      pages: [
+        {
+          id: 1,
+          name: "Profile and Contact",
+          slug: "contact",
+          type: "contact",
+          modules: [{ id: 10, name: "Religion", type: "religion" }],
+        },
+      ],
+    };
+
+    const rendered = renderContactDetail();
+    expect(screen.getByText("ReligionModule")).toBeInTheDocument();
+    expect(screen.queryByText("JobsModule")).not.toBeInTheDocument();
+
+    rendered.unmount();
+    mockTabsData = {
+      template_id: 42,
+      pages: [
+        {
+          id: 1,
+          name: "Profile and Contact",
+          slug: "contact",
+          type: "contact",
+          modules: [{ id: 11, name: "Job information", type: "jobs" }],
+        },
+      ],
+    };
+    renderContactDetail();
+    expect(screen.queryByText("ReligionModule")).not.toBeInTheDocument();
+    expect(screen.getByText("JobsModule")).toBeInTheDocument();
+  });
+
   it("renders action buttons", () => {
     mockContactQuery.mockReturnValue({ data: mockContact, isLoading: false });
     renderContactDetail();
@@ -967,9 +1045,9 @@ describe("ContactDetail", () => {
     const rendered = renderContactDetail();
 
     await user.click(screen.getByRole("button", { name: /Customize view/ }));
-    expect(await screen.findByTestId("contact-layout-manager")).toHaveTextContent(
-      "Layout manager for 1",
-    );
+    expect(
+      await screen.findByTestId("contact-layout-manager"),
+    ).toHaveTextContent("Layout manager for 1");
 
     rendered.unmount();
     mockCurrentVault = { current_user_permission: 200 };
@@ -996,7 +1074,9 @@ describe("ContactDetail", () => {
     renderContactDetail();
 
     expect(screen.queryByText("Relationship network")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("relationship-network-module")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("relationship-network-module"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a promote action for hidden relationship-only contacts", async () => {

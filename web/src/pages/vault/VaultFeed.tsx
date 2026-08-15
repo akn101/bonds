@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { Typography, Button, List, Tag, Spin, Empty, theme } from "antd";
 import {
   ArrowLeftOutlined,
@@ -23,6 +23,7 @@ export default function VaultFeed() {
   const { id } = useParams<{ id: string }>();
   const vaultId = id ?? "";
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const [page, setPage] = useState(1);
@@ -125,6 +126,9 @@ export default function VaultFeed() {
               sourcePath !== contactPath
                 ? sourcePath
                 : null;
+            const detailState = {
+              activityReturnTo: `${location.pathname}${location.search}`,
+            };
             const contactLabel = item.contact_name || item.contact_id;
             const actionTag = (
               <Tag
@@ -172,7 +176,9 @@ export default function VaultFeed() {
                       }}
                     >
                       {sourceLink ? (
-                        <Link to={sourceLink}>{actionTag}</Link>
+                        <Link to={sourceLink} state={detailState}>
+                          {actionTag}
+                        </Link>
                       ) : (
                         actionTag
                       )}
@@ -190,7 +196,9 @@ export default function VaultFeed() {
                     <>
                       {description &&
                         (sourceLink ? (
-                          <Link to={sourceLink}>{description}</Link>
+                          <Link to={sourceLink} state={detailState}>
+                            {description}
+                          </Link>
                         ) : (
                           description
                         ))}

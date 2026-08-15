@@ -622,6 +622,7 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	vaultScoped.GET("/lifeMetrics/:id/detail", lifeMetricHandler.GetDetail)
 
 	vaultScoped.GET("/activities", activityHandler.List)
+	vaultScoped.GET("/activities/:id", activityHandler.Get)
 	vaultScoped.POST("/activities", activityHandler.Create, requireEditor)
 	vaultScoped.PUT("/activities/:id", activityHandler.Update, requireEditor)
 	vaultScoped.DELETE("/activities/:id", activityHandler.Delete, requireEditor)

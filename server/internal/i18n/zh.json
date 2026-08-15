@@ -139,6 +139,7 @@
 
   "err.failed_to_create_activity": "添加活动记录失败",
   "err.failed_to_list_activities": "获取活动记录列表失败",
+  "err.failed_to_get_activity": "获取活动记录失败",
   "err.invalid_activity_time": "活动记录时间无效",
   "err.invalid_activity_id": "无效的活动记录 ID",
   "err.activity_not_found": "未找到活动记录",
@@ -376,6 +377,7 @@
   "seed.modules.quick_facts": "速览",
   "seed.modules.job_information": "工作信息",
   "seed.modules.religions": "宗教信仰",
+  "seed.modules.religion": "宗教信仰",
   "seed.modules.contact_feed": "联系人动态",
   "seed.modules.relationships": "关系",
   "seed.modules.relationship_network": "关系网络",

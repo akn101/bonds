@@ -1873,6 +1873,33 @@ func TestViewerCannotCreateActivity(t *testing.T) {
 	}
 }
 
+func TestViewerCanReadActivityDetail(t *testing.T) {
+	ts, adminToken, viewerToken, vaultID, contactID := setupViewerTest(t)
+	var typeID uint
+	if err := ts.db.Table("activity_types").
+		Joins("JOIN activity_categories ON activity_categories.id = activity_types.activity_category_id").
+		Where("activity_categories.vault_id = ?", vaultID).
+		Pluck("activity_types.id", &typeID).Error; err != nil {
+		t.Fatalf("load activity type: %v", err)
+	}
+	body := fmt.Sprintf(`{"primary_contact_id":%q,"activity_type_id":%d,"title":"Viewer readable"}`, contactID, typeID)
+	created := ts.doRequest(http.MethodPost, fmt.Sprintf("/api/vaults/%s/activities", vaultID), body, adminToken)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create activity: %d %s", created.Code, created.Body.String())
+	}
+	var activity struct {
+		ID uint `json:"id"`
+	}
+	if err := json.Unmarshal(parseResponse(t, created).Data, &activity); err != nil {
+		t.Fatalf("decode activity: %v", err)
+	}
+
+	rec := ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/activities/%d", vaultID, activity.ID), "", viewerToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected Viewer detail read 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestViewerCanCreateOwnMoodEvent(t *testing.T) {
 	ts, _, viewerToken, vaultID, _ := setupViewerTest(t)
 	var parameterID uint
@@ -2660,6 +2687,22 @@ func TestCrossVaultActivityBlocked(t *testing.T) {
 	rec := ts.doRequest(http.MethodPost, path, body, token)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("expected 404 for cross-vault activity create, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCrossVaultActivityDetailBlocked(t *testing.T) {
+	ts := setupTestServer(t)
+	token, _ := ts.registerTestUser(t, "xvault-activity-detail@example.com")
+	vaultA := ts.createTestVault(t, token, "Activity Detail A")
+	vaultB := ts.createTestVault(t, token, "Activity Detail B")
+	activity := models.Activity{VaultID: vaultA.ID, Title: "Private activity"}
+	if err := ts.db.Create(&activity).Error; err != nil {
+		t.Fatalf("create activity: %v", err)
+	}
+
+	rec := ts.doRequest(http.MethodGet, fmt.Sprintf("/api/vaults/%s/activities/%d", vaultB.ID, activity.ID), "", token)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected cross-vault activity detail 404, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

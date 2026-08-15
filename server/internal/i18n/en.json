@@ -139,6 +139,7 @@
 
   "err.failed_to_create_activity": "Failed to add activity",
   "err.failed_to_list_activities": "Failed to list activities",
+  "err.failed_to_get_activity": "Failed to get activity",
   "err.invalid_activity_time": "Invalid activity time",
   "err.invalid_activity_id": "Invalid activity ID",
   "err.activity_not_found": "Activity not found",
@@ -370,6 +371,7 @@
   "seed.modules.quick_facts": "Quick Facts",
   "seed.modules.job_information": "Job information",
   "seed.modules.religions": "Religions",
+  "seed.modules.religion": "Religion",
   "seed.modules.contact_feed": "Contact feed",
   "seed.modules.relationships": "Relationships",
   "seed.modules.relationship_network": "Relationship network",

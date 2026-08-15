@@ -154,16 +154,12 @@ async function navigateToContactActivities(
 
 async function expectParticipantActivityVisible(
   page: import("@playwright/test").Page,
-  participantName: string,
 ) {
   const activitiesCard = page
     .locator(".ant-card")
     .filter({ hasText: "Activities" });
   await expect(
     activitiesCard.getByText("Shared Summer Trip", { exact: true }),
-  ).toBeVisible({ timeout: 30000 });
-  await expect(
-    activitiesCard.getByRole("link", { name: participantName }),
   ).toBeVisible({ timeout: 30000 });
   await expect(activitiesCard.getByText(/Shared festival memory/)).toBeVisible({
     timeout: 30000,
@@ -435,10 +431,31 @@ test.describe("Vault Settings - Activities", () => {
     );
 
     await navigateToContactActivities(page, vaultId, contactAId);
-    await expectParticipantActivityVisible(page, "BobLife Participant");
+    await expectParticipantActivityVisible(page);
     await page
-      .getByRole("link", { name: "BobLife Participant" })
-      .first()
+      .getByRole("link", { name: "Shared Summer Trip", exact: true })
+      .click();
+    await expect(page).toHaveURL(
+      new RegExp(`/vaults/${vaultId}/activities/\\d+$`),
+      { timeout: 10000 },
+    );
+    const detail = page.getByRole("dialog", { name: "Activity details" });
+    await expect(detail).toBeVisible();
+    await expect(
+      detail.locator(`a[href="/vaults/${vaultId}/contacts/${contactAId}"]`),
+    ).toBeVisible();
+    await expect(
+      detail.locator(`a[href="/vaults/${vaultId}/contacts/${contactBId}"]`),
+    ).toHaveCount(2);
+
+    await page.reload();
+    await expect(
+      page.getByRole("dialog", { name: "Activity details" }),
+    ).toBeVisible({ timeout: 30000 });
+    await page
+      .getByRole("dialog", { name: "Activity details" })
+      .locator(`a[href="/vaults/${vaultId}/contacts/${contactBId}"]`)
+      .last()
       .click();
     await expect(page).toHaveURL(
       new RegExp(`/vaults/${vaultId}/contacts/${contactBId}$`),
@@ -446,7 +463,29 @@ test.describe("Vault Settings - Activities", () => {
     );
 
     await navigateToContactActivities(page, vaultId, contactBId);
-    await expectParticipantActivityVisible(page, "AliceLife Host");
+    await expectParticipantActivityVisible(page);
+    await page
+      .getByRole("link", { name: "Shared Summer Trip", exact: true })
+      .click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "Activity details" })
+        .locator(`a[href="/vaults/${vaultId}/contacts/${contactAId}"]`),
+    ).toBeVisible();
+
+    await page.goto(`/vaults/${vaultId}/feed`);
+    const feedActivityLink = page.locator(
+      `a[href^="/vaults/${vaultId}/activities/"]`,
+    );
+    await expect(feedActivityLink.first()).toBeVisible({ timeout: 30000 });
+    await feedActivityLink.first().click();
+    await expect(page).toHaveURL(
+      new RegExp(`/vaults/${vaultId}/activities/\\d+$`),
+      { timeout: 10000 },
+    );
+    await expect(
+      page.getByRole("dialog", { name: "Activity details" }),
+    ).toBeVisible();
   });
 });
 

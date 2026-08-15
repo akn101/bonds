@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { useParams, useNavigate, Outlet } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useParams,
+  useNavigate,
+  Outlet,
+} from "react-router-dom";
 import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 import { useDateFormat, formatShortDate } from "@/utils/dateFormat";
 import { formatShortDateOnly } from "@/utils/dateOnlyInput";
@@ -55,6 +61,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { queryKeyPrefixes } from "@/utils/queryInvalidation";
 import { mostConsultedQueryKey } from "@/utils/mostConsultedProjection";
+import { buildContactSourcePath } from "@/utils/feedSourceLink";
 
 dayjs.extend(relativeTime);
 
@@ -535,6 +542,7 @@ function FeedTab({ vaultId }: { vaultId: string }) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const navigate = useNavigate();
+  const location = useLocation();
   const [page, setPage] = useState(1);
   const [allItems, setAllItems] = useState<FeedItem[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -579,87 +587,128 @@ function FeedTab({ vaultId }: { vaultId: string }) {
             <Empty description={t("empty.feed")} style={{ padding: 32 }} />
           ),
         }}
-        renderItem={(item: FeedItem, index: number) => (
-          <List.Item
-            style={{
-              margin: "0 16px",
-              paddingLeft: 20,
-              borderLeft: `2px solid ${index === 0 ? token.colorPrimary : token.colorBorderSecondary}`,
-              position: "relative",
-            }}
-          >
-            <div
+        renderItem={(item: FeedItem, index: number) => {
+          const contactPath = item.contact_id
+            ? `/vaults/${vaultId}/contacts/${item.contact_id}`
+            : null;
+          const sourcePath = item.contact_id
+            ? buildContactSourcePath(vaultId, item.contact_id, item.source)
+            : null;
+          const activitySourceLink =
+            item.contact_linkable === true &&
+            item.source?.kind === "Activity" &&
+            sourcePath !== contactPath
+              ? sourcePath
+              : null;
+          const detailState = {
+            activityReturnTo: `${location.pathname}${location.search}`,
+          };
+          return (
+            <List.Item
               style={{
-                position: "absolute",
-                left: -5,
-                top: 18,
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background:
-                  index === 0 ? token.colorPrimary : token.colorBorder,
+                margin: "0 16px",
+                paddingLeft: 20,
+                borderLeft: `2px solid ${index === 0 ? token.colorPrimary : token.colorBorderSecondary}`,
+                position: "relative",
               }}
-            />
-            <List.Item.Meta
-              title={
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <Tag
-                    color={getActionColor(item.action ?? "")}
-                    style={{ borderRadius: 12, fontSize: 11, margin: 0 }}
-                  >
-                    {item.action}
-                  </Tag>
-                  {item.contact_id && (
-                    <a
-                      style={{ fontWeight: 600 }}
-                      onClick={() =>
-                        navigate(
-                          `/vaults/${vaultId}/contacts/${item.contact_id}`,
-                        )
-                      }
-                    >
-                      {item.contact_name || item.contact_id}
-                    </a>
-                  )}
-                </div>
-              }
-              description={
-                <>
-                  {item.description && (
-                    <Text
-                      type="secondary"
-                      style={{ display: "block", marginTop: 4 }}
-                    >
-                      {item.description}
-                    </Text>
-                  )}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: -5,
+                  top: 18,
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background:
+                    index === 0 ? token.colorPrimary : token.colorBorder,
+                }}
+              />
+              <List.Item.Meta
+                title={
                   <div
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 4,
-                      marginTop: 6,
+                      gap: 8,
+                      flexWrap: "wrap",
                     }}
                   >
-                    <ClockCircleOutlined
-                      style={{ fontSize: 11, color: token.colorTextQuaternary }}
-                    />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {dayjs(item.created_at).fromNow()}
-                    </Text>
+                    {activitySourceLink ? (
+                      <Link to={activitySourceLink} state={detailState}>
+                        <Tag
+                          color={getActionColor(item.action ?? "")}
+                          style={{ borderRadius: 12, fontSize: 11, margin: 0 }}
+                        >
+                          {item.action}
+                        </Tag>
+                      </Link>
+                    ) : (
+                      <Tag
+                        color={getActionColor(item.action ?? "")}
+                        style={{ borderRadius: 12, fontSize: 11, margin: 0 }}
+                      >
+                        {item.action}
+                      </Tag>
+                    )}
+                    {item.contact_id && (
+                      <a
+                        style={{ fontWeight: 600 }}
+                        onClick={() =>
+                          navigate(
+                            `/vaults/${vaultId}/contacts/${item.contact_id}`,
+                          )
+                        }
+                      >
+                        {item.contact_name || item.contact_id}
+                      </a>
+                    )}
                   </div>
-                </>
-              }
-            />
-          </List.Item>
-        )}
+                }
+                description={
+                  <>
+                    {item.description &&
+                      (activitySourceLink ? (
+                        <Link to={activitySourceLink} state={detailState}>
+                          <Text
+                            type="secondary"
+                            style={{ display: "block", marginTop: 4 }}
+                          >
+                            {item.description}
+                          </Text>
+                        </Link>
+                      ) : (
+                        <Text
+                          type="secondary"
+                          style={{ display: "block", marginTop: 4 }}
+                        >
+                          {item.description}
+                        </Text>
+                      ))}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        marginTop: 6,
+                      }}
+                    >
+                      <ClockCircleOutlined
+                        style={{
+                          fontSize: 11,
+                          color: token.colorTextQuaternary,
+                        }}
+                      />
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {dayjs(item.created_at).fromNow()}
+                      </Text>
+                    </div>
+                  </>
+                }
+              />
+            </List.Item>
+          );
+        }}
       />
       {hasMore && allItems.length > 0 && (
         <div style={{ textAlign: "center", padding: "12px 0" }}>
@@ -1159,8 +1208,7 @@ function MoodRecordingWidget({ vaultId }: { vaultId: string }) {
       rated_at: string;
       note?: string;
       number_of_hours_slept?: number;
-    }) =>
-      api.moodTracking.moodTrackingEventsCreate(String(vaultId), data),
+    }) => api.moodTracking.moodTrackingEventsCreate(String(vaultId), data),
     onSuccess: () => {
       message.success(t("vault.dashboard.mood_recorded"));
       setSelectedMoodId(null);

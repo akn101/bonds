@@ -50,7 +50,7 @@ func TestGetTabsUsesVaultDefaultLayout(t *testing.T) {
 	}
 	expected := map[string][]string{
 		"summary":              {"contact_summary"},
-		"contact":              {"important_dates", "labels", "quick_facts", "extra_information", "addresses", "contact_information"},
+		"contact":              {"important_dates", "labels", "quick_facts", "religion", "jobs", "addresses", "contact_information"},
 		"feed":                 {"feed"},
 		"social":               {"relationships", "pets", "groups"},
 		"relationship-network": {"relationship_network"},

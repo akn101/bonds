@@ -1033,7 +1033,22 @@
       "edit": "Editar actividad",
       "delete_confirm": "¿Eliminar esta actividad?",
       "deleted": "Actividad eliminada",
-      "add_first": "Añadir la primera actividad"
+      "add_first": "Añadir la primera actividad",
+      "detail_title": "Detalles de la actividad",
+      "view_detail_named": "Ver actividad: {{title}}",
+      "edit_named": "Editar actividad: {{title}}",
+      "delete_named": "Eliminar actividad: {{title}}",
+      "not_found": "Actividad no encontrada",
+      "not_found_description": "Es posible que esta actividad se haya eliminado o no esté disponible en esta bóveda.",
+      "no_description": "Sin descripción",
+      "subject": "Sujeto",
+      "contact_subject": "Contactos de la bóveda",
+      "participant_section": "Participantes",
+      "no_participants": "No hay contactos participantes",
+      "from_place": "Desde",
+      "to_place": "Hasta",
+      "distance": "Distancia",
+      "view_parent": "Ver experiencia relacionada"
     },
     "mood_tracking": {
       "title": "Seguimiento de ánimo",

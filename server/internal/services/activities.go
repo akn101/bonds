@@ -72,6 +72,13 @@ func (s *ActivityService) ListForUser(vaultID, userID, contactID string, page, p
 	return items, response.Meta{Page: page, PerPage: perPage, Total: total, TotalPages: int(math.Ceil(float64(total) / float64(perPage)))}, nil
 }
 
+// Get returns one activity scoped to its vault. Authorization is enforced by
+// the vault middleware; retaining the vault predicate here prevents ID-based
+// cross-vault reads at the data boundary.
+func (s *ActivityService) Get(vaultID, userID string, id uint) (*dto.ActivityResponse, error) {
+	return s.get(vaultID, id, userID)
+}
+
 func (s *ActivityService) Create(vaultID string, req dto.ActivityUpsertRequest) (*dto.ActivityResponse, error) {
 	return s.CreateForUser(vaultID, "", req)
 }

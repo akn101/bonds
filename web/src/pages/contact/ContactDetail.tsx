@@ -109,7 +109,8 @@ import PhotosModule from "./modules/PhotosModule";
 import DocumentsModule from "./modules/DocumentsModule";
 import LabelsModule from "./modules/LabelsModule";
 import FeedModule from "./modules/FeedModule";
-import ExtraInfoModule from "./modules/ExtraInfoModule";
+import ReligionModule from "./modules/ReligionModule";
+import JobsModule from "./modules/JobsModule";
 import GroupsModule from "./modules/GroupsModule";
 import ContactSummaryModule from "./modules/ContactSummaryModule";
 import RelationshipNetworkModule from "./modules/RelationshipNetworkModule";
@@ -212,8 +213,7 @@ function buildUpdateContactRequest(
 }
 
 // Module type → component mapping for dynamic section rendering.
-// Modules like avatar, contact_names, family_summary, gender_pronoun, company,
-// religions are handled by the contact header card and ExtraInfoModule, not here.
+// The identity hero stays fixed for navigation and primary contact actions.
 const MODULE_COMPONENT_MAP: Record<
   string,
   React.ComponentType<{
@@ -974,75 +974,66 @@ export default function ContactDetail() {
     {
       id: 2,
       name: t("contact.detail.tabs.overview"),
-      slug: "overview",
+      slug: "contact",
       type: "contact",
       modules: [
-        { id: 2, type: "labels" },
-        { id: 3, type: "quick_facts" },
-        { id: 4, type: "notes" },
+        { id: 2, type: "important_dates" },
+        { id: 3, type: "labels" },
+        { id: 4, type: "quick_facts" },
+        { id: 5, type: "religion" },
+        { id: 6, type: "jobs" },
+        { id: 7, type: "addresses" },
+        { id: 8, type: "contact_information" },
       ],
     },
     {
       id: 3,
-      name: t("contact.detail.tabs.relationships"),
-      slug: "relationships",
-      modules: [{ id: 5, type: "relationships" }],
+      name: t("contact.detail.feed.title"),
+      slug: "feed",
+      modules: [{ id: 23, type: "feed" }],
     },
     {
       id: 4,
-      name: t("contact.detail.summary.network"),
-      slug: "relationship-network",
-      modules: [{ id: 6, type: "relationship_network" }],
+      name: t("contact.detail.tabs.relationships"),
+      slug: "social",
+      modules: [
+        { id: 9, type: "relationships" },
+        { id: 10, type: "pets" },
+        { id: 11, type: "groups" },
+      ],
     },
     {
       id: 5,
-      name: t("contact.detail.tabs.information"),
-      slug: "information",
-      modules: [
-        { id: 7, type: "contact_information" },
-        { id: 8, type: "addresses" },
-        { id: 9, type: "important_dates" },
-        { id: 10, type: "gender_pronoun" },
-        { id: 11, type: "pets" },
-      ],
+      name: t("contact.detail.summary.network"),
+      slug: "relationship-network",
+      modules: [{ id: 12, type: "relationship_network" }],
     },
     {
       id: 6,
-      name: t("contact.detail.tabs.operations"),
-      slug: "operations",
-      modules: [
-        { id: 12, type: "tasks" },
-        { id: 13, type: "calls" },
-        { id: 14, type: "reminders" },
-        { id: 15, type: "loans" },
-      ],
+      name: t("contact.detail.tabs.activities"),
+      slug: "activities",
+      modules: [{ id: 13, type: "activities" }],
     },
     {
       id: 7,
-      name: t("contact.detail.tabs.activities"),
-      slug: "activities",
-      modules: [{ id: 16, type: "activities" }],
+      name: t("contact.detail.tabs.goals"),
+      slug: "goals",
+      modules: [{ id: 14, type: "goals" }],
     },
     {
       id: 8,
-      name: t("contact.detail.tabs.goals"),
-      slug: "goals",
-      modules: [{ id: 17, type: "goals" }],
-    },
-    {
-      id: 9,
-      name: t("contact.detail.tabs.photos_docs"),
-      slug: "photos",
+      name: t("contact.detail.tabs.information"),
+      slug: "information",
       modules: [
-        { id: 18, type: "photos" },
-        { id: 19, type: "documents" },
+        { id: 15, type: "documents" },
+        { id: 16, type: "photos" },
+        { id: 17, type: "notes" },
+        { id: 18, type: "reminders" },
+        { id: 19, type: "loans" },
+        { id: 20, type: "gifts" },
+        { id: 21, type: "tasks" },
+        { id: 22, type: "calls" },
       ],
-    },
-    {
-      id: 10,
-      name: t("contact.detail.feed.title"),
-      slug: "feed",
-      modules: [{ id: 20, type: "feed" }],
     },
   ];
   const sectionPages = tabsData ? (tabsData.pages ?? []) : fallbackPages;
@@ -1211,8 +1202,6 @@ export default function ContactDetail() {
     const isContactPage = page.type === "contact";
 
     const children: React.ReactNode[] = [];
-    let extraInfoRendered = false;
-
     if (isContactPage) {
       children.push(
         <React.Fragment key="overview-card">{overviewCard}</React.Fragment>,
@@ -1239,22 +1228,18 @@ export default function ContactDetail() {
         );
         continue;
       }
-      if (
-        moduleType === "extra_information" ||
-        moduleType === "gender_pronoun" ||
-        moduleType === "religions" ||
-        moduleType === "company"
-      ) {
-        if (!extraInfoRendered) {
-          extraInfoRendered = true;
-          children.push(
-            <ExtraInfoModule
-              key="extra-info"
-              {...moduleProps}
-              contact={contact}
-            />,
-          );
-        }
+      if (moduleType === "religion") {
+        children.push(
+          <ReligionModule
+            key={`mod-${mod.id}`}
+            {...moduleProps}
+            contact={contact}
+          />,
+        );
+        continue;
+      }
+      if (moduleType === "jobs") {
+        children.push(<JobsModule key={`mod-${mod.id}`} {...moduleProps} />);
         continue;
       }
 

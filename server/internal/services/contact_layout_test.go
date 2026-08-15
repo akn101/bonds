@@ -59,6 +59,67 @@ func TestDefaultContactLayoutRendersEachRelationshipModuleOnce(t *testing.T) {
 	if counts["relationships"] != 1 || counts["relationship_network"] != 1 {
 		t.Fatalf("relationship modules must be singleton, got %v", counts)
 	}
+	if counts["religion"] != 1 || counts["jobs"] != 1 || counts["extra_information"] != 0 {
+		t.Fatalf("religion and jobs must be independent registered modules, got %v", counts)
+	}
+}
+
+func TestContactModuleRegistryMatchesFrontendRendererContract(t *testing.T) {
+	want := []string{
+		"contact_summary", "important_dates", "labels", "quick_facts", "religion", "jobs",
+		"addresses", "contact_information", "feed", "relationships", "relationship_network",
+		"pets", "groups", "activities", "goals", "documents", "photos", "notes",
+		"reminders", "loans", "gifts", "tasks", "calls",
+	}
+	if len(models.ContactModuleDefinitions) != len(want) {
+		t.Fatalf("registered module count = %d, want %d", len(models.ContactModuleDefinitions), len(want))
+	}
+	for index, definition := range models.ContactModuleDefinitions {
+		if definition.Key != want[index] {
+			t.Fatalf("registered module %d = %q, want %q", index, definition.Key, want[index])
+		}
+	}
+}
+
+func TestContactLayoutCanMoveAndRemoveReligionAndJobsIndependently(t *testing.T) {
+	ctx := setupContactLayoutTest(t)
+	layout := defaultContactLayout(t, ctx, "en")
+	req := saveRequestFromLayout(layout)
+	var religion dto.SaveContactLayoutModuleRequest
+	for pageIndex := range req.Pages {
+		kept := req.Pages[pageIndex].Modules[:0]
+		for _, module := range req.Pages[pageIndex].Modules {
+			if module.Key == "religion" {
+				religion = module
+				continue
+			}
+			if module.Key != "jobs" {
+				kept = append(kept, module)
+			}
+		}
+		req.Pages[pageIndex].Modules = kept
+	}
+	for pageIndex := range req.Pages {
+		if req.Pages[pageIndex].Slug == "social" {
+			req.Pages[pageIndex].Modules = append([]dto.SaveContactLayoutModuleRequest{religion}, req.Pages[pageIndex].Modules...)
+		}
+	}
+
+	saved, err := ctx.service.Save(ctx.vaultID, layout.ID, req, "en")
+	if err != nil {
+		t.Fatalf("save independently customized modules: %v", err)
+	}
+	social := pageBySlug(t, saved, "social")
+	if len(social.Modules) == 0 || social.Modules[0].Key != "religion" {
+		t.Fatalf("religion was not moved independently: %+v", social.Modules)
+	}
+	for _, page := range saved.Pages {
+		for _, module := range page.Modules {
+			if module.Key == "jobs" {
+				t.Fatalf("jobs module was not removed: %+v", saved.Pages)
+			}
+		}
+	}
 }
 
 func TestContactLayoutSaveClonePreservesHiddenPagesAndBuiltInTranslations(t *testing.T) {
@@ -141,6 +202,9 @@ func TestContactLayoutRejectsInvalidAndDuplicateModules(t *testing.T) {
 		}},
 		{name: "unknown module", mutate: func(req *dto.SaveContactLayoutRequest) {
 			req.Pages[0].Modules = append(req.Pages[0].Modules, dto.SaveContactLayoutModuleRequest{Key: "future-module"})
+		}},
+		{name: "retired combined module", mutate: func(req *dto.SaveContactLayoutRequest) {
+			req.Pages[0].Modules = append(req.Pages[0].Modules, dto.SaveContactLayoutModuleRequest{Key: "extra_information"})
 		}},
 		{name: "duplicate slug", mutate: func(req *dto.SaveContactLayoutRequest) {
 			req.Pages[1].Slug = req.Pages[0].Slug

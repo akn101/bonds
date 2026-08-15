@@ -13,7 +13,6 @@ describe("buildContactSourcePath", () => {
     ["Call", "calls"],
     ["ContactTask", "tasks"],
     ["Address", "addresses"],
-    ["Activity", "activities"],
     ["Loan", "loans"],
     ["Relationship", "relationships"],
     ["File", "photos"],
@@ -28,6 +27,17 @@ describe("buildContactSourcePath", () => {
 
     // Then
     expect(path).toBe(`${basePath}?focus=${module}&source=${kind}:17`);
+  });
+
+  it("builds the canonical route-backed activity detail path", () => {
+    expect(
+      buildContactSourcePath("vault-1", "contact-1", {
+        available: true,
+        id: 17,
+        kind: "Activity",
+        module: "activities",
+      }),
+    ).toBe("/vaults/vault-1/activities/17");
   });
 
   it.each([

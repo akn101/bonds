@@ -1033,7 +1033,22 @@
       "edit": "Edit activity",
       "delete_confirm": "Delete this activity?",
       "deleted": "Activity deleted",
-      "add_first": "Add first activity"
+      "add_first": "Add first activity",
+      "detail_title": "Activity details",
+      "view_detail_named": "View activity: {{title}}",
+      "edit_named": "Edit activity: {{title}}",
+      "delete_named": "Delete activity: {{title}}",
+      "not_found": "Activity not found",
+      "not_found_description": "This activity may have been removed or is not available in this Vault.",
+      "no_description": "No description",
+      "subject": "Subject",
+      "contact_subject": "Vault contacts",
+      "participant_section": "Participants",
+      "no_participants": "No contact participants",
+      "from_place": "From",
+      "to_place": "To",
+      "distance": "Distance",
+      "view_parent": "View related experience"
     },
     "mood_tracking": {
       "title": "Mood Tracking",

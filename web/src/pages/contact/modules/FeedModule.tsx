@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { List, Typography, Tag, Empty, theme, Card, Spin, Button } from "antd";
 import { HistoryOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +23,7 @@ interface FeedModuleProps {
 export default function FeedModule({ vaultId, contactId }: FeedModuleProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const location = useLocation();
   const [page, setPage] = useState(1);
   const [allItems, setAllItems] = useState<FeedItem[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -97,6 +98,9 @@ export default function FeedModule({ vaultId, contactId }: FeedModuleProps) {
             sourcePath !== contactPath
               ? sourcePath
               : null;
+          const detailState = {
+            activityReturnTo: `${location.pathname}${location.search}`,
+          };
           const contactLabel = item.contact_name || item.contact_id;
           const actionTag = (
             <Tag
@@ -144,7 +148,9 @@ export default function FeedModule({ vaultId, contactId }: FeedModuleProps) {
                     }}
                   >
                     {sourceLink ? (
-                      <Link to={sourceLink}>{actionTag}</Link>
+                      <Link to={sourceLink} state={detailState}>
+                        {actionTag}
+                      </Link>
                     ) : (
                       actionTag
                     )}
@@ -174,7 +180,9 @@ export default function FeedModule({ vaultId, contactId }: FeedModuleProps) {
                 description={
                   description &&
                   (sourceLink ? (
-                    <Link to={sourceLink}>{description}</Link>
+                    <Link to={sourceLink} state={detailState}>
+                      {description}
+                    </Link>
                   ) : (
                     description
                   ))

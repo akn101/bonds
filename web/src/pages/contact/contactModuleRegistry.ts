@@ -1,0 +1,27 @@
+// This is the frontend half of the stable contact-layout contract. The same
+// ordered keys are asserted by the backend registry test.
+export const CONTACT_MODULE_RENDERER_KEYS = [
+  "contact_summary",
+  "important_dates",
+  "labels",
+  "quick_facts",
+  "religion",
+  "jobs",
+  "addresses",
+  "contact_information",
+  "feed",
+  "relationships",
+  "relationship_network",
+  "pets",
+  "groups",
+  "activities",
+  "goals",
+  "documents",
+  "photos",
+  "notes",
+  "reminders",
+  "loans",
+  "gifts",
+  "tasks",
+  "calls",
+] as const;

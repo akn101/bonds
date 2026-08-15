@@ -16,6 +16,7 @@ type ContactMentionTextProps = {
   readonly vaultId: string;
   readonly contacts: readonly PostContactReference[];
   readonly children: string;
+  readonly appendUnmentionedContacts?: boolean;
 };
 
 type ContactMentionLinkProps = {
@@ -91,6 +92,7 @@ export default function ContactMentionText({
   vaultId,
   contacts,
   children,
+  appendUnmentionedContacts = true,
 }: ContactMentionTextProps) {
   const nameOrder = useNameOrder();
   const contactsById = new Map(
@@ -139,7 +141,7 @@ export default function ContactMentionText({
   // Associations are authoritative. Legacy entries and partially edited text
   // can contain an associated contact without an inline marker; keep those
   // people visible and navigable instead of silently losing the relationship.
-  for (const contact of contacts) {
+  for (const contact of appendUnmentionedContacts ? contacts : []) {
     if (!contact.id || renderedContactIds.has(contact.id.toLowerCase()))
       continue;
     const name = contact.name || formatContactName(nameOrder, contact);

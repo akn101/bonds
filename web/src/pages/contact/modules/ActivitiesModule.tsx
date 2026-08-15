@@ -18,6 +18,7 @@ import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
+import { Link, useLocation } from "react-router-dom";
 import { api } from "@/api";
 import type {
   APIError,
@@ -68,6 +69,7 @@ export default function ActivitiesModule({
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const dateFormats = useDateFormat();
+  const location = useLocation();
   const [form] = Form.useForm<FormValues>();
   const [open, setOpen] = useState(initiallyOpen);
   const [editing, setEditing] = useState<Activity | null>(null);
@@ -320,18 +322,11 @@ export default function ActivitiesModule({
           : formatDate(activity.end_date, dateFormats);
     return `${start} – ${end}`;
   };
-  const descriptionContacts = (activity: Activity) => {
-    const byId = new Map(
-      [
-        ...(activity.participants ?? []),
-        ...(activity.mentioned_contacts ?? []),
-      ].flatMap((contact) =>
-        contact.id ? [[contact.id, contact] as const] : [],
-      ),
-    );
-    return [...byId.values()];
+  const activityPath = (activity: Activity) =>
+    `/vaults/${vaultId}/activities/${activity.id}`;
+  const activityRouteState = {
+    activityReturnTo: `${location.pathname}${location.search}`,
   };
-
   return (
     <Card
       title={t("modules.activities.title")}
@@ -357,13 +352,19 @@ export default function ActivitiesModule({
       ) : (
         <Timeline
           items={items.map((activity) => ({
-            children: (
+            content: (
               <div>
                 <Space
                   style={{ width: "100%", justifyContent: "space-between" }}
                 >
                   <div>
-                    <Text strong>{activity.title}</Text>
+                    <Link
+                      to={activityPath(activity)}
+                      state={activityRouteState}
+                      style={{ fontWeight: 600 }}
+                    >
+                      {activity.title}
+                    </Link>
                     <Text type="secondary" style={{ display: "block" }}>
                       {formatActivityTime(activity)}
                     </Text>
@@ -384,7 +385,13 @@ export default function ActivitiesModule({
                     <Button
                       type="text"
                       icon={<EditOutlined />}
-                      onClick={() => startEdit(activity)}
+                      aria-label={t("modules.activities.edit_named", {
+                        title: activity.title,
+                      })}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        startEdit(activity);
+                      }}
                     />
                     <Popconfirm
                       title={t("modules.activities.delete_confirm")}
@@ -392,7 +399,15 @@ export default function ActivitiesModule({
                         activity.id && deleteMutation.mutate(activity.id)
                       }
                     >
-                      <Button type="text" danger icon={<DeleteOutlined />} />
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        aria-label={t("modules.activities.delete_named", {
+                          title: activity.title,
+                        })}
+                        onClick={(event) => event.stopPropagation()}
+                      />
                     </Popconfirm>
                   </Space>
                 </Space>
@@ -400,7 +415,8 @@ export default function ActivitiesModule({
                   <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
                     <ContactMentionText
                       vaultId={String(vaultId)}
-                      contacts={descriptionContacts(activity)}
+                      contacts={activity.mentioned_contacts ?? []}
+                      appendUnmentionedContacts={false}
                     >
                       {activity.description}
                     </ContactMentionText>

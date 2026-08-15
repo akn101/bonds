@@ -1033,7 +1033,22 @@
       "edit": "Modifier l’activité",
       "delete_confirm": "Supprimer cette activité ?",
       "deleted": "Activité supprimée",
-      "add_first": "Ajouter la première activité"
+      "add_first": "Ajouter la première activité",
+      "detail_title": "Détails de l’activité",
+      "view_detail_named": "Voir l’activité : {{title}}",
+      "edit_named": "Modifier l’activité : {{title}}",
+      "delete_named": "Supprimer l’activité : {{title}}",
+      "not_found": "Activité introuvable",
+      "not_found_description": "Cette activité a peut-être été supprimée ou n’est pas disponible dans ce coffre.",
+      "no_description": "Aucune description",
+      "subject": "Sujet",
+      "contact_subject": "Contacts du coffre",
+      "participant_section": "Participants",
+      "no_participants": "Aucun contact participant",
+      "from_place": "De",
+      "to_place": "À",
+      "distance": "Distance",
+      "view_parent": "Voir l’expérience associée"
     },
     "mood_tracking": {
       "title": "Suivi de l'humeur",
