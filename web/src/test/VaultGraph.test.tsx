@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App as AntApp, ConfigProvider } from "antd";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,9 +68,27 @@ describe("VaultGraph page", () => {
 
     await waitFor(() => expect(httpMocks.get).toHaveBeenCalled());
     expect(httpMocks.get).toHaveBeenCalledWith(
-      "/vaults/vault-1/relationships/graph",
+      "/vaults/vault-1/relationships/graph?limit=400",
     );
     expect(await screen.findByText("2 contacts drawn")).toBeInTheDocument();
+  });
+
+  // A vault whose largest cluster alone exceeds the default is the case this
+  // control exists for: without it the page shows a fraction and says so.
+  it("re-asks the server when the reader raises the limit", async () => {
+    httpMocks.get.mockResolvedValue(graphResponse({ truncated: true }));
+
+    renderWithProviders(<VaultGraph />);
+    await screen.findByText("2 contacts drawn");
+
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    fireEvent.click(await screen.findByTitle("2500 contacts"));
+
+    await waitFor(() =>
+      expect(httpMocks.get).toHaveBeenCalledWith(
+        "/vaults/vault-1/relationships/graph?limit=2500",
+      ),
+    );
   });
 
   it("accounts for the contacts and relationships it left out", async () => {
@@ -119,13 +137,18 @@ describe("VaultGraph page", () => {
     renderWithProviders(
       <>
         <VaultGraph />
-        <NetworkGraph vaultId="vault-1" />
+        <NetworkGraph vaultId="vault-1" limit={400} />
       </>,
     );
 
     await screen.findByText("2 contacts drawn");
     await waitFor(() => expect(httpMocks.get).toHaveBeenCalledTimes(1));
-    expect(vaultGraphQueryKey("vault-1")).toEqual(["vaults", "vault-1", "graph"]);
+    expect(vaultGraphQueryKey("vault-1", 400)).toEqual([
+      "vaults",
+      "vault-1",
+      "graph",
+      400,
+    ]);
   });
 });
 

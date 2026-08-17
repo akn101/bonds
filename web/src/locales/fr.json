@@ -306,6 +306,8 @@
       "title": "Graphe des relations",
       "description": "Toutes les personnes de ce coffre reliées à une autre personne du coffre.",
       "empty": "Aucun contact de ce coffre n'est encore lié à un autre",
+      "limitLabel": "Afficher jusqu'à",
+      "limitOption": "{{count}} contacts",
       "drawn": "{{count}} contacts affichés",
       "clusters": "{{count}} groupes distincts",
       "isolated": "{{count}} non affichés, sans relation dans ce coffre",

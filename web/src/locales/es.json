@@ -306,6 +306,8 @@
       "title": "Gráfico de relaciones",
       "description": "Todas las personas de esta bóveda conectadas con otra persona de la misma.",
       "empty": "Todavía no hay dos contactos relacionados en esta bóveda",
+      "limitLabel": "Dibujar hasta",
+      "limitOption": "{{count}} contactos",
       "drawn": "{{count}} contactos dibujados",
       "clusters": "{{count}} grupos separados",
       "isolated": "{{count}} sin mostrar, sin ninguna relación dentro de esta bóveda",

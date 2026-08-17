@@ -1,13 +1,22 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, Typography, Button, Space, Tag, theme } from "antd";
+import { Card, Typography, Button, Select, Space, Tag, theme } from "antd";
 import { ArrowLeftOutlined, ShareAltOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { httpClient } from "@/api";
 import NetworkGraph from "@/components/NetworkGraph";
-import { vaultGraphQueryKey } from "@/components/networkGraphQueryKey";
+import {
+  vaultGraphQueryKey,
+  vaultGraphURL,
+} from "@/components/networkGraphQueryKey";
 
 const { Title, Text } = Typography;
+
+// A force layout stops being readable long before it stops being renderable,
+// so the default is a legibility choice. On a large vault it can leave most of
+// the related contacts out, which is the reader's call to overrule, not ours.
+const NODE_LIMITS = [400, 1000, 2500, 5000];
 
 interface VaultGraphSummary {
   nodes?: { id: string }[];
@@ -23,16 +32,17 @@ export default function VaultGraph() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const [limit, setLimit] = useState(NODE_LIMITS[0]);
 
   // Same query key as the canvas below, so the page and the drawing share one
   // request rather than each fetching the vault graph separately.
   const { data: summary } = useQuery({
-    queryKey: vaultGraphQueryKey(vaultId),
+    queryKey: vaultGraphQueryKey(vaultId, limit),
     queryFn: async () => {
       const res = await httpClient.instance.get<{
         success: boolean;
         data: VaultGraphSummary;
-      }>(`/vaults/${vaultId}/relationships/graph`);
+      }>(vaultGraphURL(vaultId, limit));
       return (res.data?.data ?? res.data) as VaultGraphSummary;
     },
   });
@@ -67,8 +77,33 @@ export default function VaultGraph() {
       </Text>
 
       <Card styles={{ body: { paddingTop: 12 } }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 12,
+          }}
+        >
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("vault.graph.limitLabel")}
+          </Text>
+          <Select
+            size="small"
+            value={limit}
+            onChange={setLimit}
+            style={{ width: 110 }}
+            options={NODE_LIMITS.map((value) => ({
+              value,
+              label: t("vault.graph.limitOption", { count: value }),
+            }))}
+          />
+        </div>
+
         <NetworkGraph
           vaultId={vaultId}
+          limit={limit}
           height={620}
           emptyDescription={t("vault.graph.empty")}
         />

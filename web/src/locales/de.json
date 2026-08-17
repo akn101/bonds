@@ -306,6 +306,8 @@
       "title": "Beziehungsgraph",
       "description": "Alle Personen in diesem Tresor, die mit einer anderen Person darin verbunden sind.",
       "empty": "In diesem Tresor stehen noch keine zwei Kontakte in Beziehung",
+      "limitLabel": "Darstellen bis zu",
+      "limitOption": "{{count}} Kontakte",
       "drawn": "{{count}} Kontakte dargestellt",
       "clusters": "{{count}} getrennte Gruppen",
       "isolated": "{{count}} nicht dargestellt, ohne Beziehung innerhalb dieses Tresors",

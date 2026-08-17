@@ -306,6 +306,8 @@
       "title": "Relationship Graph",
       "description": "Everyone in this vault who is connected to someone else in it.",
       "empty": "No two contacts in this vault are related yet",
+      "limitLabel": "Draw up to",
+      "limitOption": "{{count}} contacts",
       "drawn": "{{count}} contacts drawn",
       "clusters": "{{count}} separate clusters",
       "isolated": "{{count}} not shown, with no relationship inside this vault",

@@ -9,6 +9,7 @@ import type { ContactGraphRelation } from "@/api";
 import {
   networkGraphQueryKey,
   vaultGraphQueryKey,
+  vaultGraphURL,
 } from "@/components/networkGraphQueryKey";
 import { graphEdgeLabelForNode } from "@/components/networkGraphRelations";
 
@@ -42,6 +43,8 @@ interface NetworkGraphProps {
   vaultId: string;
   /** Omit to draw the whole vault instead of one contact's component. */
   contactId?: string;
+  /** Vault mode only: maximum nodes to draw. 0 leaves it to the server. */
+  limit?: number;
   height?: number;
   emptyDescription?: string;
 }
@@ -49,6 +52,7 @@ interface NetworkGraphProps {
 export default function NetworkGraph({
   vaultId,
   contactId,
+  limit = 0,
   height = 500,
   emptyDescription,
 }: NetworkGraphProps) {
@@ -68,7 +72,7 @@ export default function NetworkGraph({
   } = useQuery({
     queryKey: contactId
       ? networkGraphQueryKey({ vaultId, contactId })
-      : vaultGraphQueryKey(vaultId),
+      : vaultGraphQueryKey(vaultId, limit),
     queryFn: async () => {
       const res = await httpClient.instance.get<{
         success: boolean;
@@ -76,7 +80,7 @@ export default function NetworkGraph({
       }>(
         contactId
           ? `/vaults/${vaultId}/contacts/${contactId}/relationships/graph`
-          : `/vaults/${vaultId}/relationships/graph`,
+          : vaultGraphURL(vaultId, limit),
       );
       const data = res.data?.data ?? res.data;
       if (data && "nodes" in data && "edges" in data) {

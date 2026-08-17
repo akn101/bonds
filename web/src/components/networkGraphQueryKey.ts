@@ -21,13 +21,22 @@ export function networkGraphQueryKey({
   return ["vaults", vaultId, "contacts", contactId, "graph"];
 }
 
-export type VaultGraphQueryKey = readonly ["vaults", string, "graph"];
+export type VaultGraphQueryKey = readonly ["vaults", string, "graph", number];
 
 // The vault graph is keyed separately from the per-contact graphs so that the
 // page and the canvas share one fetch, and so contact-level invalidation does
-// not have to know about it.
-export function vaultGraphQueryKey(vaultId: string): VaultGraphQueryKey {
-  return ["vaults", vaultId, "graph"];
+// not have to know about it. The limit is part of the key because raising it
+// asks the server for a different graph, not a bigger rendering of this one.
+export function vaultGraphQueryKey(
+  vaultId: string,
+  limit = 0,
+): VaultGraphQueryKey {
+  return ["vaults", vaultId, "graph", limit];
+}
+
+export function vaultGraphURL(vaultId: string, limit = 0): string {
+  const path = `/vaults/${vaultId}/relationships/graph`;
+  return limit > 0 ? `${path}?limit=${limit}` : path;
 }
 
 export function exactNetworkGraphInvalidationFilter(

@@ -306,6 +306,8 @@
       "title": "Gráfico de relações",
       "description": "Todas as pessoas deste cofre que estão ligadas a outra pessoa dele.",
       "empty": "Nenhum par de contactos deste cofre tem relação ainda",
+      "limitLabel": "Desenhar até",
+      "limitOption": "{{count}} contactos",
       "drawn": "{{count}} contactos desenhados",
       "clusters": "{{count}} grupos separados",
       "isolated": "{{count}} não apresentados, sem relação dentro deste cofre",

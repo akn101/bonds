@@ -306,6 +306,8 @@
       "title": "关系图谱",
       "description": "此保险库中与库内其他人存在关联的所有联系人。",
       "empty": "此保险库中尚无相互关联的联系人",
+      "limitLabel": "最多绘制",
+      "limitOption": "{{count}} 位联系人",
       "drawn": "已绘制 {{count}} 位联系人",
       "clusters": "{{count}} 个独立群组",
       "isolated": "{{count}} 位未显示，在此保险库内没有关系",
