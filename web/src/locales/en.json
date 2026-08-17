@@ -49,6 +49,7 @@
     "vault": "Vault",
     "dashboard": "Dashboard",
     "contacts": "Contacts",
+    "graph": "Relationship Graph",
     "journal": "Journal",
     "groups": "Groups",
     "calendar": "Calendar",
@@ -300,6 +301,16 @@
       "col_calendar": "Calendar",
       "col_mood": "Mood",
       "contacts_in": "Contacts in {{location}}"
+    },
+    "graph": {
+      "title": "Relationship Graph",
+      "description": "Everyone in this vault who is connected to someone else in it.",
+      "empty": "No two contacts in this vault are related yet",
+      "drawn": "{{count}} contacts drawn",
+      "clusters": "{{count}} separate clusters",
+      "isolated": "{{count}} not shown, with no relationship inside this vault",
+      "external": "{{count}} relationships lead outside this vault",
+      "truncated": "Too large to draw in full; the smallest clusters were left out"
     },
     "journals": {
       "title": "Journals",

@@ -57,6 +57,25 @@ type ContactGraphResponse struct {
 	Edges []GraphEdge `json:"edges"`
 }
 
+// VaultGraphResponse is the whole-vault graph. The counts alongside the graph
+// describe what was left out of it, so the page can account for the difference
+// between the vault and the drawing.
+type VaultGraphResponse struct {
+	Nodes []GraphNode `json:"nodes"`
+	Edges []GraphEdge `json:"edges"`
+	// Components is the number of separate clusters drawn.
+	Components int `json:"components" example:"3"`
+	// IsolatedContacts counts contacts in the vault with no relationship to
+	// another contact in the same vault; they are not drawn.
+	IsolatedContacts int `json:"isolated_contacts" example:"12"`
+	// ExternalRelationships counts relationships from a contact in this vault
+	// to a readable contact outside it; they are not drawn.
+	ExternalRelationships int `json:"external_relationships" example:"4"`
+	// Truncated reports that whole components were dropped to stay within the
+	// node limit.
+	Truncated bool `json:"truncated" example:"false"`
+}
+
 type KinshipResponse struct {
 	Degree *int     `json:"degree" example:"2"`
 	Path   []string `json:"path" example:"id1,id2,id3"`

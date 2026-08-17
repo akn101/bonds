@@ -437,6 +437,9 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	vaultContactInfo := protected.Group("/vaults/:vault_id/contactInformation", VaultPermissionMiddleware(vaultService, models.PermissionViewer))
 	vaultContactInfo.GET("/by-identity", contactInformationHandler.FindByIdentity)
 
+	vaultRelationships := protected.Group("/vaults/:vault_id/relationships", VaultPermissionMiddleware(vaultService, models.PermissionViewer))
+	vaultRelationships.GET("/graph", relationshipHandler.GetVaultGraph)
+
 	contactInfo := contactSub.Group("/contactInformation")
 	contactInfo.GET("", contactInformationHandler.List)
 	contactInfo.POST("", contactInformationHandler.Create, requireEditor)

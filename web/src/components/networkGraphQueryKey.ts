@@ -21,6 +21,15 @@ export function networkGraphQueryKey({
   return ["vaults", vaultId, "contacts", contactId, "graph"];
 }
 
+export type VaultGraphQueryKey = readonly ["vaults", string, "graph"];
+
+// The vault graph is keyed separately from the per-contact graphs so that the
+// page and the canvas share one fetch, and so contact-level invalidation does
+// not have to know about it.
+export function vaultGraphQueryKey(vaultId: string): VaultGraphQueryKey {
+  return ["vaults", vaultId, "graph"];
+}
+
 export function exactNetworkGraphInvalidationFilter(
   queryKey: NetworkGraphQueryKey,
 ) {

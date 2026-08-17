@@ -49,6 +49,7 @@
     "vault": "保险库",
     "dashboard": "仪表盘",
     "contacts": "联系人",
+    "graph": "关系图谱",
     "journal": "日记",
     "groups": "群组",
     "calendar": "日历",
@@ -300,6 +301,16 @@
       "col_calendar": "历法",
       "col_mood": "情绪",
       "contacts_in": "{{location}} 的联系人"
+    },
+    "graph": {
+      "title": "关系图谱",
+      "description": "此保险库中与库内其他人存在关联的所有联系人。",
+      "empty": "此保险库中尚无相互关联的联系人",
+      "drawn": "已绘制 {{count}} 位联系人",
+      "clusters": "{{count}} 个独立群组",
+      "isolated": "{{count}} 位未显示，在此保险库内没有关系",
+      "external": "{{count}} 条关系指向此保险库之外",
+      "truncated": "图谱过大，无法完整绘制，已省略最小的群组"
     },
     "journals": {
       "title": "日记本",

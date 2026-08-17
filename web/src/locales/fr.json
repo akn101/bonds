@@ -49,6 +49,7 @@
     "vault": "Coffre",
     "dashboard": "Tableau de bord",
     "contacts": "Contacts",
+    "graph": "Graphe des relations",
     "journal": "Journal",
     "groups": "Groupes",
     "calendar": "Calendrier",
@@ -300,6 +301,16 @@
       "col_calendar": "Calendrier",
       "col_mood": "Humeur",
       "contacts_in": "Contacts aux {{location}}"
+    },
+    "graph": {
+      "title": "Graphe des relations",
+      "description": "Toutes les personnes de ce coffre reliées à une autre personne du coffre.",
+      "empty": "Aucun contact de ce coffre n'est encore lié à un autre",
+      "drawn": "{{count}} contacts affichés",
+      "clusters": "{{count}} groupes distincts",
+      "isolated": "{{count}} non affichés, sans relation dans ce coffre",
+      "external": "{{count}} relations mènent hors de ce coffre",
+      "truncated": "Trop grand pour être affiché en entier ; les plus petits groupes ont été omis"
     },
     "journals": {
       "title": "Journaux",

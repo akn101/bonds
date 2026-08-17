@@ -556,3 +556,195 @@ func graphRelationKey(relation dto.GraphRelation) string {
 		strconv.Itoa(relation.Generations),
 	}, "\x00")
 }
+
+// defaultVaultGraphNodeLimit bounds how much of a vault a single graph
+// response will draw. A force-directed layout stops being readable long before
+// it stops being renderable, so the cap is a legibility limit rather than a
+// performance one.
+const defaultVaultGraphNodeLimit = 400
+
+// GetVaultGraph returns the relationship graph of one vault: every contact in
+// it that is related to another contact in it, and the relationships between
+// them, with the same inference the single-contact graph applies.
+//
+// Three deliberate exclusions, each reported back so the page can say what is
+// missing rather than quietly showing less than the whole truth:
+//
+//   - Contacts with no in-vault relationship. A vault is mostly people who are
+//     in it for their own sake, and drawing them as unconnected dots buries the
+//     structure the page exists to show.
+//   - Relationships that leave the vault. bonds allows them, but a vault-scoped
+//     view that silently pulled in contacts from elsewhere would be a different
+//     vault's business rendered on this vault's page.
+//   - Whole components past the node limit, largest first, so the cap never
+//     cuts a family in half.
+func (s *RelationshipService) GetVaultGraph(vaultID, userID, locale string, limit int) (*dto.VaultGraphResponse, error) {
+	if limit <= 0 {
+		limit = defaultVaultGraphNodeLimit
+	}
+
+	accessibleVaults, err := accessibleVaultIDSet(s.db, userID)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := accessibleVaults[vaultID]; !ok {
+		return nil, ErrVaultNotFound
+	}
+
+	var contacts []models.Contact
+	if err := s.db.Where("vault_id = ?", vaultID).Find(&contacts).Error; err != nil {
+		return nil, err
+	}
+	contactsByID := make(map[string]models.Contact, len(contacts))
+	for _, contact := range contacts {
+		contactsByID[contact.ID] = contact
+	}
+
+	var relationships []models.Relationship
+	if err := s.db.
+		Preload("RelationshipType").
+		Preload("Contact").
+		Preload("RelatedContact").
+		Where("contact_id IN (SELECT id FROM contacts WHERE vault_id = ?)", vaultID).
+		Order("id ASC").
+		Find(&relationships).Error; err != nil {
+		return nil, err
+	}
+
+	// Split the relationships into the ones that stay inside the vault and the
+	// ones that leave it. The second group is counted, not drawn.
+	adjacency := make(map[string]contactSet)
+	internal := make([]models.Relationship, 0, len(relationships))
+	external := 0
+	for _, relationship := range relationships {
+		if relationship.ContactID == relationship.RelatedContactID {
+			continue
+		}
+		_, sourceInVault := contactsByID[relationship.ContactID]
+		_, targetInVault := contactsByID[relationship.RelatedContactID]
+		if !sourceInVault || !targetInVault {
+			// Only count it if the far end is one this user could otherwise see;
+			// a relationship into a vault they have no access to is not
+			// something to advertise the existence of.
+			if canReadContactInVault(accessibleVaults, relationship.RelatedContact) {
+				external++
+			}
+			continue
+		}
+		internal = append(internal, relationship)
+		addToContactMap(adjacency, relationship.ContactID, relationship.RelatedContactID)
+		addToContactMap(adjacency, relationship.RelatedContactID, relationship.ContactID)
+	}
+
+	components := connectedComponents(adjacency)
+	kept, keptComponents := componentsWithinLimit(components, limit)
+
+	builder := newRelationshipGraphBuilder(locale)
+	for _, relationship := range internal {
+		if !containsContact(kept, relationship.ContactID) {
+			continue
+		}
+		if !containsContact(kept, relationship.RelatedContactID) {
+			continue
+		}
+		builder.addExplicitRelationship(relationship)
+	}
+	builder.inferFamilyRelationships(kept)
+
+	formatter, err := newContactNameFormatter(s.db, userID)
+	if err != nil {
+		return nil, err
+	}
+	nodes := make([]dto.GraphNode, 0, len(kept))
+	for id := range kept {
+		contact, ok := contactsByID[id]
+		if !ok {
+			continue
+		}
+		label, err := formatter.format(&contact, "")
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, dto.GraphNode{ID: id, Label: label})
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].Label != nodes[j].Label {
+			return nodes[i].Label < nodes[j].Label
+		}
+		return nodes[i].ID < nodes[j].ID
+	})
+
+	return &dto.VaultGraphResponse{
+		Nodes:                 nodes,
+		Edges:                 builder.buildEdges(),
+		Components:            keptComponents,
+		IsolatedContacts:      len(contactsByID) - len(adjacency),
+		ExternalRelationships: external,
+		Truncated:             keptComponents < len(components),
+	}, nil
+}
+
+// connectedComponents groups an undirected adjacency list into its connected
+// components, largest first.
+func connectedComponents(adjacency map[string]contactSet) []contactSet {
+	seen := contactSet{}
+	components := make([]contactSet, 0)
+	for _, start := range sortedAdjacencyKeys(adjacency) {
+		if _, done := seen[start]; done {
+			continue
+		}
+		component := contactSet{start: {}}
+		seen[start] = struct{}{}
+		queue := []string{start}
+		for len(queue) > 0 {
+			current := queue[0]
+			queue = queue[1:]
+			for _, neighbor := range sortedContactIDs(adjacency[current]) {
+				if _, done := seen[neighbor]; done {
+					continue
+				}
+				seen[neighbor] = struct{}{}
+				component[neighbor] = struct{}{}
+				queue = append(queue, neighbor)
+			}
+		}
+		components = append(components, component)
+	}
+	sort.SliceStable(components, func(i, j int) bool {
+		if len(components[i]) != len(components[j]) {
+			return len(components[i]) > len(components[j])
+		}
+		return sortedContactIDs(components[i])[0] < sortedContactIDs(components[j])[0]
+	})
+	return components
+}
+
+// componentsWithinLimit takes whole components, largest first, and stops at the
+// first one that would not fit. It returns the union of what it took and how
+// many components that was. The largest component is always taken even when it
+// exceeds the limit on its own, because returning an empty graph is a worse
+// answer than returning one oversized cluster the caller can be told about.
+func componentsWithinLimit(components []contactSet, limit int) (contactSet, int) {
+	kept := contactSet{}
+	for index, component := range components {
+		if index > 0 && len(kept)+len(component) > limit {
+			// Stop rather than skip: components arrive largest first, so a
+			// later smaller one squeezing in would drop a bigger cluster in
+			// favour of a lesser one.
+			return kept, index
+		}
+		for id := range component {
+			kept[id] = struct{}{}
+		}
+	}
+	return kept, len(components)
+}
+
+func sortedAdjacencyKeys(adjacency map[string]contactSet) []string {
+	keys := make([]string, 0, len(adjacency))
+	for key := range adjacency {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}

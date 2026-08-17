@@ -205,6 +205,35 @@ func (h *RelationshipHandler) GetContactGraph(c echo.Context) error {
 	return response.OK(c, graph)
 }
 
+// GetVaultGraph godoc
+//
+//	@Summary		Get vault relationship graph
+//	@Description	Return the relationship graph of a whole vault, with reciprocal rows collapsed and family relationships inferred. Contacts unrelated to anyone else in the vault, and relationships pointing outside it, are counted rather than drawn.
+//	@Tags			relationships
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			vault_id	path		string	true	"Vault ID"
+//	@Param			limit		query		integer	false	"Maximum nodes to draw (default 400)"
+//	@Success		200			{object}	response.APIResponse{data=dto.VaultGraphResponse}
+//	@Failure		401			{object}	response.APIResponse
+//	@Failure		404			{object}	response.APIResponse
+//	@Failure		500			{object}	response.APIResponse
+//	@Router			/vaults/{vault_id}/relationships/graph [get]
+func (h *RelationshipHandler) GetVaultGraph(c echo.Context) error {
+	vaultID := c.Param("vault_id")
+	userID := middleware.GetUserID(c)
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	graph, err := h.relationshipService.GetVaultGraph(vaultID, userID, middleware.GetLocale(c), limit)
+	if err != nil {
+		if errors.Is(err, services.ErrVaultNotFound) {
+			return response.NotFound(c, "err.vault_not_found")
+		}
+		return response.InternalError(c, "err.failed_to_get_graph")
+	}
+	return response.OK(c, graph)
+}
+
 // CalculateKinship godoc
 //
 //	@Summary		Calculate kinship degree between two contacts

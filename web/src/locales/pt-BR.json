@@ -49,6 +49,7 @@
     "vault": "Cofre",
     "dashboard": "Painel",
     "contacts": "Contatos",
+    "graph": "Gráfico de relações",
     "journal": "Diário",
     "groups": "Grupos",
     "calendar": "Calendário",
@@ -300,6 +301,16 @@
       "col_calendar": "Calendário",
       "col_mood": "Humor",
       "contacts_in": "Contatos em {{location}}"
+    },
+    "graph": {
+      "title": "Gráfico de relações",
+      "description": "Todas as pessoas deste cofre que estão ligadas a outra pessoa dele.",
+      "empty": "Nenhum par de contatos deste cofre tem relação ainda",
+      "drawn": "{{count}} contatos desenhados",
+      "clusters": "{{count}} grupos separados",
+      "isolated": "{{count}} não exibidos, sem relação dentro deste cofre",
+      "external": "{{count}} relações levam para fora deste cofre",
+      "truncated": "Grande demais para desenhar por inteiro; os menores grupos ficaram de fora"
     },
     "journals": {
       "title": "Diários",
