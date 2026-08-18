@@ -18,7 +18,7 @@ type CalendarDatePickerHandlersArgs = {
   readonly selectedMonth: number;
   readonly selectedDay: number;
   readonly noYearValue: number;
-  readonly onChange?: (value: CalendarDatePickerValue) => void;
+  readonly onChange?: (value: CalendarDatePickerValue | null) => void;
 };
 
 export function createCalendarDatePickerHandlers({
@@ -68,7 +68,11 @@ export function createCalendarDatePickerHandlers({
       emit(valueToApply, converted.year, converted.month, converted.day);
     },
 
-    handleGregorianChange(nextYear: number, nextMonth: number, nextDay: number) {
+    handleGregorianChange(
+      nextYear: number,
+      nextMonth: number,
+      nextDay: number,
+    ) {
       emit("gregorian", nextYear, nextMonth, nextDay, "full");
     },
 
@@ -107,7 +111,7 @@ export function createCalendarDatePickerHandlers({
         (monthOption) => monthOption.value === selectedMonth,
       )
         ? selectedMonth
-        : validMonths[0]?.value ?? 1;
+        : (validMonths[0]?.value ?? 1);
       emit(calendarType, nextYear, validMonth, selectedDay);
     },
 
@@ -117,6 +121,10 @@ export function createCalendarDatePickerHandlers({
 
     handleDayChange(nextDay: number) {
       emit(calendarType, displayYear, selectedMonth, nextDay);
+    },
+
+    handleClear() {
+      onChange?.(null);
     },
   };
 }
