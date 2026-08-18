@@ -58,8 +58,25 @@ export function buildImportantDateRequest(values: ImportantDateFormValues, fallb
     return data;
   }
   if (precision === "month_day") {
-    data.month = calendarDate.month ?? undefined;
-    data.day = calendarDate.day ?? undefined;
+    if (
+      calendarDate.calendarType !== "gregorian" &&
+      calendarDate.month != null &&
+      calendarDate.day != null
+    ) {
+      data.calendar_type = calendarDate.calendarType;
+      data.original_day = calendarDate.day;
+      data.original_month = calendarDate.month;
+      // A yearless alternative-calendar date has no single Gregorian
+      // projection: lunar dates move every Gregorian year, and a leap month
+      // may not even exist in an arbitrary reference year. Send the original
+      // month/day and let the server choose a safe storage projection while
+      // projecting the occurrence for each requested calendar year.
+      data.month = calendarDate.month;
+      data.day = calendarDate.day;
+    } else {
+      data.month = calendarDate.month ?? undefined;
+      data.day = calendarDate.day ?? undefined;
+    }
     return data;
   }
   if (precision !== "full") {
