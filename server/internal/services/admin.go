@@ -186,12 +186,17 @@ func (s *AdminService) DeleteUser(actorID, targetID string) error {
 
 // deleteEntireAccount removes the user, the account, and all associated data (vaults, contacts, files, etc.).
 func (s *AdminService) deleteEntireAccount(user models.User) error {
-	// Delete physical files BEFORE the transaction to avoid SQLite lock contention.
-	if err := s.deleteUserFiles(user.AccountID); err != nil {
-		return fmt.Errorf("delete user files: %w", err)
-	}
+	var fileUUIDs []string
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// Collect physical file paths while the rows still exist; the files
+		// themselves are removed only after the transaction commits.
+		if err := tx.Model(&models.File{}).
+			Joins("INNER JOIN vaults ON files.vault_id = vaults.id").
+			Where("vaults.account_id = ?", user.AccountID).
+			Pluck("uuid", &fileUUIDs).Error; err != nil {
+			return fmt.Errorf("collect user files: %w", err)
+		}
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
 		var vaults []models.Vault
 		if err := tx.Where("account_id = ?", user.AccountID).Find(&vaults).Error; err != nil {
 			return err
@@ -216,6 +221,11 @@ func (s *AdminService) deleteEntireAccount(user models.User) error {
 		callReasonTypeSubquery := tx.Model(&models.CallReasonType{}).Select("id").Where("account_id = ?", user.AccountID)
 		if err := tx.Where("call_reason_type_id IN (?)", callReasonTypeSubquery).Delete(&models.CallReason{}).Error; err != nil {
 			return fmt.Errorf("delete call reasons: %w", err)
+		}
+
+		postTemplateSubquery := tx.Model(&models.PostTemplate{}).Select("id").Where("account_id = ?", user.AccountID)
+		if err := tx.Where("post_template_id IN (?)", postTemplateSubquery).Delete(&models.PostTemplateSection{}).Error; err != nil {
+			return fmt.Errorf("delete post template sections: %w", err)
 		}
 
 		accountTables := []interface{}{
@@ -256,8 +266,18 @@ func (s *AdminService) deleteEntireAccount(user models.User) error {
 			return err
 		}
 
-		return tx.Where("id = ?", user.AccountID).Delete(&models.Account{}).Error
+		if err := tx.Where("id = ?", user.AccountID).Delete(&models.Account{}).Error; err != nil {
+			return err
+		}
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Delete physical files only after the transaction commits: a rollback must
+	// not leave the account without the files it still references.
+	return s.removeFiles(fileUUIDs)
 }
 
 // deleteUserOnly removes only the user record and their personal data (notification channels,
@@ -448,14 +468,9 @@ func (s *AdminService) deleteContactData(tx *gorm.DB, contactID string) error {
 	return nil
 }
 
-func (s *AdminService) deleteUserFiles(accountID string) error {
-	var files []models.File
-	s.db.Joins("INNER JOIN vaults ON files.vault_id = vaults.id").
-		Where("vaults.account_id = ?", accountID).
-		Find(&files)
-
-	for _, f := range files {
-		filePath := filepath.Join(s.uploadDir, f.UUID)
+func (s *AdminService) removeFiles(fileUUIDs []string) error {
+	for _, uuid := range fileUUIDs {
+		filePath := filepath.Join(s.uploadDir, uuid)
 		os.Remove(filePath)
 	}
 	return nil
