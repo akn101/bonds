@@ -36,6 +36,7 @@ export default defineConfig({
         nav: [
           { text: 'Guide', link: '/guide/introduction' },
           { text: 'Features', link: '/features/contacts' },
+          { text: 'Community Projects', link: '/community-projects' },
           {
             text: 'Links',
             items: [
@@ -90,6 +91,7 @@ export default defineConfig({
         nav: [
           { text: '指南', link: '/zh/guide/introduction' },
           { text: '功能', link: '/zh/features/contacts' },
+          { text: '社区项目', link: '/zh/community-projects' },
           {
             text: '链接',
             items: [
@@ -153,6 +155,7 @@ export default defineConfig({
         nav: [
           { text: 'Guia', link: '/pt-BR/guide/introduction' },
           { text: 'Funcionalidades', link: '/pt-BR/features/contacts' },
+          { text: 'Projetos da Comunidade', link: '/pt-BR/community-projects' },
           {
             text: 'Links',
             items: [
@@ -217,6 +220,7 @@ export default defineConfig({
         nav: [
           { text: 'Guia', link: '/pt-PT/guide/introduction' },
           { text: 'Funcionalidades', link: '/pt-PT/features/contacts' },
+          { text: 'Projetos da Comunidade', link: '/pt-PT/community-projects' },
           {
             text: 'Links',
             items: [
