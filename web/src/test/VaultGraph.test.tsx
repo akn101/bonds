@@ -5,7 +5,10 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import VaultGraph from "@/pages/vault/VaultGraph";
 import NetworkGraph from "@/components/NetworkGraph";
-import { vaultGraphQueryKey } from "@/components/networkGraphQueryKey";
+import {
+  vaultGraphQueryKey,
+  vaultGraphURL,
+} from "@/components/networkGraphQueryKey";
 
 const httpMocks = vi.hoisted(() => ({ get: vi.fn() }));
 
@@ -50,6 +53,8 @@ function graphResponse(overrides: Record<string, unknown> = {}) {
         isolated_contacts: 0,
         external_relationships: 0,
         truncated: false,
+        facets: [],
+        filtered_out: 0,
         ...overrides,
       },
     },
@@ -148,6 +153,7 @@ describe("VaultGraph page", () => {
       "vault-1",
       "graph",
       400,
+      "",
     ]);
   });
 });
@@ -188,6 +194,90 @@ describe("NetworkGraph in vault mode", () => {
       expect(httpMocks.get).toHaveBeenCalledWith(
         "/vaults/vault-1/contacts/contact-9/relationships/graph",
       ),
+    );
+  });
+});
+
+// The server omits facets nothing in the vault carries, so a vault where
+// nobody has a gender set must not be given a gender control to poke at.
+describe("VaultGraph filtering", () => {
+  const withFacets = () =>
+    graphResponse({
+      facets: [
+        {
+          key: "label",
+          values: [
+            { value: "3", label: "school", count: 12 },
+            { value: "7", label: "family", count: 4 },
+          ],
+        },
+      ],
+    });
+
+  it("offers a control only for the facets the vault carries", async () => {
+    httpMocks.get.mockResolvedValue(withFacets());
+
+    renderWithProviders(<VaultGraph />);
+
+    expect(await screen.findByLabelText("Labels")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Gender")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Groups")).not.toBeInTheDocument();
+  });
+
+  it("asks the server for the narrowed graph when a value is picked", async () => {
+    httpMocks.get.mockResolvedValue(withFacets());
+
+    renderWithProviders(<VaultGraph />);
+    await screen.findByLabelText("Labels");
+
+    fireEvent.mouseDown(screen.getByLabelText("Labels"));
+    fireEvent.click(await screen.findByTitle("school (12)"));
+
+    await waitFor(() =>
+      expect(httpMocks.get).toHaveBeenCalledWith(
+        "/vaults/vault-1/relationships/graph?limit=400&label=3",
+      ),
+    );
+  });
+
+  it("accounts for the contacts the filter took off the canvas", async () => {
+    httpMocks.get.mockResolvedValue(
+      graphResponse({ facets: [], filtered_out: 9 }),
+    );
+
+    renderWithProviders(<VaultGraph />);
+
+    expect(await screen.findByText("9 filtered out")).toBeInTheDocument();
+  });
+
+  it("stays quiet about a filter that excluded nobody", async () => {
+    httpMocks.get.mockResolvedValue(graphResponse());
+
+    renderWithProviders(<VaultGraph />);
+
+    await screen.findByText("2 contacts drawn");
+    expect(screen.queryByText(/filtered out/)).not.toBeInTheDocument();
+  });
+});
+
+// Two selections made in a different order are the same graph, so they must be
+// the same cache entry and the same request.
+describe("vaultGraphQueryKey", () => {
+  it("keys a selection the same however it was ordered", () => {
+    expect(vaultGraphQueryKey("vault-1", 400, { label: ["7", "3"] })).toEqual(
+      vaultGraphQueryKey("vault-1", 400, { label: ["3", "7"] }),
+    );
+  });
+
+  it("keys different selections differently", () => {
+    expect(vaultGraphQueryKey("vault-1", 400, { label: ["3"] })).not.toEqual(
+      vaultGraphQueryKey("vault-1", 400, { group: ["3"] }),
+    );
+  });
+
+  it("drops empty selections rather than sending them", () => {
+    expect(vaultGraphURL("vault-1", 400, { label: [], group: [""] })).toBe(
+      "/vaults/vault-1/relationships/graph?limit=400",
     );
   });
 });

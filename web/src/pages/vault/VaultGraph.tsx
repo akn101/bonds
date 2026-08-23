@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, Typography, Button, Select, Space, Tag, theme } from "antd";
 import { ArrowLeftOutlined, ShareAltOutlined } from "@ant-design/icons";
@@ -10,6 +10,7 @@ import {
   vaultGraphQueryKey,
   vaultGraphURL,
 } from "@/components/networkGraphQueryKey";
+import type { VaultGraphFilters } from "@/components/networkGraphQueryKey";
 
 const { Title, Text } = Typography;
 
@@ -18,12 +19,25 @@ const { Title, Text } = Typography;
 // the related contacts out, which is the reader's call to overrule, not ours.
 const NODE_LIMITS = [400, 1000, 2500, 5000];
 
+interface VaultGraphFacetValue {
+  value: string;
+  label: string;
+  count: number;
+}
+
+interface VaultGraphFacet {
+  key: string;
+  values: VaultGraphFacetValue[];
+}
+
 interface VaultGraphSummary {
   nodes?: { id: string }[];
   components?: number;
   isolated_contacts?: number;
   external_relationships?: number;
   truncated?: boolean;
+  facets?: VaultGraphFacet[];
+  filtered_out?: number;
 }
 
 export default function VaultGraph() {
@@ -33,16 +47,17 @@ export default function VaultGraph() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const [limit, setLimit] = useState(NODE_LIMITS[0]);
+  const [filters, setFilters] = useState<VaultGraphFilters>({});
 
   // Same query key as the canvas below, so the page and the drawing share one
   // request rather than each fetching the vault graph separately.
   const { data: summary } = useQuery({
-    queryKey: vaultGraphQueryKey(vaultId, limit),
+    queryKey: vaultGraphQueryKey(vaultId, limit, filters),
     queryFn: async () => {
       const res = await httpClient.instance.get<{
         success: boolean;
         data: VaultGraphSummary;
-      }>(vaultGraphURL(vaultId, limit));
+      }>(vaultGraphURL(vaultId, limit, filters));
       return (res.data?.data ?? res.data) as VaultGraphSummary;
     },
   });
@@ -50,6 +65,18 @@ export default function VaultGraph() {
   const drawnContacts = summary?.nodes?.length ?? 0;
   const isolatedContacts = summary?.isolated_contacts ?? 0;
   const externalRelationships = summary?.external_relationships ?? 0;
+  const filteredOut = summary?.filtered_out ?? 0;
+
+  // The server omits facets nothing carries, so this renders a control only
+  // where there is something to pick. On a vault where nobody has a gender set,
+  // no gender control appears — and one appears by itself once they do.
+  const facets = useMemo(() => summary?.facets ?? [], [summary?.facets]);
+  const hasSelection = Object.values(filters).some(
+    (values) => values.length > 0,
+  );
+
+  const selectFacet = (key: string, values: string[]) =>
+    setFilters((current) => ({ ...current, [key]: values }));
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", paddingBottom: 48 }}>
@@ -80,32 +107,65 @@ export default function VaultGraph() {
         <div
           style={{
             display: "flex",
-            justifyContent: "flex-end",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
             alignItems: "center",
             gap: 8,
             marginBottom: 12,
           }}
         >
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {t("vault.graph.limitLabel")}
-          </Text>
-          <Select
-            size="small"
-            value={limit}
-            onChange={setLimit}
-            style={{ width: 110 }}
-            options={NODE_LIMITS.map((value) => ({
-              value,
-              label: t("vault.graph.limitOption", { count: value }),
-            }))}
-          />
+          <Space size={[8, 8]} wrap>
+            {facets.map((facet) => (
+              <Select
+                key={facet.key}
+                mode="multiple"
+                allowClear
+                size="small"
+                maxTagCount="responsive"
+                style={{ minWidth: 180 }}
+                value={[...(filters[facet.key] ?? [])]}
+                onChange={(values: string[]) => selectFacet(facet.key, values)}
+                placeholder={t(`vault.graph.facet.${facet.key}`)}
+                aria-label={t(`vault.graph.facet.${facet.key}`)}
+                options={facet.values.map((value) => ({
+                  value: value.value,
+                  label: `${value.label} (${value.count})`,
+                }))}
+              />
+            ))}
+            {hasSelection && (
+              <Button size="small" type="link" onClick={() => setFilters({})}>
+                {t("vault.graph.clearFilters")}
+              </Button>
+            )}
+          </Space>
+
+          <Space size={8}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t("vault.graph.limitLabel")}
+            </Text>
+            <Select
+              size="small"
+              value={limit}
+              onChange={setLimit}
+              style={{ width: 110 }}
+              aria-label={t("vault.graph.limitLabel")}
+              options={NODE_LIMITS.map((value) => ({
+                value,
+                label: t("vault.graph.limitOption", { count: value }),
+              }))}
+            />
+          </Space>
         </div>
 
         <NetworkGraph
           vaultId={vaultId}
           limit={limit}
+          filters={filters}
           height={620}
-          emptyDescription={t("vault.graph.empty")}
+          emptyDescription={t(
+            hasSelection ? "vault.graph.emptyFiltered" : "vault.graph.empty",
+          )}
         />
 
         {/* What is not on the canvas matters as much as what is, so the counts
@@ -119,10 +179,13 @@ export default function VaultGraph() {
               {t("vault.graph.clusters", { count: summary?.components ?? 0 })}
             </Tag>
           )}
-          {isolatedContacts > 0 && (
-            <Tag>
-              {t("vault.graph.isolated", { count: isolatedContacts })}
+          {filteredOut > 0 && (
+            <Tag color="purple">
+              {t("vault.graph.filteredOut", { count: filteredOut })}
             </Tag>
+          )}
+          {isolatedContacts > 0 && (
+            <Tag>{t("vault.graph.isolated", { count: isolatedContacts })}</Tag>
           )}
           {externalRelationships > 0 && (
             <Tag>

@@ -306,10 +306,21 @@
       "title": "Relationship Graph",
       "description": "Everyone in this vault who is connected to someone else in it.",
       "empty": "No two contacts in this vault are related yet",
+      "emptyFiltered": "No two contacts match this filter and each other",
       "limitLabel": "Draw up to",
       "limitOption": "{{count}} contacts",
+      "clearFilters": "Clear filters",
+      "facet": {
+        "gender": "Gender",
+        "pronoun": "Pronouns",
+        "religion": "Religion",
+        "company": "Company",
+        "label": "Labels",
+        "group": "Groups"
+      },
       "drawn": "{{count}} contacts drawn",
       "clusters": "{{count}} separate clusters",
+      "filteredOut": "{{count}} filtered out",
       "isolated": "{{count}} not shown, with no relationship inside this vault",
       "external": "{{count}} relationships lead outside this vault",
       "truncated": "Too large to draw in full; the smallest clusters were left out"

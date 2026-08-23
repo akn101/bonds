@@ -21,22 +21,68 @@ export function networkGraphQueryKey({
   return ["vaults", vaultId, "contacts", contactId, "graph"];
 }
 
-export type VaultGraphQueryKey = readonly ["vaults", string, "graph", number];
+/** Facet selections, keyed by facet: {label: ["3"], group: ["12", "14"]}. */
+export type VaultGraphFilters = Readonly<Record<string, readonly string[]>>;
+
+// One canonical string for a set of selections, so the same filter chosen in a
+// different order is the same query. Both the cache key and the request are
+// built from it, which is what stops the page and the canvas from disagreeing
+// about which graph they are looking at.
+function canonicalVaultGraphFilters(filters: VaultGraphFilters): string {
+  return Object.entries(filters)
+    .map(
+      ([key, values]) =>
+        [key, [...values].filter(Boolean).sort()] as [string, string[]],
+    )
+    .filter(([, values]) => values.length > 0)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(
+      ([key, values]) =>
+        `${key}=${values.map((value) => encodeURIComponent(value)).join(",")}`,
+    )
+    .join("&");
+}
+
+export type VaultGraphQueryKey = readonly [
+  "vaults",
+  string,
+  "graph",
+  number,
+  string,
+];
 
 // The vault graph is keyed separately from the per-contact graphs so that the
 // page and the canvas share one fetch, and so contact-level invalidation does
-// not have to know about it. The limit is part of the key because raising it
-// asks the server for a different graph, not a bigger rendering of this one.
+// not have to know about it. The limit and the filter are part of the key
+// because changing either asks the server for a different graph, not a
+// different rendering of this one.
 export function vaultGraphQueryKey(
   vaultId: string,
   limit = 0,
+  filters: VaultGraphFilters = {},
 ): VaultGraphQueryKey {
-  return ["vaults", vaultId, "graph", limit];
+  return [
+    "vaults",
+    vaultId,
+    "graph",
+    limit,
+    canonicalVaultGraphFilters(filters),
+  ];
 }
 
-export function vaultGraphURL(vaultId: string, limit = 0): string {
+export function vaultGraphURL(
+  vaultId: string,
+  limit = 0,
+  filters: VaultGraphFilters = {},
+): string {
   const path = `/vaults/${vaultId}/relationships/graph`;
-  return limit > 0 ? `${path}?limit=${limit}` : path;
+  const query = [
+    ...(limit > 0 ? [`limit=${limit}`] : []),
+    ...(canonicalVaultGraphFilters(filters)
+      ? [canonicalVaultGraphFilters(filters)]
+      : []),
+  ];
+  return query.length > 0 ? `${path}?${query.join("&")}` : path;
 }
 
 export function exactNetworkGraphInvalidationFilter(

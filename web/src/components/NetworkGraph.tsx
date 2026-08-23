@@ -11,6 +11,7 @@ import {
   vaultGraphQueryKey,
   vaultGraphURL,
 } from "@/components/networkGraphQueryKey";
+import type { VaultGraphFilters } from "@/components/networkGraphQueryKey";
 import { graphEdgeLabelForNode } from "@/components/networkGraphRelations";
 
 const { Text } = Typography;
@@ -45,6 +46,8 @@ interface NetworkGraphProps {
   contactId?: string;
   /** Vault mode only: maximum nodes to draw. 0 leaves it to the server. */
   limit?: number;
+  /** Vault mode only: facet selections narrowing which contacts are drawn. */
+  filters?: VaultGraphFilters;
   height?: number;
   emptyDescription?: string;
 }
@@ -53,6 +56,7 @@ export default function NetworkGraph({
   vaultId,
   contactId,
   limit = 0,
+  filters,
   height = 500,
   emptyDescription,
 }: NetworkGraphProps) {
@@ -72,7 +76,7 @@ export default function NetworkGraph({
   } = useQuery({
     queryKey: contactId
       ? networkGraphQueryKey({ vaultId, contactId })
-      : vaultGraphQueryKey(vaultId, limit),
+      : vaultGraphQueryKey(vaultId, limit, filters),
     queryFn: async () => {
       const res = await httpClient.instance.get<{
         success: boolean;
@@ -80,7 +84,7 @@ export default function NetworkGraph({
       }>(
         contactId
           ? `/vaults/${vaultId}/contacts/${contactId}/relationships/graph`
-          : vaultGraphURL(vaultId, limit),
+          : vaultGraphURL(vaultId, limit, filters),
       );
       const data = res.data?.data ?? res.data;
       if (data && "nodes" in data && "edges" in data) {
@@ -443,9 +447,7 @@ export default function NetworkGraph({
   if (error || !graphData || !graphData.nodes?.length) {
     return (
       <Empty
-        description={
-          emptyDescription ?? t("modules.relationships.graph_empty")
-        }
+        description={emptyDescription ?? t("modules.relationships.graph_empty")}
       />
     );
   }

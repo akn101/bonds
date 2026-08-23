@@ -306,10 +306,21 @@
       "title": "Gráfico de relações",
       "description": "Todas as pessoas deste cofre que estão ligadas a outra pessoa dele.",
       "empty": "Nenhum par de contactos deste cofre tem relação ainda",
+      "emptyFiltered": "Não há dois contactos que correspondam a este filtro e estejam relacionados",
       "limitLabel": "Desenhar até",
       "limitOption": "{{count}} contactos",
+      "clearFilters": "Limpar filtros",
+      "facet": {
+        "gender": "Género",
+        "pronoun": "Pronomes",
+        "religion": "Religião",
+        "company": "Empresa",
+        "label": "Etiquetas",
+        "group": "Grupos"
+      },
       "drawn": "{{count}} contactos desenhados",
       "clusters": "{{count}} grupos separados",
+      "filteredOut": "{{count}} excluídos pelo filtro",
       "isolated": "{{count}} não apresentados, sem relação dentro deste cofre",
       "external": "{{count}} relações levam para fora deste cofre",
       "truncated": "Demasiado grande para desenhar por inteiro; os grupos mais pequenos ficaram de fora"

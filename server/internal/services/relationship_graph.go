@@ -578,7 +578,7 @@ const defaultVaultGraphNodeLimit = 400
 //     vault's business rendered on this vault's page.
 //   - Whole components past the node limit, largest first, so the cap never
 //     cuts a family in half.
-func (s *RelationshipService) GetVaultGraph(vaultID, userID, locale string, limit int) (*dto.VaultGraphResponse, error) {
+func (s *RelationshipService) GetVaultGraph(vaultID, userID, locale string, limit int, filter VaultGraphFilter) (*dto.VaultGraphResponse, error) {
 	if limit <= 0 {
 		limit = defaultVaultGraphNodeLimit
 	}
@@ -636,7 +636,20 @@ func (s *RelationshipService) GetVaultGraph(vaultID, userID, locale string, limi
 		addToContactMap(adjacency, relationship.RelatedContactID, relationship.ContactID)
 	}
 
-	components := connectedComponents(adjacency)
+	// The facet options describe the unfiltered graph, so the reader can always
+	// see the values they did not pick. The filter is applied after them.
+	facets, err := s.loadContactFacets(vaultID, locale, contacts)
+	if err != nil {
+		return nil, err
+	}
+	drawable := contactSet{}
+	for id := range adjacency {
+		drawable[id] = struct{}{}
+	}
+
+	filtered, filteredAdjacency := applyGraphFilter(adjacency, facets, filter)
+
+	components := connectedComponents(filteredAdjacency)
 	kept, keptComponents := componentsWithinLimit(components, limit)
 
 	builder := newRelationshipGraphBuilder(locale)
@@ -681,7 +694,54 @@ func (s *RelationshipService) GetVaultGraph(vaultID, userID, locale string, limi
 		IsolatedContacts:      len(contactsByID) - len(adjacency),
 		ExternalRelationships: external,
 		Truncated:             keptComponents < len(components),
+		Facets:                facets.options(drawable),
+		FilteredOut:           len(drawable) - len(filtered),
 	}, nil
+}
+
+// applyGraphFilter narrows an adjacency list to the contacts matching the
+// filter, then drops any of those left with no partner still standing.
+//
+// The second step matters: a contact who matches but whose every relation was
+// filtered away has nothing to show on a relationship graph, and drawing them
+// as a loose dot is the same noise isolated contacts were excluded to avoid.
+// Both losses are reported together, because to the reader they are one thing —
+// people the filter took off the canvas.
+func applyGraphFilter(adjacency map[string]contactSet, facets *contactFacets, filter VaultGraphFilter) (contactSet, map[string]contactSet) {
+	if len(filter) == 0 {
+		matched := contactSet{}
+		for id := range adjacency {
+			matched[id] = struct{}{}
+		}
+		return matched, adjacency
+	}
+
+	matched := contactSet{}
+	for id := range adjacency {
+		if facets.matches(id, filter) {
+			matched[id] = struct{}{}
+		}
+	}
+
+	filteredAdjacency := make(map[string]contactSet, len(matched))
+	for id := range matched {
+		neighbours := contactSet{}
+		for neighbour := range adjacency[id] {
+			if _, ok := matched[neighbour]; ok {
+				neighbours[neighbour] = struct{}{}
+			}
+		}
+		if len(neighbours) == 0 {
+			continue
+		}
+		filteredAdjacency[id] = neighbours
+	}
+
+	drawn := contactSet{}
+	for id := range filteredAdjacency {
+		drawn[id] = struct{}{}
+	}
+	return drawn, filteredAdjacency
 }
 
 // connectedComponents groups an undirected adjacency list into its connected

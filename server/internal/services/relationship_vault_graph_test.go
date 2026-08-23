@@ -34,7 +34,7 @@ func TestVaultGraphDrawsRelatedContactsAndCountsIsolatedOnes(t *testing.T) {
 	forwardTypeID, _ := createAsymmetricTypePair(t, ctx.db, ctx.accountID)
 	createGraphRelationship(t, ctx, ctx.contactID, ctx.relatedContactID, forwardTypeID)
 
-	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0)
+	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0, nil)
 	if err != nil {
 		t.Fatalf("GetVaultGraph: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestVaultGraphCountsSeparateClustersIndependently(t *testing.T) {
 	createGraphRelationship(t, ctx, ctx.contactID, ctx.relatedContactID, forwardTypeID)
 	createGraphRelationship(t, ctx, thirdContact, fourthContact, forwardTypeID)
 
-	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0)
+	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0, nil)
 	if err != nil {
 		t.Fatalf("GetVaultGraph: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestVaultGraphInfersFamilyWithoutACentreContact(t *testing.T) {
 	createGraphRelationship(t, ctx, parent, firstChild, parentTypeID)
 	createGraphRelationship(t, ctx, parent, secondChild, parentTypeID)
 
-	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0)
+	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0, nil)
 	if err != nil {
 		t.Fatalf("GetVaultGraph: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestVaultGraphCountsRelationshipsLeavingTheVaultWithoutDrawingThem(t *testi
 	createGraphRelationship(t, ctx, ctx.contactID, ctx.relatedContactID, forwardTypeID)
 	createGraphRelationship(t, ctx, ctx.contactID, outsider, forwardTypeID)
 
-	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0)
+	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0, nil)
 	if err != nil {
 		t.Fatalf("GetVaultGraph: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestVaultGraphDropsWholeClustersAtTheNodeLimit(t *testing.T) {
 	createGraphRelationship(t, ctx, ctx.relatedContactID, thirdContact, forwardTypeID)
 	createGraphRelationship(t, ctx, fourthContact, fifthContact, forwardTypeID)
 
-	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 4)
+	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 4, nil)
 	if err != nil {
 		t.Fatalf("GetVaultGraph: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestVaultGraphKeepsTheLargestClusterEvenWhenItExceedsTheLimit(t *testing.T)
 	createGraphRelationship(t, ctx, ctx.contactID, ctx.relatedContactID, forwardTypeID)
 	createGraphRelationship(t, ctx, ctx.relatedContactID, thirdContact, forwardTypeID)
 
-	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 1)
+	graph, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 1, nil)
 	if err != nil {
 		t.Fatalf("GetVaultGraph: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestVaultGraphRejectsAVaultTheUserCannotRead(t *testing.T) {
 		t.Fatalf("CreateVault for stranger: %v", err)
 	}
 
-	if _, err := ctx.svc.GetVaultGraph(strangerVault.ID, ctx.userID, "en", 0); !errors.Is(err, ErrVaultNotFound) {
+	if _, err := ctx.svc.GetVaultGraph(strangerVault.ID, ctx.userID, "en", 0, nil); !errors.Is(err, ErrVaultNotFound) {
 		t.Fatalf("GetVaultGraph on another account's vault = %v, want ErrVaultNotFound", err)
 	}
 }

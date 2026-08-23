@@ -306,10 +306,21 @@
       "title": "关系图谱",
       "description": "此保险库中与库内其他人存在关联的所有联系人。",
       "empty": "此保险库中尚无相互关联的联系人",
+      "emptyFiltered": "没有两个符合此筛选条件的联系人彼此相关",
       "limitLabel": "最多绘制",
       "limitOption": "{{count}} 位联系人",
+      "clearFilters": "清除筛选",
+      "facet": {
+        "gender": "性别",
+        "pronoun": "人称代词",
+        "religion": "宗教信仰",
+        "company": "公司",
+        "label": "标签",
+        "group": "群组"
+      },
       "drawn": "已绘制 {{count}} 位联系人",
       "clusters": "{{count}} 个独立群组",
+      "filteredOut": "已筛除 {{count}} 位",
       "isolated": "{{count}} 位未显示，在此保险库内没有关系",
       "external": "{{count}} 条关系指向此保险库之外",
       "truncated": "图谱过大，无法完整绘制，已省略最小的群组"
