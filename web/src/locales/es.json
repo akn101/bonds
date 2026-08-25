@@ -39,6 +39,10 @@
   "pagination": {
     "total": "Total {{count}}"
   },
+  "version_update": {
+    "available": "Bonds {{version}} está disponible.",
+    "view_release": "Ver versión"
+  },
   "nav": {
     "vaults": "Bóvedas",
     "settings": "Configuración",
@@ -451,6 +455,10 @@
       "sync_both": "Bidireccional",
       "frequency": "Frecuencia de sincronización",
       "frequency_minutes": "Cada {{count}} min",
+      "custom_ca": "Certificado CA personalizado",
+      "custom_ca_help": "Certificado PEM opcional para confiar en una autoridad privada o autofirmada.",
+      "skip_tls_verify": "Omitir la verificación del certificado TLS",
+      "skip_tls_warning": "La verificación del certificado está desactivada. Úsalo solo con un servidor de confianza; un atacante podría interceptar credenciales y contactos.",
       "status": "Estado",
       "last_synced": "Última sincronización",
       "never_synced": "Nunca",

@@ -39,6 +39,10 @@
   "pagination": {
     "total": "Total {{count}}"
   },
+  "version_update": {
+    "available": "Bonds {{version}} está disponível.",
+    "view_release": "Ver versão"
+  },
   "nav": {
     "vaults": "Cofres",
     "settings": "Configurações",
@@ -451,6 +455,10 @@
       "sync_both": "Bidirecional",
       "frequency": "Frequência de Sincronização",
       "frequency_minutes": "A cada {{count}} min",
+      "custom_ca": "Certificado de CA personalizado",
+      "custom_ca_help": "Certificado PEM opcional para confiar em uma autoridade privada ou autoassinada.",
+      "skip_tls_verify": "Ignorar verificação do certificado TLS",
+      "skip_tls_warning": "A verificação do certificado está desativada. Use apenas com um servidor confiável; um invasor pode interceptar credenciais e contatos.",
       "status": "Situação",
       "last_synced": "Última Sincronização",
       "never_synced": "Nunca",

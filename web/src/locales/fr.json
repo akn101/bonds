@@ -39,6 +39,10 @@
   "pagination": {
     "total": "Total {{count}}"
   },
+  "version_update": {
+    "available": "Bonds {{version}} est disponible.",
+    "view_release": "Voir la version"
+  },
   "nav": {
     "vaults": "Coffres",
     "settings": "Paramètres",
@@ -451,6 +455,10 @@
       "sync_both": "Bidirectionnel",
       "frequency": "Fréquence de synchronisation",
       "frequency_minutes": "Toutes les {{count}} min",
+      "custom_ca": "Certificat d’autorité personnalisé",
+      "custom_ca_help": "Certificat PEM facultatif pour approuver une autorité privée ou auto-signée.",
+      "skip_tls_verify": "Ignorer la vérification du certificat TLS",
+      "skip_tls_warning": "La vérification du certificat est désactivée. Utilisez cette option uniquement pour un serveur fiable ; un attaquant pourrait intercepter les identifiants et les contacts.",
       "status": "Statut",
       "last_synced": "Dernière synchronisation",
       "never_synced": "Jamais",

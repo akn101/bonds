@@ -39,6 +39,10 @@
   "pagination": {
     "total": "Gesamt {{count}}"
   },
+  "version_update": {
+    "available": "Bonds {{version}} ist verfügbar.",
+    "view_release": "Version ansehen"
+  },
   "nav": {
     "vaults": "Tresore",
     "settings": "Einstellungen",
@@ -451,6 +455,10 @@
       "sync_both": "Bidirektional",
       "frequency": "Synchronisierungshäufigkeit",
       "frequency_minutes": "Alle {{count}} Min.",
+      "custom_ca": "Benutzerdefiniertes CA-Zertifikat",
+      "custom_ca_help": "Optionales PEM-Zertifikat zum Vertrauen einer privaten oder selbstsignierten Zertifizierungsstelle.",
+      "skip_tls_verify": "TLS-Zertifikatsprüfung überspringen",
+      "skip_tls_warning": "Die Zertifikatsprüfung ist deaktiviert. Verwenden Sie dies nur für einen vertrauenswürdigen Server; Angreifer könnten Zugangsdaten und Kontakte abfangen.",
       "status": "Status",
       "last_synced": "Zuletzt synchronisiert",
       "never_synced": "Nie",

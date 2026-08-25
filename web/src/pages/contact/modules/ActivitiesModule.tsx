@@ -108,7 +108,10 @@ export default function ActivitiesModule({
         ? page + 1
         : undefined,
   });
-  const items = activityPages?.pages.flatMap((result) => result.items) ?? [];
+  const items = useMemo(
+    () => activityPages?.pages.flatMap((result) => result.items) ?? [],
+    [activityPages],
+  );
 
   const { data: contacts = [] } = useQuery<ContactSearchItem[]>({
     queryKey: ["vaults", vaultId, "contacts", "activity-picker"],
