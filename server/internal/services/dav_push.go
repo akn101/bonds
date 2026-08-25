@@ -100,7 +100,7 @@ func (s *DavPushService) pushContactChange(contactID, vaultID string) {
 				return
 			}
 
-			client, err := s.clientFactory.NewClient(sub.URI, sub.Username, password)
+			client, err := s.clientFactory.NewClient(sub.URI, sub.Username, password, DavTLSConfig{CustomCAPEM: sub.CustomCAPEM, SkipTLSVerify: sub.SkipTLSVerify})
 			if err != nil {
 				s.logPushAction(sub.ID, &contactID, "", "", "error", fmt.Sprintf("create client failed: %v", err))
 				return
@@ -206,7 +206,7 @@ func (s *DavPushService) pushContactDeleteTargets(targets []contactRemoteDeletio
 				return
 			}
 
-			client, err := s.clientFactory.NewClient(sub.URI, sub.Username, password)
+			client, err := s.clientFactory.NewClient(sub.URI, sub.Username, password, DavTLSConfig{CustomCAPEM: sub.CustomCAPEM, SkipTLSVerify: sub.SkipTLSVerify})
 			if err != nil {
 				s.logPushAction(sub.ID, &target.contactID, target.distantURI, "", "error", fmt.Sprintf("create client failed: %v", err))
 				return

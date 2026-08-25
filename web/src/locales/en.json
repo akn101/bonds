@@ -39,6 +39,10 @@
   "pagination": {
     "total": "Total {{count}}"
   },
+  "version_update": {
+    "available": "Bonds {{version}} is available.",
+    "view_release": "View release"
+  },
   "nav": {
     "vaults": "Vaults",
     "settings": "Settings",
@@ -451,6 +455,10 @@
       "sync_both": "Bidirectional",
       "frequency": "Sync Frequency",
       "frequency_minutes": "Every {{count}} min",
+      "custom_ca": "Custom CA certificate",
+      "custom_ca_help": "Optional PEM certificate used to trust a private or self-signed certificate authority.",
+      "skip_tls_verify": "Skip TLS certificate verification",
+      "skip_tls_warning": "Certificate verification is disabled. Only use this for a server you trust; a network attacker could intercept credentials and contacts.",
       "status": "Status",
       "last_synced": "Last Synced",
       "never_synced": "Never",

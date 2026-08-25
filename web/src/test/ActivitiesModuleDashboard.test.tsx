@@ -32,16 +32,23 @@ vi.mock("@/api", () => ({
   },
 }));
 
-function renderModule(initiallyOpen = false) {
-  const queryClient = new QueryClient({
+function renderModule(
+  initiallyOpen = false,
+  queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
-  });
+  }),
+  contactId?: string,
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <ConfigProvider>
         <AntApp>
           <MemoryRouter>
-            <ActivitiesModule vaultId="vault-1" initiallyOpen={initiallyOpen} />
+            <ActivitiesModule
+              vaultId="vault-1"
+              contactId={contactId}
+              initiallyOpen={initiallyOpen}
+            />
             <LocationProbe />
           </MemoryRouter>
         </AntApp>
@@ -56,6 +63,30 @@ function LocationProbe() {
 }
 
 describe("ActivitiesModule on the vault dashboard", () => {
+  it("renders cached activities after the module remounts", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    queryClient.setQueryData(
+      ["vaults", "vault-1", "activities", "contact-1"],
+      {
+        pages: [
+          {
+            items: [{ id: 7, title: "Cached dinner", participants: [] }],
+            meta: { page: 1, total_pages: 1 },
+            page: 1,
+          },
+        ],
+        pageParams: [1],
+      },
+    );
+
+    renderModule(false, queryClient, "contact-1");
+
+    expect(await screen.findByText("Cached dinner")).toBeInTheDocument();
+    expect(mockActivitiesList).not.toHaveBeenCalled();
+  });
+
   it("lists all vault activities without filtering by the default participant", async () => {
     mockActivitiesList.mockResolvedValue({
       data: [],

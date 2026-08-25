@@ -15,6 +15,8 @@ type AddressBookSubscription struct {
 	AddressBookPath    string     `json:"address_book_path" gorm:"size:2096"`
 	Username           string     `json:"username" gorm:"size:1024;not null"`
 	Password           string     `json:"-" gorm:"size:2048;not null"`
+	CustomCAPEM        string     `json:"custom_ca_pem" gorm:"type:text"`
+	SkipTLSVerify      bool       `json:"skip_tls_verify" gorm:"default:false"`
 	Active             bool       `json:"active" gorm:"default:true"`
 	SyncWay            uint8      `json:"sync_way" gorm:"default:2"`
 	Capabilities       string     `json:"capabilities" gorm:"size:2048;not null"`

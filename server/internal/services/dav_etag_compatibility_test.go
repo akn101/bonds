@@ -100,7 +100,7 @@ END:VCARD
 	}))
 	defer server.Close()
 
-	client, err := (&DefaultCardDAVClientFactory{}).NewClient(server.URL, "mailbox-user", "mailbox-password")
+	client, err := (&DefaultCardDAVClientFactory{}).NewClient(server.URL, "mailbox-user", "mailbox-password", DavTLSConfig{})
 	if err != nil {
 		t.Fatalf("create production CardDAV client: %v", err)
 	}

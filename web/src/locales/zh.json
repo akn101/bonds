@@ -39,6 +39,10 @@
   "pagination": {
     "total": "共 {{count}} 条"
   },
+  "version_update": {
+    "available": "Bonds {{version}} 已发布。",
+    "view_release": "查看新版本"
+  },
   "nav": {
     "vaults": "保险库",
     "settings": "设置",
@@ -451,6 +455,10 @@
       "sync_both": "双向同步",
       "frequency": "同步频率",
       "frequency_minutes": "每 {{count}} 分钟",
+      "custom_ca": "自定义 CA 证书",
+      "custom_ca_help": "可选的 PEM 证书，用于信任私有或自签名证书颁发机构。",
+      "skip_tls_verify": "跳过 TLS 证书校验",
+      "skip_tls_warning": "证书校验已禁用。请仅对可信服务器使用此选项，否则网络攻击者可能截获凭据和联系人数据。",
       "status": "状态",
       "last_synced": "上次同步",
       "never_synced": "从未同步",

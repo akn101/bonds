@@ -98,6 +98,8 @@ func (s *DavClientService) Create(vaultID, userID string, req dto.CreateDavSubsc
 		AddressBookPath: req.AddressBookPath,
 		Username:        req.Username,
 		Password:        encryptedPwd,
+		CustomCAPEM:     req.CustomCAPEM,
+		SkipTLSVerify:   req.SkipTLSVerify,
 		SyncWay:         syncWay,
 		Frequency:       frequency,
 		Capabilities:    "{}",
@@ -164,6 +166,12 @@ func (s *DavClientService) Update(id, vaultID string, req dto.UpdateDavSubscript
 	}
 	if req.Active != nil {
 		sub.Active = *req.Active
+	}
+	if req.CustomCAPEM != nil {
+		sub.CustomCAPEM = *req.CustomCAPEM
+	}
+	if req.SkipTLSVerify != nil {
+		sub.SkipTLSVerify = *req.SkipTLSVerify
 	}
 
 	if req.AddressBookPath != "" {
@@ -239,6 +247,8 @@ func toDavSubscriptionResponse(sub *models.AddressBookSubscription) dto.DavSubsc
 		VaultID:            sub.VaultID,
 		URI:                sub.URI,
 		Username:           sub.Username,
+		CustomCAPEM:        sub.CustomCAPEM,
+		SkipTLSVerify:      sub.SkipTLSVerify,
 		AddressBookPath:    sub.AddressBookPath,
 		Active:             sub.Active,
 		SyncWay:            sub.SyncWay,

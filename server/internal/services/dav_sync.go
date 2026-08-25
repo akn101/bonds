@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"log"
 	"math"
@@ -36,19 +38,37 @@ type CardDAVClient interface {
 	RemoveAll(ctx context.Context, path string) error
 }
 
+type DavTLSConfig struct {
+	CustomCAPEM   string
+	SkipTLSVerify bool
+}
+
 type CardDAVClientFactory interface {
-	NewClient(uri, username, password string) (CardDAVClient, error)
+	NewClient(uri, username, password string, tlsConfig DavTLSConfig) (CardDAVClient, error)
 }
 
 type DefaultCardDAVClientFactory struct{}
 
-func (f *DefaultCardDAVClientFactory) NewClient(uri, username, password string) (CardDAVClient, error) {
+func (f *DefaultCardDAVClientFactory) NewClient(uri, username, password string, tlsConfig DavTLSConfig) (CardDAVClient, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: tlsConfig.SkipTLSVerify} //nolint:gosec -- explicit per-subscription opt-in
+	if tlsConfig.CustomCAPEM != "" {
+		roots, err := x509.SystemCertPool()
+		if err != nil {
+			roots = x509.NewCertPool()
+		}
+		if ok := roots.AppendCertsFromPEM([]byte(tlsConfig.CustomCAPEM)); !ok {
+			return nil, fmt.Errorf("invalid custom CA certificate")
+		}
+		transport.TLSClientConfig.RootCAs = roots
+	}
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &davETagCompatibilityTransport{
 			base: &fallbackAuthTransport{
 				username: username,
 				password: password,
+				base:     transport,
 			},
 		},
 	}
@@ -61,6 +81,7 @@ type fallbackAuthTransport struct {
 	useDigest  bool
 	digestOnce sync.Once
 	digestT    *digest.Transport
+	base       http.RoundTripper
 }
 
 func (t *fallbackAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -69,7 +90,7 @@ func (t *fallbackAuthTransport) RoundTrip(req *http.Request) (*http.Response, er
 	}
 
 	req.SetBasicAuth(t.username, t.password)
-	resp, err := http.DefaultTransport.RoundTrip(req)
+	resp, err := t.baseTransport().RoundTrip(req)
 	if err != nil {
 		return nil, err
 	}
@@ -90,11 +111,19 @@ func (t *fallbackAuthTransport) RoundTrip(req *http.Request) (*http.Response, er
 func (t *fallbackAuthTransport) getDigestTransport() *digest.Transport {
 	t.digestOnce.Do(func() {
 		t.digestT = &digest.Transport{
-			Username: t.username,
-			Password: t.password,
+			Username:  t.username,
+			Password:  t.password,
+			Transport: t.baseTransport(),
 		}
 	})
 	return t.digestT
+}
+
+func (t *fallbackAuthTransport) baseTransport() http.RoundTripper {
+	if t.base != nil {
+		return t.base
+	}
+	return http.DefaultTransport
 }
 
 type DavSyncService struct {
@@ -118,7 +147,7 @@ func (s *DavSyncService) SetClientFactory(factory CardDAVClientFactory) {
 }
 
 func (s *DavSyncService) TestConnection(req dto.TestDavConnectionRequest) (*dto.TestDavConnectionResponse, error) {
-	client, err := s.clientFactory.NewClient(req.URI, req.Username, req.Password)
+	client, err := s.clientFactory.NewClient(req.URI, req.Username, req.Password, DavTLSConfig{CustomCAPEM: req.CustomCAPEM, SkipTLSVerify: req.SkipTLSVerify})
 	if err != nil {
 		return &dto.TestDavConnectionResponse{
 			Success: false,
@@ -197,7 +226,7 @@ func (s *DavSyncService) SyncSubscription(ctx context.Context, subID, vaultID st
 		return nil, err
 	}
 
-	client, err := s.clientFactory.NewClient(sub.URI, sub.Username, password)
+	client, err := s.clientFactory.NewClient(sub.URI, sub.Username, password, DavTLSConfig{CustomCAPEM: sub.CustomCAPEM, SkipTLSVerify: sub.SkipTLSVerify})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CardDAV client: %w", err)
 	}

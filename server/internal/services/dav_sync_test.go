@@ -89,11 +89,13 @@ func (m *mockCardDAVClient) RemoveAll(ctx context.Context, path string) error {
 }
 
 type mockCardDAVClientFactory struct {
-	client CardDAVClient
-	err    error
+	client        CardDAVClient
+	err           error
+	lastTLSConfig DavTLSConfig
 }
 
-func (f *mockCardDAVClientFactory) NewClient(uri, username, password string) (CardDAVClient, error) {
+func (f *mockCardDAVClientFactory) NewClient(uri, username, password string, tlsConfig DavTLSConfig) (CardDAVClient, error) {
+	f.lastTLSConfig = tlsConfig
 	return f.client, f.err
 }
 
@@ -178,6 +180,37 @@ func TestDavSyncService_TestConnection(t *testing.T) {
 	}
 	if result.AddressBooks[0].Path != "/addressbooks/user/contacts/" {
 		t.Errorf("expected first address book path '/addressbooks/user/contacts/', got %q", result.AddressBooks[0].Path)
+	}
+}
+
+func TestDavSyncService_TestConnectionPassesTLSConfig(t *testing.T) {
+	syncSvc, _, _, _, _, _ := setupDavSyncTest(t)
+	mc := &mockCardDAVClient{
+		findPrincipalFn: func(context.Context) (string, error) { return "", nil },
+		findHomeSetFn:   func(context.Context, string) (string, error) { return "/books/", nil },
+		findAddrBooksFn: func(context.Context, string) ([]carddav.AddressBook, error) { return nil, nil },
+	}
+	factory := &mockCardDAVClientFactory{client: mc}
+	syncSvc.SetClientFactory(factory)
+
+	_, err := syncSvc.TestConnection(dto.TestDavConnectionRequest{
+		URI: "https://dav.example.com", Username: "user", Password: "pwd",
+		CustomCAPEM: "certificate", SkipTLSVerify: true,
+	})
+	if err != nil {
+		t.Fatalf("TestConnection returned error: %v", err)
+	}
+	if factory.lastTLSConfig.CustomCAPEM != "certificate" || !factory.lastTLSConfig.SkipTLSVerify {
+		t.Fatalf("TLS config was not passed to client factory: %+v", factory.lastTLSConfig)
+	}
+}
+
+func TestDefaultCardDAVClientFactoryRejectsInvalidCustomCA(t *testing.T) {
+	_, err := (&DefaultCardDAVClientFactory{}).NewClient(
+		"https://dav.example.com", "user", "pwd", DavTLSConfig{CustomCAPEM: "not a certificate"},
+	)
+	if err == nil {
+		t.Fatal("expected invalid custom CA to be rejected")
 	}
 }
 

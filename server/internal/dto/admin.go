@@ -51,6 +51,9 @@ type OAuthProviderInfo struct {
 
 type InstanceInfoResponse struct {
 	Version                  string              `json:"version" example:"v0.1.5"`
+	UpdateAvailable          bool                `json:"update_available" example:"true"`
+	LatestVersion            string              `json:"latest_version,omitempty" example:"v0.2.0"`
+	LatestVersionURL         string              `json:"latest_version_url,omitempty" example:"https://github.com/naiba/bonds/releases/tag/v0.2.0"`
 	RegistrationEnabled      bool                `json:"registration_enabled" example:"true"`
 	PasswordAuthEnabled      bool                `json:"password_auth_enabled" example:"true"`
 	RequireEmailVerification bool                `json:"require_email_verification" example:"false"`

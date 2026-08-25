@@ -3,28 +3,34 @@ package dto
 import "time"
 
 type CreateDavSubscriptionRequest struct {
-	URI       string `json:"uri" validate:"required" example:"https://dav.example.com/addressbooks/user/contacts/"`
-	Username  string `json:"username" validate:"required" example:"user@example.com"`
-	Password  string `json:"password" validate:"required" example:"app-password"`
-	SyncWay   uint8  `json:"sync_way" example:"2"`
-	Frequency int    `json:"frequency" example:"180"`
+	URI             string `json:"uri" validate:"required" example:"https://dav.example.com/addressbooks/user/contacts/"`
+	Username        string `json:"username" validate:"required" example:"user@example.com"`
+	Password        string `json:"password" validate:"required" example:"app-password"`
+	SyncWay         uint8  `json:"sync_way" example:"2"`
+	Frequency       int    `json:"frequency" example:"180"`
 	AddressBookPath string `json:"address_book_path" example:"/dav.php/addressbooks/user/contacts/"`
+	CustomCAPEM     string `json:"custom_ca_pem" example:"-----BEGIN CERTIFICATE-----..."`
+	SkipTLSVerify   bool   `json:"skip_tls_verify" example:"false"`
 }
 
 type UpdateDavSubscriptionRequest struct {
-	URI       string `json:"uri" example:"https://dav.example.com/addressbooks/user/contacts/"`
-	Username  string `json:"username" example:"user@example.com"`
-	Password  string `json:"password" example:"new-password"`
-	SyncWay   uint8  `json:"sync_way" example:"2"`
-	Frequency int    `json:"frequency" example:"180"`
-	Active    *bool  `json:"active" example:"true"`
-	AddressBookPath string `json:"address_book_path" example:"/dav.php/addressbooks/user/contacts/"`
+	URI             string  `json:"uri" example:"https://dav.example.com/addressbooks/user/contacts/"`
+	Username        string  `json:"username" example:"user@example.com"`
+	Password        string  `json:"password" example:"new-password"`
+	SyncWay         uint8   `json:"sync_way" example:"2"`
+	Frequency       int     `json:"frequency" example:"180"`
+	Active          *bool   `json:"active" example:"true"`
+	AddressBookPath string  `json:"address_book_path" example:"/dav.php/addressbooks/user/contacts/"`
+	CustomCAPEM     *string `json:"custom_ca_pem" example:"-----BEGIN CERTIFICATE-----..."`
+	SkipTLSVerify   *bool   `json:"skip_tls_verify" example:"false"`
 }
 
 type TestDavConnectionRequest struct {
-	URI      string `json:"uri" validate:"required" example:"https://dav.example.com/addressbooks/user/contacts/"`
-	Username string `json:"username" validate:"required" example:"user@example.com"`
-	Password string `json:"password" validate:"required" example:"app-password"`
+	URI           string `json:"uri" validate:"required" example:"https://dav.example.com/addressbooks/user/contacts/"`
+	Username      string `json:"username" validate:"required" example:"user@example.com"`
+	Password      string `json:"password" validate:"required" example:"app-password"`
+	CustomCAPEM   string `json:"custom_ca_pem" example:"-----BEGIN CERTIFICATE-----..."`
+	SkipTLSVerify bool   `json:"skip_tls_verify" example:"false"`
 }
 
 type DavSubscriptionResponse struct {
@@ -32,6 +38,8 @@ type DavSubscriptionResponse struct {
 	VaultID            string     `json:"vault_id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	URI                string     `json:"uri" example:"https://dav.example.com/addressbooks/user/contacts/"`
 	Username           string     `json:"username" example:"user@example.com"`
+	CustomCAPEM        string     `json:"custom_ca_pem,omitempty" example:"-----BEGIN CERTIFICATE-----..."`
+	SkipTLSVerify      bool       `json:"skip_tls_verify" example:"false"`
 	AddressBookPath    string     `json:"address_book_path" example:"/dav.php/addressbooks/user/contacts/"`
 	Active             bool       `json:"active" example:"true"`
 	SyncWay            uint8      `json:"sync_way" example:"2"`

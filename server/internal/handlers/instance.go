@@ -14,6 +14,7 @@ type InstanceHandler struct {
 	oauthService    *services.OAuthService
 	webauthnService *services.WebAuthnService
 	version         string
+	versionChecker  services.VersionChecker
 }
 
 func NewInstanceHandler(
@@ -27,6 +28,7 @@ func NewInstanceHandler(
 		oauthService:    oauthService,
 		webauthnService: webauthnService,
 		version:         version,
+		versionChecker:  services.NewGitHubVersionChecker(),
 	}
 }
 
@@ -70,6 +72,11 @@ func (h *InstanceHandler) GetInfo(c echo.Context) error {
 		WebAuthnEnabled:          webauthnEnabled,
 		AppName:                  appName,
 		RequireEmailVerification: emailVerificationActive,
+	}
+	if update := h.versionChecker.Check(h.version); update != nil {
+		info.UpdateAvailable = true
+		info.LatestVersion = update.Version
+		info.LatestVersionURL = update.URL
 	}
 
 	return response.OK(c, info)

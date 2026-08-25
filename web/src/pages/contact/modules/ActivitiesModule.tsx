@@ -15,7 +15,12 @@ import {
   Typography,
 } from "antd";
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
@@ -75,26 +80,35 @@ export default function ActivitiesModule({
   const [open, setOpen] = useState(initiallyOpen);
   const [editing, setEditing] = useState<Activity | null>(null);
   const [description, setDescription] = useState("");
-  const [page, setPage] = useState(1);
-  const [items, setItems] = useState<Activity[]>([]);
-  const [hasMore, setHasMore] = useState(false);
   const queryKey = ["vaults", vaultId, "activities", contactId] as const;
 
-  const { isLoading, isFetching } = useQuery({
-    queryKey: [...queryKey, page],
-    queryFn: async () => {
+  const {
+    data: activityPages,
+    isLoading,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteQuery({
+    queryKey,
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
       const response = await api.activities.activitiesList(String(vaultId), {
         contact_id: contactId == null ? undefined : String(contactId),
-        page,
+        page: pageParam,
         per_page: 15,
       });
-      const next = response.data ?? [];
-      setItems((current) => (page === 1 ? next : [...current, ...next]));
-      const meta = response.meta as PaginationMeta | undefined;
-      setHasMore((meta?.page ?? page) < (meta?.total_pages ?? page));
-      return next;
+      return {
+        items: response.data ?? [],
+        meta: response.meta as PaginationMeta | undefined,
+        page: pageParam,
+      };
     },
+    getNextPageParam: ({ meta, page }) =>
+      (meta?.page ?? page) < (meta?.total_pages ?? page)
+        ? page + 1
+        : undefined,
   });
+  const items = activityPages?.pages.flatMap((result) => result.items) ?? [];
 
   const { data: contacts = [] } = useQuery<ContactSearchItem[]>({
     queryKey: ["vaults", vaultId, "contacts", "activity-picker"],
@@ -150,8 +164,6 @@ export default function ActivitiesModule({
   );
 
   const resetList = async () => {
-    setPage(1);
-    setItems([]);
     await queryClient.invalidateQueries({ queryKey });
   };
 
@@ -429,11 +441,11 @@ export default function ActivitiesModule({
           }))}
         />
       )}
-      {hasMore && (
+      {hasNextPage && (
         <div style={{ textAlign: "center" }}>
           <Button
-            loading={isFetching}
-            onClick={() => setPage((value) => value + 1)}
+            loading={isFetchingNextPage}
+            onClick={() => fetchNextPage()}
           >
             {t("common.load_more")}
           </Button>

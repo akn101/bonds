@@ -8,6 +8,7 @@ import {
   theme,
   Button,
   Tooltip,
+  Alert,
 } from "antd";
 import {
   SettingOutlined,
@@ -81,6 +82,12 @@ export default function Layout() {
       return res.data;
     },
     enabled: !!vaultId,
+  });
+
+  const { data: instanceInfo } = useQuery({
+    queryKey: ["instance", "info"],
+    queryFn: async () => (await api.instance.infoList()).data,
+    staleTime: 6 * 60 * 60 * 1000,
   });
 
   // Grouped nav: Core | Content | Management | Activity
@@ -296,6 +303,29 @@ export default function Layout() {
           </nav>
         )}
       </div>
+
+      {instanceInfo?.update_available && instanceInfo.latest_version_url && (
+        <Alert
+          type="info"
+          showIcon
+          banner
+          closable
+          message={
+            <span>
+              {t("version_update.available", {
+                version: instanceInfo.latest_version,
+              })}{" "}
+              <a
+                href={instanceInfo.latest_version_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t("version_update.view_release")}
+              </a>
+            </span>
+          }
+        />
+      )}
 
       <Content
         style={{

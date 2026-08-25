@@ -67,11 +67,13 @@ func TestDavClientService_Create(t *testing.T) {
 	svc, vaultID, userID := setupDavClientTest(t)
 
 	resp, err := svc.Create(vaultID, userID, dto.CreateDavSubscriptionRequest{
-		URI:       "https://dav.example.com/addressbooks/user/contacts/",
-		Username:  "user@example.com",
-		Password:  "app-password",
-		SyncWay:   2,
-		Frequency: 180,
+		URI:           "https://dav.example.com/addressbooks/user/contacts/",
+		Username:      "user@example.com",
+		Password:      "app-password",
+		SyncWay:       2,
+		Frequency:     180,
+		CustomCAPEM:   "test CA",
+		SkipTLSVerify: true,
 	})
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -93,6 +95,9 @@ func TestDavClientService_Create(t *testing.T) {
 	}
 	if resp.Frequency != 180 {
 		t.Errorf("expected frequency 180, got %d", resp.Frequency)
+	}
+	if resp.CustomCAPEM != "test CA" || !resp.SkipTLSVerify {
+		t.Fatalf("unexpected TLS settings: custom_ca=%q skip_verify=%v", resp.CustomCAPEM, resp.SkipTLSVerify)
 	}
 
 	var sub models.AddressBookSubscription
@@ -177,10 +182,14 @@ func TestDavClientService_Update(t *testing.T) {
 	})
 
 	active := false
+	customCA := "replacement CA"
+	skipTLSVerify := true
 	updated, err := svc.Update(created.ID, vaultID, dto.UpdateDavSubscriptionRequest{
-		URI:      "https://dav.example.com/new-contacts/",
-		Username: "newuser",
-		Active:   &active,
+		URI:           "https://dav.example.com/new-contacts/",
+		Username:      "newuser",
+		Active:        &active,
+		CustomCAPEM:   &customCA,
+		SkipTLSVerify: &skipTLSVerify,
 	})
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
@@ -193,6 +202,9 @@ func TestDavClientService_Update(t *testing.T) {
 	}
 	if updated.Active != false {
 		t.Error("expected active=false")
+	}
+	if updated.CustomCAPEM != customCA || !updated.SkipTLSVerify {
+		t.Fatalf("unexpected TLS settings after update: custom_ca=%q skip_verify=%v", updated.CustomCAPEM, updated.SkipTLSVerify)
 	}
 }
 
