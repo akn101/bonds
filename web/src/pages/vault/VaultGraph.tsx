@@ -18,6 +18,7 @@ const { Title, Text } = Typography;
 // so the default is a legibility choice. On a large vault it can leave most of
 // the related contacts out, which is the reader's call to overrule, not ours.
 const NODE_LIMITS = [400, 1000, 2500, 5000];
+const DEFAULT_NODE_LIMIT = 1000;
 
 interface VaultGraphFacetValue {
   value: string;
@@ -46,7 +47,7 @@ export default function VaultGraph() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const [limit, setLimit] = useState(NODE_LIMITS[0]);
+  const [limit, setLimit] = useState(DEFAULT_NODE_LIMIT);
   const [filters, setFilters] = useState<VaultGraphFilters>({});
 
   // Same query key as the canvas below, so the page and the drawing share one

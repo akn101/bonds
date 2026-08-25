@@ -561,7 +561,7 @@ func graphRelationKey(relation dto.GraphRelation) string {
 // response will draw. A force-directed layout stops being readable long before
 // it stops being renderable, so the cap is a legibility limit rather than a
 // performance one.
-const defaultVaultGraphNodeLimit = 400
+const defaultVaultGraphNodeLimit = 1000
 
 // GetVaultGraph returns the relationship graph of one vault: every contact in
 // it that is related to another contact in it, and the relationships between

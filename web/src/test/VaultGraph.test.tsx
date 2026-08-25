@@ -73,7 +73,7 @@ describe("VaultGraph page", () => {
 
     await waitFor(() => expect(httpMocks.get).toHaveBeenCalled());
     expect(httpMocks.get).toHaveBeenCalledWith(
-      "/vaults/vault-1/relationships/graph?limit=400",
+      "/vaults/vault-1/relationships/graph?limit=1000",
     );
     expect(await screen.findByText("2 contacts drawn")).toBeInTheDocument();
   });
@@ -142,17 +142,17 @@ describe("VaultGraph page", () => {
     renderWithProviders(
       <>
         <VaultGraph />
-        <NetworkGraph vaultId="vault-1" limit={400} />
+        <NetworkGraph vaultId="vault-1" limit={1000} />
       </>,
     );
 
     await screen.findByText("2 contacts drawn");
     await waitFor(() => expect(httpMocks.get).toHaveBeenCalledTimes(1));
-    expect(vaultGraphQueryKey("vault-1", 400)).toEqual([
+    expect(vaultGraphQueryKey("vault-1", 1000)).toEqual([
       "vaults",
       "vault-1",
       "graph",
-      400,
+      1000,
       "",
     ]);
   });
@@ -235,7 +235,7 @@ describe("VaultGraph filtering", () => {
 
     await waitFor(() =>
       expect(httpMocks.get).toHaveBeenCalledWith(
-        "/vaults/vault-1/relationships/graph?limit=400&label=3",
+        "/vaults/vault-1/relationships/graph?limit=1000&label=3",
       ),
     );
   });
