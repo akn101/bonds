@@ -181,6 +181,11 @@ func translatedName(locale string, name, translationKey *string) string {
 // the caller has nothing to do with.
 func (s *RelationshipService) loadContactFacets(vaultID, locale string, contacts []models.Contact) (*contactFacets, error) {
 	facets := newContactFacets()
+	type pivotRow struct {
+		ContactID string
+		ValueID   uint
+		Name      string
+	}
 
 	genderIDs := make([]uint, 0)
 	pronounIDs := make([]uint, 0)
@@ -199,6 +204,21 @@ func (s *RelationshipService) loadContactFacets(vaultID, locale string, contacts
 		if contact.CompanyID != nil {
 			companyIDs = append(companyIDs, *contact.CompanyID)
 		}
+	}
+
+	// Employment is stored in contact_companies by the current jobs API. Keep
+	// reading Contact.CompanyID above for legacy rows, but build the facet from
+	// the union so newly-created and multiple employments are represented.
+	var companyRows []pivotRow
+	if err := s.db.Table("contact_companies").
+		Select("contact_companies.contact_id AS contact_id, companies.id AS value_id, companies.name AS name").
+		Joins("JOIN companies ON companies.id = contact_companies.company_id").
+		Where("contact_companies.contact_id IN (SELECT id FROM contacts WHERE vault_id = ?)", vaultID).
+		Scan(&companyRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range companyRows {
+		companyIDs = append(companyIDs, row.ValueID)
 	}
 
 	genderNames := make(map[uint]string, len(genderIDs))
@@ -259,15 +279,12 @@ func (s *RelationshipService) loadContactFacets(vaultID, locale string, contacts
 			facets.add(contact.ID, facetCompany, strconv.FormatUint(uint64(*contact.CompanyID), 10), companyNames[*contact.CompanyID])
 		}
 	}
+	for _, row := range companyRows {
+		facets.add(row.ContactID, facetCompany, strconv.FormatUint(uint64(row.ValueID), 10), row.Name)
+	}
 
 	// Labels and groups are pivots, so they are read with a subquery on the
 	// vault rather than by passing every contact id as a bind variable.
-	type pivotRow struct {
-		ContactID string
-		ValueID   uint
-		Name      string
-	}
-
 	var labelRows []pivotRow
 	if err := s.db.Table("contact_label").
 		Select("contact_label.contact_id AS contact_id, labels.id AS value_id, labels.name AS name").

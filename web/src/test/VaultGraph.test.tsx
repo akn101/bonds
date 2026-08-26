@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App as AntApp, ConfigProvider } from "antd";
 import { MemoryRouter } from "react-router-dom";
@@ -9,6 +10,7 @@ import {
   vaultGraphQueryKey,
   vaultGraphURL,
 } from "@/components/networkGraphQueryKey";
+import type { VaultGraphFilters } from "@/components/networkGraphQueryKey";
 
 const httpMocks = vi.hoisted(() => ({ get: vi.fn() }));
 
@@ -195,6 +197,56 @@ describe("NetworkGraph in vault mode", () => {
         "/vaults/vault-1/contacts/contact-9/relationships/graph",
       ),
     );
+  });
+
+  it("clears selected nodes and kinship when the graph query changes", async () => {
+    httpMocks.get.mockImplementation((url: string) => {
+      if (url.includes("/kinship/")) {
+        return Promise.resolve({
+          data: { success: true, data: { degree: 2, path: ["a", "b"] } },
+        });
+      }
+      return Promise.resolve(graphResponse());
+    });
+
+    function Harness() {
+      const [filters, setFilters] = useState<VaultGraphFilters>({});
+      return (
+        <>
+          <button onClick={() => setFilters({ label: ["3"] })}>
+            change graph
+          </button>
+          <NetworkGraph
+            vaultId="vault-1"
+            limit={1000}
+            filters={filters}
+          />
+        </>
+      );
+    }
+
+    const { container } = renderWithProviders(<Harness />);
+    await screen.findByText("Click two nodes to calculate kinship");
+    await waitFor(() =>
+      expect(container.querySelectorAll("svg circle")).toHaveLength(2),
+    );
+
+    const circles = container.querySelectorAll("svg circle");
+    fireEvent.click(circles[0]);
+    fireEvent.click(circles[1]);
+    expect(await screen.findByText("Kinship Degree: 2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("change graph"));
+
+    await waitFor(() =>
+      expect(httpMocks.get).toHaveBeenCalledWith(
+        "/vaults/vault-1/relationships/graph?limit=1000&label=3",
+      ),
+    );
+    expect(screen.queryByText("Kinship Degree: 2")).not.toBeInTheDocument();
+    expect(
+      await screen.findByText("Click two nodes to calculate kinship"),
+    ).toBeInTheDocument();
   });
 });
 

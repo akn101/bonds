@@ -52,7 +52,22 @@ interface NetworkGraphProps {
   emptyDescription?: string;
 }
 
-export default function NetworkGraph({
+export default function NetworkGraph(props: NetworkGraphProps) {
+  const identity = props.contactId
+    ? networkGraphQueryKey({
+        vaultId: props.vaultId,
+        contactId: props.contactId,
+      })
+    : vaultGraphQueryKey(props.vaultId, props.limit, props.filters);
+
+  // A different query represents a different canvas. Remounting prevents
+  // selected contacts and a completed kinship calculation from leaking into a
+  // filtered or differently-truncated graph, while TanStack Query still reuses
+  // the cached response for this identity.
+  return <NetworkGraphCanvas key={JSON.stringify(identity)} {...props} />;
+}
+
+function NetworkGraphCanvas({
   vaultId,
   contactId,
   limit = 0,

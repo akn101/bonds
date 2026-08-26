@@ -557,11 +557,15 @@ func graphRelationKey(relation dto.GraphRelation) string {
 	}, "\x00")
 }
 
-// defaultVaultGraphNodeLimit bounds how much of a vault a single graph
-// response will draw. A force-directed layout stops being readable long before
-// it stops being renderable, so the cap is a legibility limit rather than a
-// performance one.
-const defaultVaultGraphNodeLimit = 1000
+// The node limit is a target budget rather than a hard cap: the largest
+// connected component is kept whole even when it exceeds the requested value.
+// Clamp user input to the largest supported UI option so a hand-written URL
+// cannot request an arbitrarily large collection of otherwise-droppable
+// components.
+const (
+	defaultVaultGraphNodeLimit = 1000
+	maxVaultGraphNodeLimit     = 5000
+)
 
 // GetVaultGraph returns the relationship graph of one vault: every contact in
 // it that is related to another contact in it, and the relationships between
@@ -579,9 +583,7 @@ const defaultVaultGraphNodeLimit = 1000
 //   - Whole components past the node limit, largest first, so the cap never
 //     cuts a family in half.
 func (s *RelationshipService) GetVaultGraph(vaultID, userID, locale string, limit int, filter VaultGraphFilter) (*dto.VaultGraphResponse, error) {
-	if limit <= 0 {
-		limit = defaultVaultGraphNodeLimit
-	}
+	limit = normalizeVaultGraphNodeLimit(limit)
 
 	accessibleVaults, err := accessibleVaultIDSet(s.db, userID)
 	if err != nil {
@@ -697,6 +699,16 @@ func (s *RelationshipService) GetVaultGraph(vaultID, userID, locale string, limi
 		Facets:                facets.options(drawable),
 		FilteredOut:           len(drawable) - len(filtered),
 	}, nil
+}
+
+func normalizeVaultGraphNodeLimit(limit int) int {
+	if limit <= 0 {
+		return defaultVaultGraphNodeLimit
+	}
+	if limit > maxVaultGraphNodeLimit {
+		return maxVaultGraphNodeLimit
+	}
+	return limit
 }
 
 // applyGraphFilter narrows an adjacency list to the contacts matching the

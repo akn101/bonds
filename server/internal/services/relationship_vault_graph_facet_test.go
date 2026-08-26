@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
 )
 
@@ -286,6 +287,54 @@ func TestVaultGraphFiltersByGenderLikeAnyOtherFacet(t *testing.T) {
 	}
 	if !genderFacet {
 		t.Error("gender facet missing even though contacts carry one")
+	}
+}
+
+func TestVaultGraphCompanyFacetUsesCurrentContactJobs(t *testing.T) {
+	ctx := setupRelationshipTestFull(t)
+	forwardTypeID, _ := createAsymmetricTypePair(t, ctx.db, ctx.accountID)
+	createGraphRelationship(t, ctx, ctx.contactID, ctx.relatedContactID, forwardTypeID)
+
+	company := models.Company{VaultID: ctx.vaultID, Name: "Acme"}
+	if err := ctx.db.Create(&company).Error; err != nil {
+		t.Fatalf("create company: %v", err)
+	}
+	jobService := NewContactJobService(ctx.db)
+	for _, contactID := range []string{ctx.contactID, ctx.relatedContactID} {
+		if _, err := jobService.Create(contactID, ctx.vaultID, dto.CreateContactJobRequest{
+			CompanyID: company.ID,
+		}); err != nil {
+			t.Fatalf("create current contact job for %s: %v", contactID, err)
+		}
+	}
+
+	companyID := uintToString(company.ID)
+	unfiltered, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0, nil)
+	if err != nil {
+		t.Fatalf("GetVaultGraph: %v", err)
+	}
+	var found bool
+	for _, facet := range unfiltered.Facets {
+		if facet.Key != facetCompany {
+			continue
+		}
+		for _, value := range facet.Values {
+			if value.Value == companyID && value.Label == company.Name && value.Count == 2 {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("company from contact_companies was not offered as a facet")
+	}
+
+	filtered, err := ctx.svc.GetVaultGraph(ctx.vaultID, ctx.userID, "en", 0,
+		VaultGraphFilter{facetCompany: {companyID}})
+	if err != nil {
+		t.Fatalf("GetVaultGraph filtered by current contact job: %v", err)
+	}
+	if len(filtered.Nodes) != 2 || filtered.FilteredOut != 0 {
+		t.Fatalf("company filter should draw both current employees: nodes=%d filtered_out=%d", len(filtered.Nodes), filtered.FilteredOut)
 	}
 }
 

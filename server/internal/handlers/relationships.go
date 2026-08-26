@@ -238,7 +238,7 @@ func vaultGraphFilterFromQuery(c echo.Context) services.VaultGraphFilter {
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			vault_id	path		string	true	"Vault ID"
-//	@Param			limit		query		integer	false	"Maximum nodes to draw (default 1000)"
+//	@Param			limit		query		integer	false	"Target node budget (default 1000, maximum 5000; the largest connected component is always kept whole)"
 //	@Param			gender		query		[]string	false	"Only draw contacts with one of these gender ids"	collectionFormat(multi)
 //	@Param			pronoun		query		[]string	false	"Only draw contacts with one of these pronoun ids"	collectionFormat(multi)
 //	@Param			religion	query		[]string	false	"Only draw contacts with one of these religion ids"	collectionFormat(multi)

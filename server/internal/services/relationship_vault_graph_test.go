@@ -200,6 +200,27 @@ func TestVaultGraphKeepsTheLargestClusterEvenWhenItExceedsTheLimit(t *testing.T)
 	}
 }
 
+func TestNormalizeVaultGraphNodeLimit(t *testing.T) {
+	tests := []struct {
+		name  string
+		input int
+		want  int
+	}{
+		{name: "default for zero", input: 0, want: defaultVaultGraphNodeLimit},
+		{name: "default for negative", input: -1, want: defaultVaultGraphNodeLimit},
+		{name: "requested value", input: 2500, want: 2500},
+		{name: "maximum", input: maxVaultGraphNodeLimit, want: maxVaultGraphNodeLimit},
+		{name: "clamped", input: maxVaultGraphNodeLimit + 1, want: maxVaultGraphNodeLimit},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeVaultGraphNodeLimit(tt.input); got != tt.want {
+				t.Fatalf("normalizeVaultGraphNodeLimit(%d) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestVaultGraphRejectsAVaultTheUserCannotRead(t *testing.T) {
 	ctx := setupRelationshipTestFull(t)
 	strangerResp, err := NewAuthService(ctx.db, testutil.TestJWTConfig()).Register(dto.RegisterRequest{
