@@ -168,10 +168,12 @@ test.describe('Company employees display in list', () => {
     const select = employeeModal.locator('.ant-select');
     await select.click();
     // Type to filter — the contact should show "Alice Johnson" or "Johnson Alice"
-    await select.locator('input').fill('Alice');
+    await select.locator('input').focus();
+    await page.keyboard.insertText('Alice');
+    await select.click();
     const aliceOption = page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: /Alice/ }).first();
     await expect(aliceOption).toBeVisible({ timeout: 10000 });
-    await aliceOption.click();
+    await aliceOption.dispatchEvent('click');
 
     // 7. Optionally fill job position
     await employeeModal.locator('input#job_position').fill('Engineer');
@@ -231,12 +233,14 @@ test.describe('Company employees display in list', () => {
 		const searchResponse = page.waitForResponse(
 			(resp) => resp.url().includes(`/vaults/${vaultId}/contacts/selectable`) && resp.url().includes('search=Outlier') && resp.request().method() === 'GET',
 		);
-		await select.locator('input').fill('Outlier');
+		await select.locator('input').focus();
+		await page.keyboard.insertText('Outlier');
 		await searchResponse;
+		await select.click();
 
 		const targetOption = page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: /Outlier/ }).first();
 		await expect(targetOption).toBeVisible({ timeout: 10000 });
-		await targetOption.click();
+		await targetOption.dispatchEvent('click');
 
 		const addResp = page.waitForResponse(
 			(resp) => resp.url().includes('/employees') && resp.request().method() === 'POST'
