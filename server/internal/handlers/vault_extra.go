@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -31,7 +31,7 @@ func NewVaultReminderHandler(svc *services.VaultReminderService) *VaultReminderH
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/reminders [get]
-func (h *VaultReminderHandler) List(c echo.Context) error {
+func (h *VaultReminderHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	reminders, err := h.svc.List(vaultID, middleware.GetUserID(c))
 	if err != nil {
@@ -54,7 +54,7 @@ func (h *VaultReminderHandler) List(c echo.Context) error {
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/calendar/years/{year}/months/{month} [get]
-func (h *CalendarHandler) GetMonth(c echo.Context) error {
+func (h *CalendarHandler) GetMonth(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	year, err := strconv.Atoi(c.Param("year"))
 	if err != nil {
@@ -86,7 +86,7 @@ func (h *CalendarHandler) GetMonth(c echo.Context) error {
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/calendar/years/{year}/months/{month}/days/{day} [get]
-func (h *CalendarHandler) GetDay(c echo.Context) error {
+func (h *CalendarHandler) GetDay(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	year, err := strconv.Atoi(c.Param("year"))
 	if err != nil {
@@ -117,7 +117,7 @@ func (h *CalendarHandler) GetDay(c echo.Context) error {
 //	@Param			vault_id	path		string	true	"Vault ID"
 //	@Success		200			{object}	response.APIResponse{data=[]dto.ReportIndexItem}
 //	@Router			/vaults/{vault_id}/reports [get]
-func (h *ReportHandler) Index(c echo.Context) error {
+func (h *ReportHandler) Index(c *echo.Context) error {
 	reports := []dto.ReportIndexItem{
 		{Key: "addresses", Name: "Addresses"},
 		{Key: "importantDates", Name: "Important Dates"},
@@ -138,7 +138,7 @@ func (h *ReportHandler) Index(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.AddressContactItem}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/reports/addresses/city/{city} [get]
-func (h *ReportHandler) AddressesByCity(c echo.Context) error {
+func (h *ReportHandler) AddressesByCity(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	city := c.Param("city")
 	data, err := h.reportService.AddressesByCity(vaultID, city, middleware.GetUserID(c))
@@ -160,7 +160,7 @@ func (h *ReportHandler) AddressesByCity(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.AddressContactItem}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/reports/addresses/country/{country} [get]
-func (h *ReportHandler) AddressesByCountry(c echo.Context) error {
+func (h *ReportHandler) AddressesByCountry(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	country := c.Param("country")
 	data, err := h.reportService.AddressesByCountry(vaultID, country, middleware.GetUserID(c))
@@ -183,7 +183,7 @@ func (h *ReportHandler) AddressesByCountry(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.VaultFileResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/files/photos [get]
-func (h *VaultFileHandler) ListPhotos(c echo.Context) error {
+func (h *VaultFileHandler) ListPhotos(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
@@ -207,7 +207,7 @@ func (h *VaultFileHandler) ListPhotos(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.VaultFileResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/files/documents [get]
-func (h *VaultFileHandler) ListDocuments(c echo.Context) error {
+func (h *VaultFileHandler) ListDocuments(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
@@ -231,7 +231,7 @@ func (h *VaultFileHandler) ListDocuments(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.VaultFileResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/files/avatars [get]
-func (h *VaultFileHandler) ListAvatars(c echo.Context) error {
+func (h *VaultFileHandler) ListAvatars(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
@@ -262,7 +262,7 @@ func NewMostConsultedHandler(svc *services.MostConsultedService) *MostConsultedH
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/search/mostConsulted [get]
-func (h *MostConsultedHandler) List(c echo.Context) error {
+func (h *MostConsultedHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	data, err := h.svc.List(vaultID, userID)
@@ -288,7 +288,7 @@ func (h *MostConsultedHandler) List(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/{entity}/{id}/position [post]
-func (h *PersonalizeHandler) UpdatePosition(c echo.Context) error {
+func (h *PersonalizeHandler) UpdatePosition(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	entity := c.Param("entity")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)

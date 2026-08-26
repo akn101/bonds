@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -32,7 +32,7 @@ func NewBackupHandler(svc *services.BackupService) *BackupHandler {
 //	@Failure		403	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/admin/backups [get]
-func (h *BackupHandler) List(c echo.Context) error {
+func (h *BackupHandler) List(c *echo.Context) error {
 	backups, err := h.backupService.List()
 	if err != nil {
 		return response.InternalError(c, "err.failed_to_list_backups")
@@ -52,7 +52,7 @@ func (h *BackupHandler) List(c echo.Context) error {
 //	@Failure		403	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/admin/backups [post]
-func (h *BackupHandler) Create(c echo.Context) error {
+func (h *BackupHandler) Create(c *echo.Context) error {
 	backup, err := h.backupService.Create()
 	if err != nil {
 		return response.InternalError(c, "err.failed_to_create_backup")
@@ -70,7 +70,7 @@ func (h *BackupHandler) Create(c echo.Context) error {
 //	@Success		200	{object}	response.APIResponse{data=dto.BackupConfigResponse}
 //	@Failure		401	{object}	response.APIResponse
 //	@Router			/admin/backups/config [get]
-func (h *BackupHandler) GetConfig(c echo.Context) error {
+func (h *BackupHandler) GetConfig(c *echo.Context) error {
 	cfg := h.backupService.GetConfig()
 	return response.OK(c, cfg)
 }
@@ -88,7 +88,7 @@ func (h *BackupHandler) GetConfig(c echo.Context) error {
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		404	{object}	response.APIResponse
 //	@Router			/admin/backups/{filename}/download [get]
-func (h *BackupHandler) Download(c echo.Context) error {
+func (h *BackupHandler) Download(c *echo.Context) error {
 	filename := c.Param("filename")
 	fullPath, err := h.backupService.GetFilePath(filename)
 	if err != nil {
@@ -100,7 +100,7 @@ func (h *BackupHandler) Download(c echo.Context) error {
 		}
 		return response.InternalError(c, "err.failed_to_download_backup")
 	}
-	return c.File(fullPath)
+	return serveLocalFile(c, fullPath)
 }
 
 // Delete godoc
@@ -117,7 +117,7 @@ func (h *BackupHandler) Download(c echo.Context) error {
 //	@Failure		403	{object}	response.APIResponse
 //	@Failure		404	{object}	response.APIResponse
 //	@Router			/admin/backups/{filename} [delete]
-func (h *BackupHandler) Delete(c echo.Context) error {
+func (h *BackupHandler) Delete(c *echo.Context) error {
 	filename := c.Param("filename")
 	err := h.backupService.Delete(filename)
 	if err != nil {
@@ -147,7 +147,7 @@ func (h *BackupHandler) Delete(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/admin/backups/{filename}/restore [post]
-func (h *BackupHandler) Restore(c echo.Context) error {
+func (h *BackupHandler) Restore(c *echo.Context) error {
 	filename := c.Param("filename")
 	err := h.backupService.Restore(filename)
 	if err != nil {

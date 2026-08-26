@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/markbates/goth"
 	"github.com/naiba/bonds/internal/config"
 	"github.com/naiba/bonds/internal/dto"
@@ -177,6 +177,33 @@ func (ts *testServer) doRequest(method, path, body string, token string) *httpte
 	rec := httptest.NewRecorder()
 	ts.e.ServeHTTP(rec, req)
 	return rec
+}
+
+func TestSwaggerRoutesWithEchoV5(t *testing.T) {
+	ts := setupTestServerWithConfig(t, func(cfg *config.Config) {
+		cfg.Debug = true
+	})
+
+	for _, testCase := range []struct {
+		path        string
+		contentType string
+		body        string
+	}{
+		{path: "/swagger/doc.json", contentType: "application/json", body: `"swagger"`},
+		{path: "/swagger/", contentType: "text/html", body: "Swagger UI"},
+		{path: "/swagger/swagger-initializer.js", contentType: "application/javascript", body: "/swagger/doc.json"},
+	} {
+		rec := ts.doRequest(http.MethodGet, testCase.path, "", "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s: expected 200, got %d: %s", testCase.path, rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Header().Get("Content-Type"), testCase.contentType) {
+			t.Errorf("GET %s: expected Content-Type containing %q, got %q", testCase.path, testCase.contentType, rec.Header().Get("Content-Type"))
+		}
+		if !strings.Contains(rec.Body.String(), testCase.body) {
+			t.Errorf("GET %s: expected body containing %q", testCase.path, testCase.body)
+		}
+	}
 }
 
 func (ts *testServer) doMultipartUpload(t *testing.T, path, token, fieldName, fileName, mimeType string, fileData []byte) *httptest.ResponseRecorder {

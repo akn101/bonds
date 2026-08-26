@@ -5,10 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
-func runWithContext(t *testing.T, setup func(c echo.Context), mw echo.MiddlewareFunc) int {
+func runWithContext(t *testing.T, setup func(c *echo.Context), mw echo.MiddlewareFunc) int {
 	t.Helper()
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -17,7 +17,7 @@ func runWithContext(t *testing.T, setup func(c echo.Context), mw echo.Middleware
 	if setup != nil {
 		setup(c)
 	}
-	handler := mw(func(c echo.Context) error {
+	handler := mw(func(c *echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	})
 	if err := handler(c); err != nil {
@@ -34,7 +34,7 @@ func TestRequireScope_FullAccessTokenPasses(t *testing.T) {
 }
 
 func TestRequireScope_ScopedTokenWithMatchingScopePasses(t *testing.T) {
-	setup := func(c echo.Context) {
+	setup := func(c *echo.Context) {
 		c.Set(ctxPATScopes, "calendar:read")
 		c.Set(ctxIsScopedPAT, true)
 	}
@@ -45,7 +45,7 @@ func TestRequireScope_ScopedTokenWithMatchingScopePasses(t *testing.T) {
 }
 
 func TestRequireScope_ScopedTokenWithoutScopeDenied(t *testing.T) {
-	setup := func(c echo.Context) {
+	setup := func(c *echo.Context) {
 		c.Set(ctxPATScopes, "something:else")
 		c.Set(ctxIsScopedPAT, true)
 	}
@@ -63,7 +63,7 @@ func TestDenyScopedPAT_FullAccessPasses(t *testing.T) {
 }
 
 func TestDenyScopedPAT_ScopedTokenDenied(t *testing.T) {
-	setup := func(c echo.Context) {
+	setup := func(c *echo.Context) {
 		c.Set(ctxPATScopes, "calendar:read")
 		c.Set(ctxIsScopedPAT, true)
 	}

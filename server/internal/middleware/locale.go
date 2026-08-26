@@ -3,7 +3,7 @@ package middleware
 import (
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/naiba/bonds/internal/i18n"
 )
@@ -35,7 +35,7 @@ var regionFallbacks = map[string]string{
 // to "en".
 func Locale() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			lang := "en"
 			accept := c.Request().Header.Get("Accept-Language")
 			if accept != "" {
@@ -60,7 +60,7 @@ func Locale() echo.MiddlewareFunc {
 }
 
 // GetLocale returns the locale stored in the echo context, defaulting to "en".
-func GetLocale(c echo.Context) string {
+func GetLocale(c *echo.Context) string {
 	if locale, ok := c.Get("locale").(string); ok && locale != "" {
 		return locale
 	}

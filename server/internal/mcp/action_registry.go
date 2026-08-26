@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type ActionDefinition struct {
@@ -25,7 +25,7 @@ type ActionRegistry struct {
 }
 
 func NewActionRegistry(e *echo.Echo) *ActionRegistry {
-	routes := e.Routes()
+	routes := e.Router().Routes()
 	actions := make([]ActionDefinition, 0, len(routes))
 	seen := make(map[string]int)
 	for _, route := range routes {

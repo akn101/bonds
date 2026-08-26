@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -34,7 +34,7 @@ func NewContactPhotoHandler(vaultFileService *services.VaultFileService) *Contac
 //	@Success		200			{object}	response.APIResponse{data=[]dto.VaultFileResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/photos [get]
-func (h *ContactPhotoHandler) List(c echo.Context) error {
+func (h *ContactPhotoHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	contactID := c.Param("contact_id")
 	page, _ := strconv.Atoi(c.QueryParam("page"))
@@ -61,7 +61,7 @@ func (h *ContactPhotoHandler) List(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/photos/{photoId} [get]
-func (h *ContactPhotoHandler) Get(c echo.Context) error {
+func (h *ContactPhotoHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	contactID := c.Param("contact_id")
 	id, err := strconv.ParseUint(c.Param("photoId"), 10, 64)
@@ -93,7 +93,7 @@ func (h *ContactPhotoHandler) Get(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/photos/{photoId} [delete]
-func (h *ContactPhotoHandler) Delete(c echo.Context) error {
+func (h *ContactPhotoHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	contactID := c.Param("contact_id")
 	id, err := strconv.ParseUint(c.Param("photoId"), 10, 64)
@@ -134,7 +134,7 @@ func NewContactDocumentHandler(vaultFileService *services.VaultFileService) *Con
 //	@Success		200			{object}	response.APIResponse{data=[]dto.VaultFileResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/documents [get]
-func (h *ContactDocumentHandler) List(c echo.Context) error {
+func (h *ContactDocumentHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	contactID := c.Param("contact_id")
 	page, _ := strconv.Atoi(c.QueryParam("page"))
@@ -161,7 +161,7 @@ func (h *ContactDocumentHandler) List(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/documents/{id} [delete]
-func (h *ContactDocumentHandler) Delete(c echo.Context) error {
+func (h *ContactDocumentHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	contactID := c.Param("contact_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)

@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -30,7 +30,7 @@ func NewTwoFactorHandler(twoFactorService *services.TwoFactorService) *TwoFactor
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/2fa/enable [post]
-func (h *TwoFactorHandler) Enable(c echo.Context) error {
+func (h *TwoFactorHandler) Enable(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
 		return response.Unauthorized(c, "err.invalid_user")
@@ -62,7 +62,7 @@ func (h *TwoFactorHandler) Enable(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/2fa/confirm [post]
-func (h *TwoFactorHandler) Confirm(c echo.Context) error {
+func (h *TwoFactorHandler) Confirm(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
 		return response.Unauthorized(c, "err.invalid_user")
@@ -105,7 +105,7 @@ func (h *TwoFactorHandler) Confirm(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/2fa/disable [post]
-func (h *TwoFactorHandler) Disable(c echo.Context) error {
+func (h *TwoFactorHandler) Disable(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
 		return response.Unauthorized(c, "err.invalid_user")
@@ -145,7 +145,7 @@ func (h *TwoFactorHandler) Disable(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/2fa/status [get]
-func (h *TwoFactorHandler) Status(c echo.Context) error {
+func (h *TwoFactorHandler) Status(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
 		return response.Unauthorized(c, "err.invalid_user")

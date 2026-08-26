@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -44,7 +44,7 @@ func NewDavClientHandler(clientService *services.DavClientService, syncService *
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/dav/subscriptions [post]
-func (h *DavClientHandler) Create(c echo.Context) error {
+func (h *DavClientHandler) Create(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 
@@ -75,7 +75,7 @@ func (h *DavClientHandler) Create(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/dav/subscriptions [get]
-func (h *DavClientHandler) List(c echo.Context) error {
+func (h *DavClientHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 
 	subs, err := h.clientService.List(vaultID)
@@ -99,7 +99,7 @@ func (h *DavClientHandler) List(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/dav/subscriptions/{sub_id} [get]
-func (h *DavClientHandler) Get(c echo.Context) error {
+func (h *DavClientHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	subID := c.Param("sub_id")
 
@@ -130,7 +130,7 @@ func (h *DavClientHandler) Get(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/dav/subscriptions/{sub_id} [put]
-func (h *DavClientHandler) Update(c echo.Context) error {
+func (h *DavClientHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	subID := c.Param("sub_id")
 
@@ -163,7 +163,7 @@ func (h *DavClientHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/dav/subscriptions/{sub_id} [delete]
-func (h *DavClientHandler) Delete(c echo.Context) error {
+func (h *DavClientHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	subID := c.Param("sub_id")
 
@@ -192,7 +192,7 @@ func (h *DavClientHandler) Delete(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/dav/subscriptions/test [post]
-func (h *DavClientHandler) TestConnection(c echo.Context) error {
+func (h *DavClientHandler) TestConnection(c *echo.Context) error {
 	var req dto.TestDavConnectionRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
@@ -222,7 +222,7 @@ func (h *DavClientHandler) TestConnection(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/dav/subscriptions/{sub_id}/sync [post]
-func (h *DavClientHandler) TriggerSync(c echo.Context) error {
+func (h *DavClientHandler) TriggerSync(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	subID := c.Param("sub_id")
 
@@ -252,7 +252,7 @@ func (h *DavClientHandler) TriggerSync(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/dav/subscriptions/{sub_id}/logs [get]
-func (h *DavClientHandler) GetSyncLogs(c echo.Context) error {
+func (h *DavClientHandler) GetSyncLogs(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	subID := c.Param("sub_id")
 	page, _ := strconv.Atoi(c.QueryParam("page"))

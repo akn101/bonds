@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	appMiddleware "github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/models"

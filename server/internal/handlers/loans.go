@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -32,7 +32,7 @@ func NewLoanHandler(loanService *services.LoanService) *LoanHandler {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/loans [get]
-func (h *LoanHandler) List(c echo.Context) error {
+func (h *LoanHandler) List(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	loans, err := h.loanService.List(contactID, vaultID)
@@ -63,7 +63,7 @@ func (h *LoanHandler) List(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/loans [post]
-func (h *LoanHandler) Create(c echo.Context) error {
+func (h *LoanHandler) Create(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 
@@ -104,7 +104,7 @@ func (h *LoanHandler) Create(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/loans/{id} [put]
-func (h *LoanHandler) Update(c echo.Context) error {
+func (h *LoanHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -145,7 +145,7 @@ func (h *LoanHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/loans/{id}/toggle [put]
-func (h *LoanHandler) ToggleSettled(c echo.Context) error {
+func (h *LoanHandler) ToggleSettled(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -178,7 +178,7 @@ func (h *LoanHandler) ToggleSettled(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/loans/{id} [delete]
-func (h *LoanHandler) Delete(c echo.Context) error {
+func (h *LoanHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

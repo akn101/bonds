@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -36,7 +36,7 @@ func NewVCardHandler(vcardService *services.VCardService) *VCardHandler {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/vcard [get]
-func (h *VCardHandler) ExportContact(c echo.Context) error {
+func (h *VCardHandler) ExportContact(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	contactID := c.Param("contact_id")
 
@@ -65,7 +65,7 @@ func (h *VCardHandler) ExportContact(c echo.Context) error {
 //	@Success		200			{file}		file
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/export [get]
-func (h *VCardHandler) ExportVault(c echo.Context) error {
+func (h *VCardHandler) ExportVault(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 
 	data, err := h.vcardService.ExportVault(vaultID)
@@ -94,7 +94,7 @@ func (h *VCardHandler) ExportVault(c echo.Context) error {
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/import [post]
-func (h *VCardHandler) ImportVCard(c echo.Context) error {
+func (h *VCardHandler) ImportVCard(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 

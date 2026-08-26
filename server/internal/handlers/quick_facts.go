@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -36,7 +36,7 @@ func NewQuickFactHandler(quickFactService *services.QuickFactService, storageInf
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/quickFacts [get]
-func (h *QuickFactHandler) ListAll(c echo.Context) error {
+func (h *QuickFactHandler) ListAll(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	facts, err := h.quickFactService.ListAll(contactID, vaultID)
@@ -64,7 +64,7 @@ func (h *QuickFactHandler) ListAll(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/quickFacts/{templateId} [get]
-func (h *QuickFactHandler) List(c echo.Context) error {
+func (h *QuickFactHandler) List(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	templateID, err := strconv.ParseUint(c.Param("templateId"), 10, 64)
@@ -101,7 +101,7 @@ func (h *QuickFactHandler) List(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/quickFacts/{templateId} [post]
-func (h *QuickFactHandler) Create(c echo.Context) error {
+func (h *QuickFactHandler) Create(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	templateID, err := strconv.ParseUint(c.Param("templateId"), 10, 64)
@@ -140,7 +140,7 @@ func (h *QuickFactHandler) Create(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/quickFacts/{templateId}/{id} [put]
-func (h *QuickFactHandler) Update(c echo.Context) error {
+func (h *QuickFactHandler) Update(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -182,7 +182,7 @@ func (h *QuickFactHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/quickFacts/{templateId}/file [post]
-func (h *QuickFactHandler) UploadFile(c echo.Context) error {
+func (h *QuickFactHandler) UploadFile(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	templateID, err := strconv.ParseUint(c.Param("templateId"), 10, 64)
@@ -210,7 +210,7 @@ func (h *QuickFactHandler) UploadFile(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/quickFacts/{templateId}/{id}/file [put]
-func (h *QuickFactHandler) ReplaceFile(c echo.Context) error {
+func (h *QuickFactHandler) ReplaceFile(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	templateID, err := strconv.ParseUint(c.Param("templateId"), 10, 64)
@@ -224,7 +224,7 @@ func (h *QuickFactHandler) ReplaceFile(c echo.Context) error {
 	return h.handleFileUpload(c, contactID, vaultID, uint(templateID), uintPtr(uint(id)))
 }
 
-func (h *QuickFactHandler) handleFileUpload(c echo.Context, contactID, vaultID string, templateID uint, factID *uint) error {
+func (h *QuickFactHandler) handleFileUpload(c *echo.Context, contactID, vaultID string, templateID uint, factID *uint) error {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		return response.BadRequest(c, "err.file_required", nil)
@@ -260,7 +260,7 @@ func (h *QuickFactHandler) handleFileUpload(c echo.Context, contactID, vaultID s
 	return response.OK(c, fact)
 }
 
-func (h *QuickFactHandler) validateUploadSize(c echo.Context, fileSize int64) error {
+func (h *QuickFactHandler) validateUploadSize(c *echo.Context, fileSize int64) error {
 	var maxUploadSize int64 = 10 * 1024 * 1024
 	if h.settingsService != nil {
 		maxSizeMB := h.settingsService.GetInt64("storage.max_size_mb", 0)
@@ -297,7 +297,7 @@ func (h *QuickFactHandler) validateUploadSize(c echo.Context, fileSize int64) er
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/quickFacts/{templateId}/{id} [delete]
-func (h *QuickFactHandler) Delete(c echo.Context) error {
+func (h *QuickFactHandler) Delete(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -323,7 +323,7 @@ func (h *QuickFactHandler) Delete(c echo.Context) error {
 	return response.NoContent(c)
 }
 
-func handleQuickFactServiceError(c echo.Context, err error) error {
+func handleQuickFactServiceError(c *echo.Context, err error) error {
 	if errors.Is(err, services.ErrContactNotFound) {
 		return response.NotFound(c, "err.contact_not_found")
 	}

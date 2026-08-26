@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -24,7 +24,7 @@ import (
 // @Failure		404			{object}	response.APIResponse
 // @Failure		500			{object}	response.APIResponse
 // @Router			/vaults/{vault_id}/groups/{id}/members [post]
-func (h *GroupHandler) AddMembers(c echo.Context) error {
+func (h *GroupHandler) AddMembers(c *echo.Context) error {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_group_id", nil)
@@ -66,7 +66,7 @@ func (h *GroupHandler) AddMembers(c echo.Context) error {
 // @Failure		404			{object}	response.APIResponse
 // @Failure		500			{object}	response.APIResponse
 // @Router			/vaults/{vault_id}/groups/{id}/members [delete]
-func (h *GroupHandler) RemoveMembers(c echo.Context) error {
+func (h *GroupHandler) RemoveMembers(c *echo.Context) error {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_group_id", nil)

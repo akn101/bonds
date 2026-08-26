@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -37,7 +37,7 @@ func NewContactMoveHandler(contactMoveService *services.ContactMoveService) *Con
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/move [post]
-func (h *ContactMoveHandler) MoveMany(c echo.Context) error {
+func (h *ContactMoveHandler) MoveMany(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 
@@ -91,7 +91,7 @@ func (h *ContactMoveHandler) MoveMany(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/move [post]
-func (h *ContactMoveHandler) Move(c echo.Context) error {
+func (h *ContactMoveHandler) Move(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)

@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
 )
@@ -21,7 +21,7 @@ import (
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/quickFacts/toggle [put]
-func (h *QuickFactHandler) Toggle(c echo.Context) error {
+func (h *QuickFactHandler) Toggle(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	newValue, err := h.quickFactService.ToggleShowQuickFacts(contactID, vaultID)

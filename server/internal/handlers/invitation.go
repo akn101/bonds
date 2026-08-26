@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -32,7 +32,7 @@ func NewInvitationHandler(invitationService *services.InvitationService) *Invita
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/settings/invitations [get]
-func (h *InvitationHandler) List(c echo.Context) error {
+func (h *InvitationHandler) List(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
@@ -58,7 +58,7 @@ func (h *InvitationHandler) List(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/invitations [post]
-func (h *InvitationHandler) Create(c echo.Context) error {
+func (h *InvitationHandler) Create(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	userID := middleware.GetUserID(c)
 
@@ -93,7 +93,7 @@ func (h *InvitationHandler) Create(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/invitations/{id} [delete]
-func (h *InvitationHandler) Delete(c echo.Context) error {
+func (h *InvitationHandler) Delete(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -123,7 +123,7 @@ func (h *InvitationHandler) Delete(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/invitations/accept [post]
-func (h *InvitationHandler) Accept(c echo.Context) error {
+func (h *InvitationHandler) Accept(c *echo.Context) error {
 	var req dto.AcceptInvitationRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)

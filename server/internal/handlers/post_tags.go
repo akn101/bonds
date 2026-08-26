@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -35,7 +35,7 @@ func NewPostTagHandler(svc *services.PostTagService) *PostTagHandler {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id}/tags [post]
-func (h *PostTagHandler) Add(c echo.Context) error {
+func (h *PostTagHandler) Add(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -77,7 +77,7 @@ func (h *PostTagHandler) Add(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id}/tags [get]
-func (h *PostTagHandler) List(c echo.Context) error {
+func (h *PostTagHandler) List(c *echo.Context) error {
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_journal_id", nil)
@@ -114,7 +114,7 @@ func (h *PostTagHandler) List(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id}/tags/{tagId} [put]
-func (h *PostTagHandler) Update(c echo.Context) error {
+func (h *PostTagHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -164,7 +164,7 @@ func (h *PostTagHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id}/tags/{tagId} [delete]
-func (h *PostTagHandler) Remove(c echo.Context) error {
+func (h *PostTagHandler) Remove(c *echo.Context) error {
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_journal_id", nil)

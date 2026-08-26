@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/internal/testutil"
 )
@@ -143,7 +143,7 @@ func runJWTAdministratorPrivilegeContract(t *testing.T, contract jwtAdministrato
 			context := e.NewContext(req, rec)
 			auth := NewAuthMiddleware(jwtDatabaseAuthorityTestSecret, db)
 			nextCalled := false
-			handler := auth.Authenticate(contract.requirePrivilege(auth, func(c echo.Context) error {
+			handler := auth.Authenticate(contract.requirePrivilege(auth, func(c *echo.Context) error {
 				nextCalled = true
 				return c.NoContent(http.StatusNoContent)
 			}))

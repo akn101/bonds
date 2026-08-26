@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -30,7 +30,7 @@ func NewPersonalAccessTokenHandler(service *services.PersonalAccessTokenService)
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/tokens [get]
-func (h *PersonalAccessTokenHandler) List(c echo.Context) error {
+func (h *PersonalAccessTokenHandler) List(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	tokens, err := h.service.List(userID)
 	if err != nil {
@@ -54,7 +54,7 @@ func (h *PersonalAccessTokenHandler) List(c echo.Context) error {
 //	@Failure		409	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/tokens [post]
-func (h *PersonalAccessTokenHandler) Create(c echo.Context) error {
+func (h *PersonalAccessTokenHandler) Create(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	accountID := middleware.GetAccountID(c)
 
@@ -92,7 +92,7 @@ func (h *PersonalAccessTokenHandler) Create(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/tokens/{id} [delete]
-func (h *PersonalAccessTokenHandler) Delete(c echo.Context) error {
+func (h *PersonalAccessTokenHandler) Delete(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

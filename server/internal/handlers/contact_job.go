@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -33,7 +33,7 @@ func NewContactJobHandler(contactJobService *services.ContactJobService) *Contac
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/jobs [get]
-func (h *ContactJobHandler) List(c echo.Context) error {
+func (h *ContactJobHandler) List(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 
@@ -65,7 +65,7 @@ func (h *ContactJobHandler) List(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/jobs [post]
-func (h *ContactJobHandler) Create(c echo.Context) error {
+func (h *ContactJobHandler) Create(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 
@@ -109,7 +109,7 @@ func (h *ContactJobHandler) Create(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/jobs/{job_id} [put]
-func (h *ContactJobHandler) UpdateJob(c echo.Context) error {
+func (h *ContactJobHandler) UpdateJob(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	jobID, err := strconv.ParseUint(c.Param("job_id"), 10, 64)
@@ -157,7 +157,7 @@ func (h *ContactJobHandler) UpdateJob(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/jobs/{job_id} [delete]
-func (h *ContactJobHandler) DeleteJob(c echo.Context) error {
+func (h *ContactJobHandler) DeleteJob(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	jobID, err := strconv.ParseUint(c.Param("job_id"), 10, 64)
@@ -194,7 +194,7 @@ func (h *ContactJobHandler) DeleteJob(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/jobInformation [put]
-func (h *ContactJobHandler) LegacyUpdate(c echo.Context) error {
+func (h *ContactJobHandler) LegacyUpdate(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -228,7 +228,7 @@ func (h *ContactJobHandler) LegacyUpdate(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/jobInformation [delete]
-func (h *ContactJobHandler) LegacyDelete(c echo.Context) error {
+func (h *ContactJobHandler) LegacyDelete(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)

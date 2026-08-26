@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -33,7 +33,7 @@ func NewAuthHandler(authService *services.AuthService, settingService *services.
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/auth/register [post]
-func (h *AuthHandler) Register(c echo.Context) error {
+func (h *AuthHandler) Register(c *echo.Context) error {
 	var req dto.RegisterRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
@@ -71,7 +71,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/auth/login [post]
-func (h *AuthHandler) Login(c echo.Context) error {
+func (h *AuthHandler) Login(c *echo.Context) error {
 	var req dto.LoginRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
@@ -109,7 +109,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/auth/refresh [post]
-func (h *AuthHandler) Refresh(c echo.Context) error {
+func (h *AuthHandler) Refresh(c *echo.Context) error {
 	claims := middleware.GetClaims(c)
 	if claims == nil {
 		return response.Unauthorized(c, "err.invalid_token")
@@ -141,7 +141,7 @@ func (h *AuthHandler) Refresh(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/auth/me [get]
-func (h *AuthHandler) Me(c echo.Context) error {
+func (h *AuthHandler) Me(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	if userID == "" {
 		return response.Unauthorized(c, "err.invalid_user")
@@ -170,7 +170,7 @@ func (h *AuthHandler) Me(c echo.Context) error {
 //	@Failure		400		{object}	response.APIResponse
 //	@Failure		404		{object}	response.APIResponse
 //	@Router			/auth/verify-email [post]
-func (h *AuthHandler) VerifyEmail(c echo.Context) error {
+func (h *AuthHandler) VerifyEmail(c *echo.Context) error {
 	var req dto.VerifyEmailRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
@@ -205,7 +205,7 @@ func (h *AuthHandler) VerifyEmail(c echo.Context) error {
 //	@Failure		400	{object}	response.APIResponse
 //	@Failure		401	{object}	response.APIResponse
 //	@Router			/auth/resend-verification [post]
-func (h *AuthHandler) ResendVerification(c echo.Context) error {
+func (h *AuthHandler) ResendVerification(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	if err := h.authService.ResendVerification(userID); err != nil {
 		if errors.Is(err, services.ErrEmailAlreadyVerified) {
@@ -230,7 +230,7 @@ func (h *AuthHandler) ResendVerification(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/auth/2fa/verify [post]
-func (h *AuthHandler) VerifyTwoFactor(c echo.Context) error {
+func (h *AuthHandler) VerifyTwoFactor(c *echo.Context) error {
 	var req dto.TwoFactorLoginVerifyRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)

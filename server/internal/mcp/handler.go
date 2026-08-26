@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/models"
 	"gorm.io/gorm"
 )
@@ -24,7 +24,7 @@ func NewHandler(db *gorm.DB, registry *ActionRegistry, executor *ActionExecutor,
 	return &Handler{db: db, registry: registry, executor: executor, searcher: searcher, fetcher: fetcher}
 }
 
-func (h *Handler) Handle(c echo.Context) error {
+func (h *Handler) Handle(c *echo.Context) error {
 	if err := validateProtocolVersionHeader(c); err != nil {
 		return c.JSON(http.StatusBadRequest, errorResponse(nil, -32600, err.Error(), nil))
 	}
@@ -50,11 +50,11 @@ func (h *Handler) Handle(c echo.Context) error {
 	return c.JSON(status, resp)
 }
 
-func (h *Handler) MethodNotAllowed(c echo.Context) error {
+func (h *Handler) MethodNotAllowed(c *echo.Context) error {
 	return c.NoContent(http.StatusMethodNotAllowed)
 }
 
-func (h *Handler) dispatch(c echo.Context, req jsonRPCRequest) jsonRPCResponse {
+func (h *Handler) dispatch(c *echo.Context, req jsonRPCRequest) jsonRPCResponse {
 	switch req.Method {
 	case "initialize":
 		return successResponse(req.ID, map[string]interface{}{
@@ -155,7 +155,7 @@ func (h *Handler) tools() []toolDefinition {
 	}
 }
 
-func (h *Handler) callTool(c echo.Context, params toolCallParams) toolResult {
+func (h *Handler) callTool(c *echo.Context, params toolCallParams) toolResult {
 	switch params.Name {
 	case "get_current_context":
 		return h.currentContext(c)
@@ -214,7 +214,7 @@ func (h *Handler) callTool(c echo.Context, params toolCallParams) toolResult {
 	}
 }
 
-func (h *Handler) currentContext(c echo.Context) toolResult {
+func (h *Handler) currentContext(c *echo.Context) toolResult {
 	var vaults []models.Vault
 	if err := h.db.Joins("JOIN user_vault ON user_vault.vault_id = vaults.id").
 		Where("user_vault.user_id = ?", currentUserID(c)).
@@ -241,7 +241,7 @@ func (h *Handler) currentContext(c echo.Context) toolResult {
 	})
 }
 
-func (h *Handler) readResource(c echo.Context, id json.RawMessage, args FetchResourceArgs) jsonRPCResponse {
+func (h *Handler) readResource(c *echo.Context, id json.RawMessage, args FetchResourceArgs) jsonRPCResponse {
 	result, err := h.fetcher.Fetch(currentUserID(c), args)
 	if err != nil {
 		return errorResponse(id, -32002, "resource not found", err.Error())
@@ -269,7 +269,7 @@ type describeCapabilityArgs struct {
 	ActionID string `json:"action_id"`
 }
 
-func currentUserID(c echo.Context) string {
+func currentUserID(c *echo.Context) string {
 	userID, _ := c.Get("user_id").(string)
 	return userID
 }
@@ -297,7 +297,7 @@ func isPeerResponse(req jsonRPCRequest) bool {
 	return req.Method == "" && (len(req.Result) > 0 || len(req.Error) > 0)
 }
 
-func validateProtocolVersionHeader(c echo.Context) error {
+func validateProtocolVersionHeader(c *echo.Context) error {
 	version := c.Request().Header.Get("MCP-Protocol-Version")
 	if version == "" || version == mcpProtocolVersion {
 		return nil

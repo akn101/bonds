@@ -3,7 +3,7 @@ package handlers
 import (
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -34,7 +34,7 @@ func NewFeedHandler(feedService *services.FeedService) *FeedHandler {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.FeedItemResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/feed [get]
-func (h *FeedHandler) GetContactFeed(c echo.Context) error {
+func (h *FeedHandler) GetContactFeed(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	userID := middleware.GetUserID(c)
 	page, _ := strconv.Atoi(c.QueryParam("page"))
@@ -60,7 +60,7 @@ func (h *FeedHandler) GetContactFeed(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.FeedItemResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/feed [get]
-func (h *FeedHandler) Get(c echo.Context) error {
+func (h *FeedHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	page, _ := strconv.Atoi(c.QueryParam("page"))

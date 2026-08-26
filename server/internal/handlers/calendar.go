@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -34,7 +34,7 @@ func NewCalendarHandler(calendarService *services.CalendarService, icsService *s
 //	@Success		200			{object}	response.APIResponse{data=dto.CalendarResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/calendar [get]
-func (h *CalendarHandler) Get(c echo.Context) error {
+func (h *CalendarHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	month := services.ParseIntParam(c.QueryParam("month"), 0)
 	year := services.ParseIntParam(c.QueryParam("year"), 0)
@@ -58,7 +58,7 @@ func (h *CalendarHandler) Get(c echo.Context) error {
 //	@Failure		403			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/calendar.ics [get]
-func (h *CalendarHandler) GetICS(c echo.Context) error {
+func (h *CalendarHandler) GetICS(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 
 	data, err := h.icsService.ExportVault(vaultID, middleware.GetUserID(c))

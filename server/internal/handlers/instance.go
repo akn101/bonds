@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -40,7 +40,7 @@ func NewInstanceHandler(
 //	@Produce		json
 //	@Success		200	{object}	response.APIResponse{data=dto.InstanceInfoResponse}
 //	@Router			/instance/info [get]
-func (h *InstanceHandler) GetInfo(c echo.Context) error {
+func (h *InstanceHandler) GetInfo(c *echo.Context) error {
 	registrationEnabled := h.settingService.GetBool("registration.enabled", true)
 	passwordAuthEnabled := h.settingService.GetBool("auth.password.enabled", true)
 	requireEmailVerification := h.settingService.GetBool("auth.require_email_verification", false)

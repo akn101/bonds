@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/sessions"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/naiba/bonds/internal/middleware"
@@ -43,7 +43,7 @@ func (h *OAuthHandler) getAppURL() string {
 //	@Success		307			"Redirect to OAuth provider"
 //	@Failure		404			{object}	response.APIResponse
 //	@Router			/auth/{provider} [get]
-func (h *OAuthHandler) BeginAuth(c echo.Context) error {
+func (h *OAuthHandler) BeginAuth(c *echo.Context) error {
 	provider := c.Param("provider")
 
 	if _, err := goth.GetProvider(provider); err != nil {
@@ -85,7 +85,7 @@ func (h *OAuthHandler) BeginAuth(c echo.Context) error {
 //	@Param			provider	path	string	true	"OAuth provider name"
 //	@Success		307			"Redirect to frontend with token"
 //	@Router			/auth/{provider}/callback [get]
-func (h *OAuthHandler) Callback(c echo.Context) error {
+func (h *OAuthHandler) Callback(c *echo.Context) error {
 	provider := c.Param("provider")
 
 	q := c.Request().URL.Query()
@@ -131,7 +131,7 @@ func (h *OAuthHandler) Callback(c echo.Context) error {
 		fmt.Sprintf("%s/auth/callback?token=%s", h.getAppURL(), authResp.Token))
 }
 
-func (h *OAuthHandler) extractLinkUserID(c echo.Context) string {
+func (h *OAuthHandler) extractLinkUserID(c *echo.Context) string {
 	session, err := gothic.Store.Get(c.Request(), "oauth_link")
 	if err != nil {
 		return ""
@@ -156,7 +156,7 @@ func (h *OAuthHandler) extractLinkUserID(c echo.Context) string {
 	return userID
 }
 
-func (h *OAuthHandler) handleLinkCallback(c echo.Context, provider string, gothUser goth.User, userID string) error {
+func (h *OAuthHandler) handleLinkCallback(c *echo.Context, provider string, gothUser goth.User, userID string) error {
 	linkInfo := &services.OAuthLinkInfo{
 		Provider:       provider,
 		ProviderUserID: gothUser.UserID,
@@ -191,7 +191,7 @@ func (h *OAuthHandler) handleLinkCallback(c echo.Context, provider string, gothU
 //	@Produce		json
 //	@Success		200	{object}	response.APIResponse
 //	@Router			/auth/providers [get]
-func (h *OAuthHandler) AvailableProviders(c echo.Context) error {
+func (h *OAuthHandler) AvailableProviders(c *echo.Context) error {
 	providers := h.oauthService.ListAvailableProviders()
 	return response.OK(c, providers)
 }

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -32,7 +32,7 @@ func NewPetHandler(petService *services.PetService) *PetHandler {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/pets [get]
-func (h *PetHandler) List(c echo.Context) error {
+func (h *PetHandler) List(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	pets, err := h.petService.List(contactID, vaultID)
@@ -56,7 +56,7 @@ func (h *PetHandler) List(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/pet-categories [get]
-func (h *PetHandler) ListCategories(c echo.Context) error {
+func (h *PetHandler) ListCategories(c *echo.Context) error {
 	accountID, ok := c.Get("account_id").(string)
 	if !ok || accountID == "" {
 		return response.InternalError(c, "err.failed_to_list_pet_categories")
@@ -86,7 +86,7 @@ func (h *PetHandler) ListCategories(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/pets [post]
-func (h *PetHandler) Create(c echo.Context) error {
+func (h *PetHandler) Create(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 
@@ -130,7 +130,7 @@ func (h *PetHandler) Create(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/pets/{id} [put]
-func (h *PetHandler) Update(c echo.Context) error {
+func (h *PetHandler) Update(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -178,7 +178,7 @@ func (h *PetHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/pets/{id} [delete]
-func (h *PetHandler) Delete(c echo.Context) error {
+func (h *PetHandler) Delete(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -31,7 +31,7 @@ func NewPostHandler(postService *services.PostService) *PostHandler {
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts [get]
-func (h *PostHandler) List(c echo.Context) error {
+func (h *PostHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -62,7 +62,7 @@ func (h *PostHandler) List(c echo.Context) error {
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts [post]
-func (h *PostHandler) Create(c echo.Context) error {
+func (h *PostHandler) Create(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -106,7 +106,7 @@ func (h *PostHandler) Create(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id} [get]
-func (h *PostHandler) Get(c echo.Context) error {
+func (h *PostHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -146,7 +146,7 @@ func (h *PostHandler) Get(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id} [put]
-func (h *PostHandler) Update(c echo.Context) error {
+func (h *PostHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -194,7 +194,7 @@ func (h *PostHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id} [delete]
-func (h *PostHandler) Delete(c echo.Context) error {
+func (h *PostHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {

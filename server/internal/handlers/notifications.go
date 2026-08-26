@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -30,7 +30,7 @@ func NewNotificationHandler(notificationService *services.NotificationService) *
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/notifications [get]
-func (h *NotificationHandler) List(c echo.Context) error {
+func (h *NotificationHandler) List(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	channels, err := h.notificationService.List(userID)
 	if err != nil {
@@ -54,7 +54,7 @@ func (h *NotificationHandler) List(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/notifications [post]
-func (h *NotificationHandler) Create(c echo.Context) error {
+func (h *NotificationHandler) Create(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.CreateNotificationChannelRequest
 	if err := c.Bind(&req); err != nil {
@@ -87,7 +87,7 @@ func (h *NotificationHandler) Create(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/notifications/{id} [put]
-func (h *NotificationHandler) Update(c echo.Context) error {
+func (h *NotificationHandler) Update(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -124,7 +124,7 @@ func (h *NotificationHandler) Update(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/notifications/{id}/toggle [put]
-func (h *NotificationHandler) Toggle(c echo.Context) error {
+func (h *NotificationHandler) Toggle(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -153,7 +153,7 @@ func (h *NotificationHandler) Toggle(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/notifications/{id} [delete]
-func (h *NotificationHandler) Delete(c echo.Context) error {
+func (h *NotificationHandler) Delete(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -183,7 +183,7 @@ func (h *NotificationHandler) Delete(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/notifications/{id}/verify/{token} [get]
-func (h *NotificationHandler) Verify(c echo.Context) error {
+func (h *NotificationHandler) Verify(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -216,7 +216,7 @@ func (h *NotificationHandler) Verify(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/notifications/{id}/test [post]
-func (h *NotificationHandler) SendTest(c echo.Context) error {
+func (h *NotificationHandler) SendTest(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -245,7 +245,7 @@ func (h *NotificationHandler) SendTest(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/notifications/{id}/logs [get]
-func (h *NotificationHandler) ListLogs(c echo.Context) error {
+func (h *NotificationHandler) ListLogs(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

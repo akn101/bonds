@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -29,7 +29,7 @@ func NewStorageInfoHandler(svc *services.StorageInfoService) *StorageInfoHandler
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/storage [get]
-func (h *StorageInfoHandler) Get(c echo.Context) error {
+func (h *StorageInfoHandler) Get(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	info, err := h.storageInfoService.Get(accountID)
 	if err != nil {

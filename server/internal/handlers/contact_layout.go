@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -29,7 +29,7 @@ func NewContactLayoutHandler(service *services.ContactLayoutService) *ContactLay
 //	@Param			vault_id	path		string	true	"Vault ID"
 //	@Success		200			{object}	response.APIResponse{data=[]dto.ContactLayoutModuleDefinition}
 //	@Router			/vaults/{vault_id}/contact-layout/modules [get]
-func (h *ContactLayoutHandler) Modules(c echo.Context) error {
+func (h *ContactLayoutHandler) Modules(c *echo.Context) error {
 	return response.OK(c, h.service.ModuleDefinitions(middleware.GetLocale(c)))
 }
 
@@ -43,7 +43,7 @@ func (h *ContactLayoutHandler) Modules(c echo.Context) error {
 //	@Param			vault_id	path		string	true	"Vault ID"
 //	@Success		200			{object}	response.APIResponse{data=[]dto.ContactLayoutTemplateSummary}
 //	@Router			/vaults/{vault_id}/contact-layout/templates [get]
-func (h *ContactLayoutHandler) List(c echo.Context) error {
+func (h *ContactLayoutHandler) List(c *echo.Context) error {
 	items, err := h.service.List(c.Param("vault_id"), middleware.GetLocale(c))
 	if err != nil {
 		return contactLayoutError(c, err)
@@ -62,7 +62,7 @@ func (h *ContactLayoutHandler) List(c echo.Context) error {
 //	@Param			template_id	path		integer	true	"Template ID"
 //	@Success		200				{object}	response.APIResponse{data=dto.ContactLayoutResponse}
 //	@Router			/vaults/{vault_id}/contact-layout/templates/{template_id} [get]
-func (h *ContactLayoutHandler) Get(c echo.Context) error {
+func (h *ContactLayoutHandler) Get(c *echo.Context) error {
 	templateID, err := contactLayoutTemplateID(c)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_template_id", nil)
@@ -86,7 +86,7 @@ func (h *ContactLayoutHandler) Get(c echo.Context) error {
 //	@Param			request		body		dto.CreateContactLayoutTemplateRequest	true	"Template details"
 //	@Success		201			{object}	response.APIResponse{data=dto.ContactLayoutResponse}
 //	@Router			/vaults/{vault_id}/contact-layout/templates [post]
-func (h *ContactLayoutHandler) Create(c echo.Context) error {
+func (h *ContactLayoutHandler) Create(c *echo.Context) error {
 	var req dto.CreateContactLayoutTemplateRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
@@ -113,7 +113,7 @@ func (h *ContactLayoutHandler) Create(c echo.Context) error {
 //	@Param			request			body		dto.UpdateContactLayoutTemplateRequest	true	"Template details"
 //	@Success		200				{object}	response.APIResponse{data=dto.ContactLayoutResponse}
 //	@Router			/vaults/{vault_id}/contact-layout/templates/{template_id} [put]
-func (h *ContactLayoutHandler) Rename(c echo.Context) error {
+func (h *ContactLayoutHandler) Rename(c *echo.Context) error {
 	templateID, err := contactLayoutTemplateID(c)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_template_id", nil)
@@ -146,7 +146,7 @@ func (h *ContactLayoutHandler) Rename(c echo.Context) error {
 //	@Success		200				{object}	response.APIResponse{data=dto.ContactLayoutResponse}
 //	@Failure		409				{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contact-layout/templates/{template_id}/layout [put]
-func (h *ContactLayoutHandler) Save(c echo.Context) error {
+func (h *ContactLayoutHandler) Save(c *echo.Context) error {
 	templateID, err := contactLayoutTemplateID(c)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_template_id", nil)
@@ -174,7 +174,7 @@ func (h *ContactLayoutHandler) Save(c echo.Context) error {
 //	@Param			template_id	path	integer	true	"Template ID"
 //	@Success		204
 //	@Router			/vaults/{vault_id}/contact-layout/templates/{template_id}/default [put]
-func (h *ContactLayoutHandler) SetDefault(c echo.Context) error {
+func (h *ContactLayoutHandler) SetDefault(c *echo.Context) error {
 	templateID, err := contactLayoutTemplateID(c)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_template_id", nil)
@@ -194,7 +194,7 @@ func (h *ContactLayoutHandler) SetDefault(c echo.Context) error {
 //	@Param			template_id	path	integer	true	"Template ID"
 //	@Success		204
 //	@Router			/vaults/{vault_id}/contact-layout/templates/{template_id} [delete]
-func (h *ContactLayoutHandler) Delete(c echo.Context) error {
+func (h *ContactLayoutHandler) Delete(c *echo.Context) error {
 	templateID, err := contactLayoutTemplateID(c)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_template_id", nil)
@@ -205,12 +205,12 @@ func (h *ContactLayoutHandler) Delete(c echo.Context) error {
 	return response.NoContent(c)
 }
 
-func contactLayoutTemplateID(c echo.Context) (uint, error) {
+func contactLayoutTemplateID(c *echo.Context) (uint, error) {
 	id, err := strconv.ParseUint(c.Param("template_id"), 10, 64)
 	return uint(id), err
 }
 
-func contactLayoutError(c echo.Context, err error) error {
+func contactLayoutError(c *echo.Context, err error) error {
 	switch {
 	case errors.Is(err, services.ErrContactLayoutNotFound), errors.Is(err, services.ErrVaultNotFound):
 		return response.NotFound(c, "err.contact_layout_not_found")

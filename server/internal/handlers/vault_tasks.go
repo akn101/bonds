@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -34,7 +34,7 @@ func NewVaultTaskHandler(vaultTaskService *services.VaultTaskService) *VaultTask
 //	@Success		200			{object}	response.APIResponse{data=[]dto.VaultTaskResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/tasks [get]
-func (h *VaultTaskHandler) List(c echo.Context) error {
+func (h *VaultTaskHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 
@@ -75,7 +75,7 @@ func (h *VaultTaskHandler) List(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/tasks [post]
-func (h *VaultTaskHandler) Create(c echo.Context) error {
+func (h *VaultTaskHandler) Create(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 
@@ -121,7 +121,7 @@ func (h *VaultTaskHandler) Create(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/tasks/{id} [patch]
-func (h *VaultTaskHandler) Update(c echo.Context) error {
+func (h *VaultTaskHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -172,7 +172,7 @@ func (h *VaultTaskHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/tasks/{id}/status [patch]
-func (h *VaultTaskHandler) UpdateStatus(c echo.Context) error {
+func (h *VaultTaskHandler) UpdateStatus(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -217,7 +217,7 @@ func (h *VaultTaskHandler) UpdateStatus(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/tasks/{id}/position [patch]
-func (h *VaultTaskHandler) UpdatePosition(c echo.Context) error {
+func (h *VaultTaskHandler) UpdatePosition(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -257,7 +257,7 @@ func (h *VaultTaskHandler) UpdatePosition(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/tasks/{id} [delete]
-func (h *VaultTaskHandler) Delete(c echo.Context) error {
+func (h *VaultTaskHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

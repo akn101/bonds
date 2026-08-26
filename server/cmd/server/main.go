@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	echoMiddleware "github.com/labstack/echo/v5/middleware"
 	"github.com/naiba/bonds/internal/config"
 	"github.com/naiba/bonds/internal/cron"
 	"github.com/naiba/bonds/internal/database"
@@ -144,10 +144,9 @@ func main() {
 	reloadBackup()
 
 	e := echo.New()
-	e.HideBanner = true
 
 	if cfg.Debug {
-		e.Use(echoMiddleware.Logger())
+		e.Use(echoMiddleware.RequestLogger())
 	}
 	e.Use(echoMiddleware.Recover())
 	e.Use(appMiddleware.Locale())
@@ -167,9 +166,17 @@ func main() {
 	defer stop()
 
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
+	serverCtx, stopServer := context.WithCancel(context.Background())
+	serverDone := make(chan struct{})
 	go func() {
+		defer close(serverDone)
 		log.Printf("Starting server on %s", addr)
-		if err := e.Start(addr); err != nil {
+		startConfig := echo.StartConfig{
+			Address:         addr,
+			HideBanner:      true,
+			GracefulTimeout: 10 * time.Second,
+		}
+		if err := startConfig.Start(serverCtx, e); err != nil {
 			log.Printf("Server stopped: %v", err)
 		}
 	}()
@@ -185,11 +192,8 @@ func main() {
 		log.Println("Cron scheduler stop timed out")
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := e.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Server shutdown error: %v", err)
-	}
+	stopServer()
+	<-serverDone
 
 	log.Println("Server exited")
 }

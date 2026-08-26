@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -32,7 +32,7 @@ func NewSliceOfLifeHandler(svc *services.SliceOfLifeService) *SliceOfLifeHandler
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/slices [get]
-func (h *SliceOfLifeHandler) List(c echo.Context) error {
+func (h *SliceOfLifeHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -64,7 +64,7 @@ func (h *SliceOfLifeHandler) List(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/slices [post]
-func (h *SliceOfLifeHandler) Create(c echo.Context) error {
+func (h *SliceOfLifeHandler) Create(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -102,7 +102,7 @@ func (h *SliceOfLifeHandler) Create(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/slices/{id} [get]
-func (h *SliceOfLifeHandler) Get(c echo.Context) error {
+func (h *SliceOfLifeHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -142,7 +142,7 @@ func (h *SliceOfLifeHandler) Get(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/slices/{id} [put]
-func (h *SliceOfLifeHandler) Update(c echo.Context) error {
+func (h *SliceOfLifeHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -187,7 +187,7 @@ func (h *SliceOfLifeHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/slices/{id} [delete]
-func (h *SliceOfLifeHandler) Delete(c echo.Context) error {
+func (h *SliceOfLifeHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -226,7 +226,7 @@ func (h *SliceOfLifeHandler) Delete(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/slices/{id}/cover [put]
-func (h *SliceOfLifeHandler) UpdateCover(c echo.Context) error {
+func (h *SliceOfLifeHandler) UpdateCover(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {
@@ -265,7 +265,7 @@ func (h *SliceOfLifeHandler) UpdateCover(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/slices/{id}/cover [delete]
-func (h *SliceOfLifeHandler) RemoveCover(c echo.Context) error {
+func (h *SliceOfLifeHandler) RemoveCover(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journalID, err := strconv.ParseUint(c.Param("journal_id"), 10, 64)
 	if err != nil {

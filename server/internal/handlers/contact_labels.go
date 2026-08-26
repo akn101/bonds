@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -32,7 +32,7 @@ func NewContactLabelHandler(contactLabelService *services.ContactLabelService) *
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/labels [get]
-func (h *ContactLabelHandler) List(c echo.Context) error {
+func (h *ContactLabelHandler) List(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 
@@ -64,7 +64,7 @@ func (h *ContactLabelHandler) List(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/labels [post]
-func (h *ContactLabelHandler) Add(c echo.Context) error {
+func (h *ContactLabelHandler) Add(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 
@@ -108,7 +108,7 @@ func (h *ContactLabelHandler) Add(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/labels/{id} [put]
-func (h *ContactLabelHandler) Update(c echo.Context) error {
+func (h *ContactLabelHandler) Update(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -155,7 +155,7 @@ func (h *ContactLabelHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/labels/{id} [delete]
-func (h *ContactLabelHandler) Remove(c echo.Context) error {
+func (h *ContactLabelHandler) Remove(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)

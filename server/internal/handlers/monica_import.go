@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -37,7 +37,7 @@ func NewMonicaImportHandler(svc *services.MonicaImportService) *MonicaImportHand
 //	@Failure		403			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/import/monica [post]
-func (h *MonicaImportHandler) Import(c echo.Context) error {
+func (h *MonicaImportHandler) Import(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 

@@ -5,13 +5,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func TestRequireAllowedOriginBlocksUnexpectedOrigins(t *testing.T) {
 	e := echo.New()
 	middleware := RequireAllowedOrigin("http://localhost:5173")
-	handler := middleware(func(c echo.Context) error {
+	handler := middleware(func(c *echo.Context) error {
 		return c.NoContent(http.StatusNoContent)
 	})
 	req := httptest.NewRequest(http.MethodPost, "/mcp", nil)
@@ -29,7 +29,7 @@ func TestRequireAllowedOriginBlocksUnexpectedOrigins(t *testing.T) {
 func TestRequireAllowedOriginAllowsConfiguredOriginAndNoOrigin(t *testing.T) {
 	e := echo.New()
 	middleware := RequireAllowedOrigin("http://localhost:5173")
-	handler := middleware(func(c echo.Context) error {
+	handler := middleware(func(c *echo.Context) error {
 		return c.NoContent(http.StatusNoContent)
 	})
 

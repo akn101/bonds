@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // TestLocaleAcceptLanguageParsing covers the supported codes plus the most
@@ -39,7 +39,7 @@ func TestLocaleAcceptLanguageParsing(t *testing.T) {
 	}
 
 	e := echo.New()
-	handler := Locale()(func(c echo.Context) error {
+	handler := Locale()(func(c *echo.Context) error {
 		return c.String(http.StatusOK, GetLocale(c))
 	})
 

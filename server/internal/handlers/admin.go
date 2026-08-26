@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -42,7 +42,7 @@ func (h *AdminHandler) RegisterReloader(fn func()) {
 //	@Failure		403			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/admin/users [get]
-func (h *AdminHandler) ListUsers(c echo.Context) error {
+func (h *AdminHandler) ListUsers(c *echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	users, meta, err := h.adminService.ListUsers(page, perPage)
@@ -69,7 +69,7 @@ func (h *AdminHandler) ListUsers(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/admin/users/{id}/toggle [put]
-func (h *AdminHandler) ToggleUser(c echo.Context) error {
+func (h *AdminHandler) ToggleUser(c *echo.Context) error {
 	actorID := middleware.GetUserID(c)
 	targetID := c.Param("id")
 
@@ -112,7 +112,7 @@ func (h *AdminHandler) ToggleUser(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/admin/users/{id}/admin [put]
-func (h *AdminHandler) SetAdmin(c echo.Context) error {
+func (h *AdminHandler) SetAdmin(c *echo.Context) error {
 	actorID := middleware.GetUserID(c)
 	targetID := c.Param("id")
 
@@ -152,7 +152,7 @@ func (h *AdminHandler) SetAdmin(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/admin/users/{id}/storage-limit [put]
-func (h *AdminHandler) SetStorageLimit(c echo.Context) error {
+func (h *AdminHandler) SetStorageLimit(c *echo.Context) error {
 	targetID := c.Param("id")
 
 	var req dto.AdminSetStorageLimitRequest
@@ -189,7 +189,7 @@ func (h *AdminHandler) SetStorageLimit(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/admin/users/{id} [delete]
-func (h *AdminHandler) DeleteUser(c echo.Context) error {
+func (h *AdminHandler) DeleteUser(c *echo.Context) error {
 	actorID := middleware.GetUserID(c)
 	targetID := c.Param("id")
 
@@ -219,7 +219,7 @@ func (h *AdminHandler) DeleteUser(c echo.Context) error {
 //	@Failure		403	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/admin/settings [get]
-func (h *AdminHandler) GetSettings(c echo.Context) error {
+func (h *AdminHandler) GetSettings(c *echo.Context) error {
 	settings, err := h.settingService.GetAllRedacted()
 	if err != nil {
 		return response.InternalError(c, "err.failed_to_get_settings")
@@ -242,7 +242,7 @@ func (h *AdminHandler) GetSettings(c echo.Context) error {
 //	@Failure		403		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/admin/settings [put]
-func (h *AdminHandler) UpdateSettings(c echo.Context) error {
+func (h *AdminHandler) UpdateSettings(c *echo.Context) error {
 	var req dto.UpdateSystemSettingsRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
@@ -276,7 +276,7 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 //	@Failure		403	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/admin/search/rebuild [post]
-func (h *AdminHandler) RebuildSearchIndex(c echo.Context) error {
+func (h *AdminHandler) RebuildSearchIndex(c *echo.Context) error {
 	contactCount, noteCount, err := h.searchService.RebuildIndex(h.db)
 	if err != nil {
 		return response.InternalError(c, "err.failed_to_rebuild_search_index")

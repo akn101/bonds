@@ -3,7 +3,7 @@ package handlers
 import (
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/search"
 	"github.com/naiba/bonds/internal/services"
@@ -35,7 +35,7 @@ func NewSearchHandler(searchService *services.SearchService) *SearchHandler {
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/search [get]
-func (h *SearchHandler) Search(c echo.Context) error {
+func (h *SearchHandler) Search(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	query := c.QueryParam("q")

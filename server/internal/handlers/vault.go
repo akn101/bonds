@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -30,7 +30,7 @@ func NewVaultHandler(vaultService *services.VaultService) *VaultHandler {
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/vaults [get]
-func (h *VaultHandler) List(c echo.Context) error {
+func (h *VaultHandler) List(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	vaults, err := h.vaultService.ListVaults(userID)
 	if err != nil {
@@ -54,7 +54,7 @@ func (h *VaultHandler) List(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/vaults [post]
-func (h *VaultHandler) Create(c echo.Context) error {
+func (h *VaultHandler) Create(c *echo.Context) error {
 	var req dto.CreateVaultRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
@@ -86,7 +86,7 @@ func (h *VaultHandler) Create(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/vaults/{id} [get]
-func (h *VaultHandler) Get(c echo.Context) error {
+func (h *VaultHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("id")
 	userID := middleware.GetUserID(c)
 	vault, err := h.vaultService.GetVault(vaultID, userID)
@@ -116,7 +116,7 @@ func (h *VaultHandler) Get(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/vaults/{id} [put]
-func (h *VaultHandler) Update(c echo.Context) error {
+func (h *VaultHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("id")
 	var req dto.UpdateVaultRequest
 	if err := c.Bind(&req); err != nil {
@@ -150,7 +150,7 @@ func (h *VaultHandler) Update(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/vaults/{id} [delete]
-func (h *VaultHandler) Delete(c echo.Context) error {
+func (h *VaultHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("id")
 	if err := h.vaultService.DeleteVault(vaultID); err != nil {
 		if errors.Is(err, services.ErrVaultNotFound) {
@@ -167,7 +167,7 @@ func (h *VaultHandler) Delete(c echo.Context) error {
 
 func VaultPermissionMiddleware(vaultService *services.VaultService, requiredPerm int) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			userID := middleware.GetUserID(c)
 			vaultID := c.Param("vault_id")
 			if vaultID == "" {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -34,7 +34,7 @@ func NewGroupHandler(groupService *services.GroupService) *GroupHandler {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/groups [post]
-func (h *GroupHandler) Create(c echo.Context) error {
+func (h *GroupHandler) Create(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.CreateGroupRequest
 	if err := c.Bind(&req); err != nil {
@@ -61,7 +61,7 @@ func (h *GroupHandler) Create(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.GroupResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/groups [get]
-func (h *GroupHandler) List(c echo.Context) error {
+func (h *GroupHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	groups, err := h.groupService.List(vaultID, middleware.GetUserID(c))
 	if err != nil {
@@ -84,7 +84,7 @@ func (h *GroupHandler) List(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/groups/{id} [get]
-func (h *GroupHandler) Get(c echo.Context) error {
+func (h *GroupHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -113,7 +113,7 @@ func (h *GroupHandler) Get(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/groups [get]
-func (h *GroupHandler) ListContactGroups(c echo.Context) error {
+func (h *GroupHandler) ListContactGroups(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	groups, err := h.groupService.ListByContact(contactID, vaultID)
@@ -142,7 +142,7 @@ func (h *GroupHandler) ListContactGroups(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/groups [post]
-func (h *GroupHandler) AddContactToGroup(c echo.Context) error {
+func (h *GroupHandler) AddContactToGroup(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	var req dto.AddContactToGroupRequest
 	if err := c.Bind(&req); err != nil {
@@ -175,7 +175,7 @@ func (h *GroupHandler) AddContactToGroup(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/groups/{id} [delete]
-func (h *GroupHandler) RemoveContactFromGroup(c echo.Context) error {
+func (h *GroupHandler) RemoveContactFromGroup(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -209,7 +209,7 @@ func (h *GroupHandler) RemoveContactFromGroup(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/groups/{id} [put]
-func (h *GroupHandler) Update(c echo.Context) error {
+func (h *GroupHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -246,7 +246,7 @@ func (h *GroupHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/groups/{id} [delete]
-func (h *GroupHandler) Delete(c echo.Context) error {
+func (h *GroupHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

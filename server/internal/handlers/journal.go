@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -29,7 +29,7 @@ func NewJournalHandler(journalService *services.JournalService) *JournalHandler 
 //	@Success		200			{object}	response.APIResponse{data=[]dto.JournalResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals [get]
-func (h *JournalHandler) List(c echo.Context) error {
+func (h *JournalHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	journals, err := h.journalService.List(vaultID)
 	if err != nil {
@@ -52,7 +52,7 @@ func (h *JournalHandler) List(c echo.Context) error {
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals [post]
-func (h *JournalHandler) Create(c echo.Context) error {
+func (h *JournalHandler) Create(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.CreateJournalRequest
 	if err := c.Bind(&req); err != nil {
@@ -82,7 +82,7 @@ func (h *JournalHandler) Create(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{id} [get]
-func (h *JournalHandler) Get(c echo.Context) error {
+func (h *JournalHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -114,7 +114,7 @@ func (h *JournalHandler) Get(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{id} [put]
-func (h *JournalHandler) Update(c echo.Context) error {
+func (h *JournalHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -151,7 +151,7 @@ func (h *JournalHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{id} [delete]
-func (h *JournalHandler) Delete(c echo.Context) error {
+func (h *JournalHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

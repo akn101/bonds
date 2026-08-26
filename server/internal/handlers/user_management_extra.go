@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -25,7 +25,7 @@ var _ dto.UserManagementResponse
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/users/{id} [get]
-func (h *UserManagementHandler) Get(c echo.Context) error {
+func (h *UserManagementHandler) Get(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	id := c.Param("id")
 	user, err := h.userManagementService.Get(id, accountID)

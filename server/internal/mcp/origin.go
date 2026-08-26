@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func RequireAllowedOrigin(allowedOrigins ...string) echo.MiddlewareFunc {
@@ -16,7 +16,7 @@ func RequireAllowedOrigin(allowedOrigins ...string) echo.MiddlewareFunc {
 		}
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			origin := c.Request().Header.Get(echo.HeaderOrigin)
 			if origin == "" {
 				return next(c)

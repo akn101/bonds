@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -21,7 +21,7 @@ import (
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/oauth [get]
-func (h *OAuthHandler) ListProviders(c echo.Context) error {
+func (h *OAuthHandler) ListProviders(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	providers, err := h.oauthService.ListProviders(userID)
 	if err != nil {
@@ -42,7 +42,7 @@ func (h *OAuthHandler) ListProviders(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/oauth/{driver} [delete]
-func (h *OAuthHandler) UnlinkProvider(c echo.Context) error {
+func (h *OAuthHandler) UnlinkProvider(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	driver := c.Param("driver")
 	if err := h.oauthService.UnlinkProvider(userID, driver); err != nil {
@@ -68,7 +68,7 @@ func (h *OAuthHandler) UnlinkProvider(c echo.Context) error {
 //	@Failure		401		{object}	response.APIResponse
 //	@Failure		409		{object}	response.APIResponse
 //	@Router			/auth/oauth/link [post]
-func (h *OAuthHandler) LinkProvider(c echo.Context) error {
+func (h *OAuthHandler) LinkProvider(c *echo.Context) error {
 	var req dto.OAuthLinkRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request", nil)
@@ -104,7 +104,7 @@ func (h *OAuthHandler) LinkProvider(c echo.Context) error {
 //	@Failure		400		{object}	response.APIResponse
 //	@Failure		409		{object}	response.APIResponse
 //	@Router			/auth/oauth/link-register [post]
-func (h *OAuthHandler) LinkRegister(c echo.Context) error {
+func (h *OAuthHandler) LinkRegister(c *echo.Context) error {
 	var req dto.OAuthLinkRegisterRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request", nil)

@@ -4,15 +4,15 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func TestActionRegistryDiscoversAPIRoutesOnly(t *testing.T) {
 	e := echo.New()
-	e.GET("/api/vaults", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
-	e.POST("/api/vaults/:vault_id/contacts", func(c echo.Context) error { return c.NoContent(http.StatusCreated) })
-	e.GET("/swagger/*", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
-	e.POST("/mcp", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+	e.GET("/api/vaults", func(c *echo.Context) error { return c.NoContent(http.StatusOK) })
+	e.POST("/api/vaults/:vault_id/contacts", func(c *echo.Context) error { return c.NoContent(http.StatusCreated) })
+	e.GET("/swagger/*", func(c *echo.Context) error { return c.NoContent(http.StatusOK) })
+	e.POST("/mcp", func(c *echo.Context) error { return c.NoContent(http.StatusOK) })
 
 	registry := NewActionRegistry(e)
 	actions := registry.All()

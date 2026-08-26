@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -29,7 +29,7 @@ func NewReportHandler(reportService *services.ReportService) *ReportHandler {
 //	@Success		200			{object}	response.APIResponse{data=dto.ReportOverviewResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/reports/overview [get]
-func (h *ReportHandler) Overview(c echo.Context) error {
+func (h *ReportHandler) Overview(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	data, err := h.reportService.Overview(vaultID, middleware.GetUserID(c))
 	if err != nil {
@@ -49,7 +49,7 @@ func (h *ReportHandler) Overview(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.AddressReportItem}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/reports/addresses [get]
-func (h *ReportHandler) Addresses(c echo.Context) error {
+func (h *ReportHandler) Addresses(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	data, err := h.reportService.AddressReport(vaultID)
 	if err != nil {
@@ -69,7 +69,7 @@ func (h *ReportHandler) Addresses(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.ImportantDateReportItem}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/reports/importantDates [get]
-func (h *ReportHandler) ImportantDates(c echo.Context) error {
+func (h *ReportHandler) ImportantDates(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	data, err := h.reportService.ImportantDatesReport(vaultID, middleware.GetUserID(c))
 	if err != nil {
@@ -89,7 +89,7 @@ func (h *ReportHandler) ImportantDates(c echo.Context) error {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.MoodReportItem}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/reports/moodTrackingEvents [get]
-func (h *ReportHandler) MoodTrackingEvents(c echo.Context) error {
+func (h *ReportHandler) MoodTrackingEvents(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	data, err := h.reportService.MoodReport(vaultID, middleware.GetUserID(c))
 	if err != nil {

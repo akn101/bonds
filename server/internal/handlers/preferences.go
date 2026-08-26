@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -29,7 +29,7 @@ func NewPreferenceHandler(preferenceService *services.PreferenceService) *Prefer
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/preferences [get]
-func (h *PreferenceHandler) Get(c echo.Context) error {
+func (h *PreferenceHandler) Get(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	prefs, err := h.preferenceService.Get(userID)
 	if err != nil {
@@ -52,7 +52,7 @@ func (h *PreferenceHandler) Get(c echo.Context) error {
 //	@Failure		401		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/preferences [put]
-func (h *PreferenceHandler) UpdateAll(c echo.Context) error {
+func (h *PreferenceHandler) UpdateAll(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.UpdatePreferencesRequest
 	if err := c.Bind(&req); err != nil {
@@ -83,7 +83,7 @@ func (h *PreferenceHandler) UpdateAll(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/preferences/name [post]
-func (h *PreferenceHandler) UpdateNameOrder(c echo.Context) error {
+func (h *PreferenceHandler) UpdateNameOrder(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.UpdateNameOrderRequest
 	if err := c.Bind(&req); err != nil {
@@ -116,7 +116,7 @@ func (h *PreferenceHandler) UpdateNameOrder(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/preferences/date [post]
-func (h *PreferenceHandler) UpdateDateFormat(c echo.Context) error {
+func (h *PreferenceHandler) UpdateDateFormat(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.UpdateDateFormatRequest
 	if err := c.Bind(&req); err != nil {
@@ -146,7 +146,7 @@ func (h *PreferenceHandler) UpdateDateFormat(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/preferences/timezone [post]
-func (h *PreferenceHandler) UpdateTimezone(c echo.Context) error {
+func (h *PreferenceHandler) UpdateTimezone(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.UpdateTimezoneRequest
 	if err := c.Bind(&req); err != nil {
@@ -176,7 +176,7 @@ func (h *PreferenceHandler) UpdateTimezone(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/preferences/locale [post]
-func (h *PreferenceHandler) UpdateLocale(c echo.Context) error {
+func (h *PreferenceHandler) UpdateLocale(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.UpdateLocaleRequest
 	if err := c.Bind(&req); err != nil {
@@ -206,7 +206,7 @@ func (h *PreferenceHandler) UpdateLocale(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/preferences/number [post]
-func (h *PreferenceHandler) UpdateNumberFormat(c echo.Context) error {
+func (h *PreferenceHandler) UpdateNumberFormat(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.UpdateNumberFormatRequest
 	if err := c.Bind(&req); err != nil {
@@ -236,7 +236,7 @@ func (h *PreferenceHandler) UpdateNumberFormat(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/preferences/distance [post]
-func (h *PreferenceHandler) UpdateDistanceFormat(c echo.Context) error {
+func (h *PreferenceHandler) UpdateDistanceFormat(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.UpdateDistanceFormatRequest
 	if err := c.Bind(&req); err != nil {
@@ -266,7 +266,7 @@ func (h *PreferenceHandler) UpdateDistanceFormat(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/preferences/maps [post]
-func (h *PreferenceHandler) UpdateMapsPreference(c echo.Context) error {
+func (h *PreferenceHandler) UpdateMapsPreference(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.UpdateMapsPreferenceRequest
 	if err := c.Bind(&req); err != nil {
@@ -295,7 +295,7 @@ func (h *PreferenceHandler) UpdateMapsPreference(c echo.Context) error {
 //	@Failure		401		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/preferences/help [post]
-func (h *PreferenceHandler) UpdateHelpShown(c echo.Context) error {
+func (h *PreferenceHandler) UpdateHelpShown(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	var req dto.UpdateHelpShownRequest
 	if err := c.Bind(&req); err != nil {

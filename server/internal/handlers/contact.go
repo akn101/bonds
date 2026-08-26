@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -36,7 +36,7 @@ func NewContactHandler(contactService *services.ContactService) *ContactHandler 
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts [get]
-func (h *ContactHandler) List(c echo.Context) error {
+func (h *ContactHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	page, _ := strconv.Atoi(c.QueryParam("page"))
@@ -65,7 +65,7 @@ func (h *ContactHandler) List(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/selectable [get]
-func (h *ContactHandler) ListSelectable(c echo.Context) error {
+func (h *ContactHandler) ListSelectable(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	search := c.QueryParam("search")
@@ -89,7 +89,7 @@ func (h *ContactHandler) ListSelectable(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/dashboard/catchUp [get]
-func (h *ContactHandler) ListCatchUpPrompts(c echo.Context) error {
+func (h *ContactHandler) ListCatchUpPrompts(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 
@@ -118,7 +118,7 @@ func (h *ContactHandler) ListCatchUpPrompts(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/labels/{labelId} [get]
-func (h *ContactHandler) ListByLabel(c echo.Context) error {
+func (h *ContactHandler) ListByLabel(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	labelID, err := strconv.ParseUint(c.Param("labelId"), 10, 64)
@@ -154,7 +154,7 @@ func (h *ContactHandler) ListByLabel(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts [post]
-func (h *ContactHandler) Create(c echo.Context) error {
+func (h *ContactHandler) Create(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 
@@ -199,7 +199,7 @@ func (h *ContactHandler) Create(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{id} [get]
-func (h *ContactHandler) Get(c echo.Context) error {
+func (h *ContactHandler) Get(c *echo.Context) error {
 	contactID := c.Param("id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -232,7 +232,7 @@ func (h *ContactHandler) Get(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{id} [put]
-func (h *ContactHandler) Update(c echo.Context) error {
+func (h *ContactHandler) Update(c *echo.Context) error {
 	contactID := c.Param("id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -278,7 +278,7 @@ func (h *ContactHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/catchUp [post]
-func (h *ContactHandler) MarkCaughtUp(c echo.Context) error {
+func (h *ContactHandler) MarkCaughtUp(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -307,7 +307,7 @@ func (h *ContactHandler) MarkCaughtUp(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{id} [delete]
-func (h *ContactHandler) Delete(c echo.Context) error {
+func (h *ContactHandler) Delete(c *echo.Context) error {
 	contactID := c.Param("id")
 	vaultID := c.Param("vault_id")
 	if err := h.contactService.DeleteContact(contactID, vaultID); err != nil {
@@ -342,7 +342,7 @@ func (h *ContactHandler) Delete(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts [delete]
-func (h *ContactHandler) DeleteMany(c echo.Context) error {
+func (h *ContactHandler) DeleteMany(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.BulkDeleteContactsRequest
 	if err := c.Bind(&req); err != nil {
@@ -384,7 +384,7 @@ func (h *ContactHandler) DeleteMany(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{id}/archive [put]
-func (h *ContactHandler) ToggleArchive(c echo.Context) error {
+func (h *ContactHandler) ToggleArchive(c *echo.Context) error {
 	contactID := c.Param("id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -415,7 +415,7 @@ func (h *ContactHandler) ToggleArchive(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{id}/favorite [put]
-func (h *ContactHandler) ToggleFavorite(c echo.Context) error {
+func (h *ContactHandler) ToggleFavorite(c *echo.Context) error {
 	contactID := c.Param("id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -446,7 +446,7 @@ func (h *ContactHandler) ToggleFavorite(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/search/contacts [post]
-func (h *ContactHandler) QuickSearch(c echo.Context) error {
+func (h *ContactHandler) QuickSearch(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 

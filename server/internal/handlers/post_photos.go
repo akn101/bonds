@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
+	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
-	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/pkg/response"
 )
 
@@ -39,7 +39,7 @@ func NewPostPhotoHandler(vaultFileService *services.VaultFileService, storageInf
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id}/photos [get]
-func (h *PostPhotoHandler) List(c echo.Context) error {
+func (h *PostPhotoHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	postID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -68,7 +68,7 @@ func (h *PostPhotoHandler) List(c echo.Context) error {
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id}/photos [post]
-func (h *PostPhotoHandler) Upload(c echo.Context) error {
+func (h *PostPhotoHandler) Upload(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	postID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -138,7 +138,7 @@ func (h *PostPhotoHandler) Upload(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/journals/{journal_id}/posts/{id}/photos/{photoId} [delete]
-func (h *PostPhotoHandler) Delete(c echo.Context) error {
+func (h *PostPhotoHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	postID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

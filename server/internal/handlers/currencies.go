@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -31,7 +31,7 @@ func NewCurrencyHandler(svc *services.CurrencyService) *CurrencyHandler {
 //	@Success		200	{object}	response.APIResponse{data=[]dto.CurrencyResponse}
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/currencies [get]
-func (h *CurrencyHandler) List(c echo.Context) error {
+func (h *CurrencyHandler) List(c *echo.Context) error {
 	currencies, err := h.currencyService.List()
 	if err != nil {
 		return response.InternalError(c, "err.failed_to_list_currencies")
@@ -52,7 +52,7 @@ func (h *CurrencyHandler) List(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/settings/personalize/currencies/{currencyId}/toggle [put]
-func (h *CurrencyHandler) Toggle(c echo.Context) error {
+func (h *CurrencyHandler) Toggle(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	currencyID, err := strconv.ParseUint(c.Param("currencyId"), 10, 64)
 	if err != nil {
@@ -77,7 +77,7 @@ func (h *CurrencyHandler) Toggle(c echo.Context) error {
 //	@Success		201	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/personalize/currencies/enable-all [post]
-func (h *CurrencyHandler) EnableAll(c echo.Context) error {
+func (h *CurrencyHandler) EnableAll(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	if err := h.currencyService.EnableAll(accountID); err != nil {
 		return response.InternalError(c, "err.failed_to_enable_currencies")
@@ -95,7 +95,7 @@ func (h *CurrencyHandler) EnableAll(c echo.Context) error {
 //	@Success		200	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/personalize/currencies/disable-all [delete]
-func (h *CurrencyHandler) DisableAll(c echo.Context) error {
+func (h *CurrencyHandler) DisableAll(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	if err := h.currencyService.DisableAll(accountID); err != nil {
 		return response.InternalError(c, "err.failed_to_disable_currencies")

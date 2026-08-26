@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -33,7 +33,7 @@ func NewPostTemplateSectionHandler(svc *services.PostTemplateSectionService) *Po
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/personalize/post-templates/{id}/sections [get]
-func (h *PostTemplateSectionHandler) List(c echo.Context) error {
+func (h *PostTemplateSectionHandler) List(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	templateID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -66,7 +66,7 @@ func (h *PostTemplateSectionHandler) List(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/post-templates/{id}/sections [post]
-func (h *PostTemplateSectionHandler) Create(c echo.Context) error {
+func (h *PostTemplateSectionHandler) Create(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	templateID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -107,7 +107,7 @@ func (h *PostTemplateSectionHandler) Create(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/settings/personalize/post-templates/{id}/sections/{sectionId} [put]
-func (h *PostTemplateSectionHandler) Update(c echo.Context) error {
+func (h *PostTemplateSectionHandler) Update(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	templateID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -151,7 +151,7 @@ func (h *PostTemplateSectionHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/settings/personalize/post-templates/{id}/sections/{sectionId} [delete]
-func (h *PostTemplateSectionHandler) Delete(c echo.Context) error {
+func (h *PostTemplateSectionHandler) Delete(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	templateID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -189,7 +189,7 @@ func (h *PostTemplateSectionHandler) Delete(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/settings/personalize/post-templates/{id}/sections/{sectionId}/position [post]
-func (h *PostTemplateSectionHandler) UpdatePosition(c echo.Context) error {
+func (h *PostTemplateSectionHandler) UpdatePosition(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	templateID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -237,7 +237,7 @@ func NewGroupTypeRoleHandler(svc *services.GroupTypeRoleService) *GroupTypeRoleH
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/personalize/group-types/{id}/roles [get]
-func (h *GroupTypeRoleHandler) List(c echo.Context) error {
+func (h *GroupTypeRoleHandler) List(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	groupTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -270,7 +270,7 @@ func (h *GroupTypeRoleHandler) List(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/group-types/{id}/roles [post]
-func (h *GroupTypeRoleHandler) Create(c echo.Context) error {
+func (h *GroupTypeRoleHandler) Create(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	groupTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -311,7 +311,7 @@ func (h *GroupTypeRoleHandler) Create(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/group-types/{id}/roles/{roleId} [put]
-func (h *GroupTypeRoleHandler) Update(c echo.Context) error {
+func (h *GroupTypeRoleHandler) Update(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	groupTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -355,7 +355,7 @@ func (h *GroupTypeRoleHandler) Update(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/group-types/{id}/roles/{roleId} [delete]
-func (h *GroupTypeRoleHandler) Delete(c echo.Context) error {
+func (h *GroupTypeRoleHandler) Delete(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	groupTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -393,7 +393,7 @@ func (h *GroupTypeRoleHandler) Delete(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/group-types/{id}/roles/{roleId}/position [post]
-func (h *GroupTypeRoleHandler) UpdatePosition(c echo.Context) error {
+func (h *GroupTypeRoleHandler) UpdatePosition(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	groupTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -438,7 +438,7 @@ func NewRelationshipTypeHandler(svc *services.RelationshipTypeService) *Relation
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/personalize/relationship-types/all [get]
-func (h *RelationshipTypeHandler) ListAll(c echo.Context) error {
+func (h *RelationshipTypeHandler) ListAll(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	types, err := h.svc.ListAll(accountID)
 	if err != nil {
@@ -461,7 +461,7 @@ func (h *RelationshipTypeHandler) ListAll(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/personalize/relationship-types/{id}/types [get]
-func (h *RelationshipTypeHandler) List(c echo.Context) error {
+func (h *RelationshipTypeHandler) List(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	groupTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -494,7 +494,7 @@ func (h *RelationshipTypeHandler) List(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/relationship-types/{id}/types [post]
-func (h *RelationshipTypeHandler) Create(c echo.Context) error {
+func (h *RelationshipTypeHandler) Create(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	groupTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -535,7 +535,7 @@ func (h *RelationshipTypeHandler) Create(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/relationship-types/{id}/types/{typeId} [put]
-func (h *RelationshipTypeHandler) Update(c echo.Context) error {
+func (h *RelationshipTypeHandler) Update(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	groupTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -579,7 +579,7 @@ func (h *RelationshipTypeHandler) Update(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/relationship-types/{id}/types/{typeId} [delete]
-func (h *RelationshipTypeHandler) Delete(c echo.Context) error {
+func (h *RelationshipTypeHandler) Delete(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	groupTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -626,7 +626,7 @@ func NewCallReasonHandler(svc *services.CallReasonService) *CallReasonHandler {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/personalize/call-reasons/{id}/reasons [get]
-func (h *CallReasonHandler) List(c echo.Context) error {
+func (h *CallReasonHandler) List(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	callReasonTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -659,7 +659,7 @@ func (h *CallReasonHandler) List(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/call-reasons/{id}/reasons [post]
-func (h *CallReasonHandler) Create(c echo.Context) error {
+func (h *CallReasonHandler) Create(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	callReasonTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -700,7 +700,7 @@ func (h *CallReasonHandler) Create(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/settings/personalize/call-reasons/{id}/reasons/{reasonId} [put]
-func (h *CallReasonHandler) Update(c echo.Context) error {
+func (h *CallReasonHandler) Update(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	callReasonTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -744,7 +744,7 @@ func (h *CallReasonHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/settings/personalize/call-reasons/{id}/reasons/{reasonId} [delete]
-func (h *CallReasonHandler) Delete(c echo.Context) error {
+func (h *CallReasonHandler) Delete(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	callReasonTypeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

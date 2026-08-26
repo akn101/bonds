@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -32,7 +32,7 @@ func NewPersonalizeHandler(personalizeService *services.PersonalizeService) *Per
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/{entity} [get]
-func (h *PersonalizeHandler) List(c echo.Context) error {
+func (h *PersonalizeHandler) List(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	entity := c.Param("entity")
 
@@ -62,7 +62,7 @@ func (h *PersonalizeHandler) List(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/{entity} [post]
-func (h *PersonalizeHandler) Create(c echo.Context) error {
+func (h *PersonalizeHandler) Create(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	entity := c.Param("entity")
 	var req dto.PersonalizeEntityRequest
@@ -99,7 +99,7 @@ func (h *PersonalizeHandler) Create(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/{entity}/{id} [put]
-func (h *PersonalizeHandler) Update(c echo.Context) error {
+func (h *PersonalizeHandler) Update(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	entity := c.Param("entity")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -140,7 +140,7 @@ func (h *PersonalizeHandler) Update(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/settings/personalize/{entity}/{id} [delete]
-func (h *PersonalizeHandler) Delete(c echo.Context) error {
+func (h *PersonalizeHandler) Delete(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	entity := c.Param("entity")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -174,7 +174,7 @@ func (h *PersonalizeHandler) Delete(c echo.Context) error {
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/personalize/sync [post]
-func (h *PersonalizeHandler) SyncTranslations(c echo.Context) error {
+func (h *PersonalizeHandler) SyncTranslations(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	var req dto.SyncSharedTranslationsRequest
 	if err := c.Bind(&req); err != nil {

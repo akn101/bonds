@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-webauthn/webauthn/protocol"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -37,7 +37,7 @@ func NewWebAuthnHandler(webauthnService *services.WebAuthnService, authService *
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/webauthn/register/begin [post]
-func (h *WebAuthnHandler) BeginRegistration(c echo.Context) error {
+func (h *WebAuthnHandler) BeginRegistration(c *echo.Context) error {
 	if !h.webauthnService.IsEnabled() {
 		return response.BadRequest(c, "err.webauthn_not_configured", nil)
 	}
@@ -67,7 +67,7 @@ func (h *WebAuthnHandler) BeginRegistration(c echo.Context) error {
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/webauthn/register/finish [post]
-func (h *WebAuthnHandler) FinishRegistration(c echo.Context) error {
+func (h *WebAuthnHandler) FinishRegistration(c *echo.Context) error {
 	if !h.webauthnService.IsEnabled() {
 		return response.BadRequest(c, "err.webauthn_not_configured", nil)
 	}
@@ -103,7 +103,7 @@ func (h *WebAuthnHandler) FinishRegistration(c echo.Context) error {
 //	@Failure		422	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/auth/webauthn/login/begin [post]
-func (h *WebAuthnHandler) BeginLogin(c echo.Context) error {
+func (h *WebAuthnHandler) BeginLogin(c *echo.Context) error {
 	if !h.webauthnService.IsEnabled() {
 		return response.BadRequest(c, "err.webauthn_not_configured", nil)
 	}
@@ -143,7 +143,7 @@ func (h *WebAuthnHandler) BeginLogin(c echo.Context) error {
 //	@Failure		422		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/auth/webauthn/login/finish [post]
-func (h *WebAuthnHandler) FinishLogin(c echo.Context) error {
+func (h *WebAuthnHandler) FinishLogin(c *echo.Context) error {
 	if !h.webauthnService.IsEnabled() {
 		return response.BadRequest(c, "err.webauthn_not_configured", nil)
 	}
@@ -205,7 +205,7 @@ func isWebAuthnCeremonyError(err error) bool {
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/webauthn/credentials [get]
-func (h *WebAuthnHandler) ListCredentials(c echo.Context) error {
+func (h *WebAuthnHandler) ListCredentials(c *echo.Context) error {
 	if !h.webauthnService.IsEnabled() {
 		return response.BadRequest(c, "err.webauthn_not_configured", nil)
 	}
@@ -235,7 +235,7 @@ func (h *WebAuthnHandler) ListCredentials(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/webauthn/credentials/{id} [delete]
-func (h *WebAuthnHandler) DeleteCredential(c echo.Context) error {
+func (h *WebAuthnHandler) DeleteCredential(c *echo.Context) error {
 	if !h.webauthnService.IsEnabled() {
 		return response.BadRequest(c, "err.webauthn_not_configured", nil)
 	}

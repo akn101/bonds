@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -34,7 +34,7 @@ func NewMoodTrackingHandler(moodTrackingService *services.MoodTrackingService) *
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/moodTrackingEvents [post]
-func (h *MoodTrackingHandler) Create(c echo.Context) error {
+func (h *MoodTrackingHandler) Create(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	var req dto.CreateMoodTrackingEventRequest
@@ -64,7 +64,7 @@ func (h *MoodTrackingHandler) Create(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/moodTrackingEvents [get]
-func (h *MoodTrackingHandler) List(c echo.Context) error {
+func (h *MoodTrackingHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	events, err := h.moodTrackingService.List(vaultID, userID)

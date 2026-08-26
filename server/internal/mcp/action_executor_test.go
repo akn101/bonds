@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func TestActionExecutorForwardsRegisteredAction(t *testing.T) {
 	e := echo.New()
-	e.GET("/api/vaults/:vault_id/contacts", func(c echo.Context) error {
+	e.GET("/api/vaults/:vault_id/contacts", func(c *echo.Context) error {
 		if c.Request().Header.Get("Authorization") != "Bearer token" {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "missing auth"})
 		}
@@ -43,7 +43,7 @@ func TestActionExecutorForwardsRegisteredAction(t *testing.T) {
 
 func TestActionExecutorRejectsUnknownAndMissingParams(t *testing.T) {
 	e := echo.New()
-	e.GET("/api/vaults/:vault_id", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+	e.GET("/api/vaults/:vault_id", func(c *echo.Context) error { return c.NoContent(http.StatusOK) })
 	executor := NewActionExecutor(e, NewActionRegistry(e))
 
 	if _, err := executor.Execute(ExecuteActionArgs{ActionID: "missing"}, "Bearer token"); err == nil {

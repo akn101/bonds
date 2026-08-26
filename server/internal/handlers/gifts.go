@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -32,7 +32,7 @@ func NewGiftHandler(giftService *services.GiftService) *GiftHandler {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/gifts [get]
-func (h *GiftHandler) List(c echo.Context) error {
+func (h *GiftHandler) List(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	gifts, err := h.giftService.List(contactID, vaultID)
@@ -63,7 +63,7 @@ func (h *GiftHandler) List(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/gifts [post]
-func (h *GiftHandler) Create(c echo.Context) error {
+func (h *GiftHandler) Create(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 
@@ -101,7 +101,7 @@ func (h *GiftHandler) Create(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/gifts/{id} [put]
-func (h *GiftHandler) Update(c echo.Context) error {
+func (h *GiftHandler) Update(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -140,7 +140,7 @@ func (h *GiftHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/gifts/{id} [delete]
-func (h *GiftHandler) Delete(c echo.Context) error {
+func (h *GiftHandler) Delete(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -154,7 +154,7 @@ func (h *GiftHandler) Delete(c echo.Context) error {
 	return response.NoContent(c)
 }
 
-func handleGiftServiceError(c echo.Context, err error, fallback string) error {
+func handleGiftServiceError(c *echo.Context, err error, fallback string) error {
 	if errors.Is(err, services.ErrContactNotFound) {
 		return response.NotFound(c, "err.contact_not_found")
 	}

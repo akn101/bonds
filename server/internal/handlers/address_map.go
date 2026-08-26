@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
 )
@@ -27,7 +27,7 @@ import (
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		404			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/addresses/{id}/image/{width}/{height} [get]
-func (h *AddressHandler) GetMapImage(c echo.Context) error {
+func (h *AddressHandler) GetMapImage(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	contactID := c.Param("contact_id")
 	addressID, err := strconv.ParseUint(c.Param("id"), 10, 64)

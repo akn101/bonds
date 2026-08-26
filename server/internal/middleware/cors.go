@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v4"
-	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	echoMiddleware "github.com/labstack/echo/v5/middleware"
 )
 
 var corsAllowOrigins = []string{"http://localhost:5173", "http://localhost:3000"}
@@ -64,7 +64,7 @@ func CORS() echo.MiddlewareFunc {
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		defaultHandler := defaultCORS(next)
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			req := c.Request()
 			if req.Method == http.MethodOptions && strings.HasPrefix(req.URL.Path, "/dav") {
 				// Let DAV OPTIONS reach go-webdav so discovery keeps DAV/Allow headers while still adding CORS metadata.
@@ -76,7 +76,7 @@ func CORS() echo.MiddlewareFunc {
 	}
 }
 
-func applyDAVCORSHeaders(c echo.Context) {
+func applyDAVCORSHeaders(c *echo.Context) {
 	req := c.Request()
 	res := c.Response()
 	origin := req.Header.Get(echo.HeaderOrigin)

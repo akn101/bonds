@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -31,7 +31,7 @@ func NewLifeMetricHandler(svc *services.LifeMetricService) *LifeMetricHandler {
 //	@Success		200			{object}	response.APIResponse{data=[]dto.LifeMetricResponse}
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/lifeMetrics [get]
-func (h *LifeMetricHandler) List(c echo.Context) error {
+func (h *LifeMetricHandler) List(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	metrics, err := h.svc.List(vaultID, userID)
@@ -55,7 +55,7 @@ func (h *LifeMetricHandler) List(c echo.Context) error {
 //	@Failure		400			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/lifeMetrics [post]
-func (h *LifeMetricHandler) Create(c echo.Context) error {
+func (h *LifeMetricHandler) Create(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.CreateLifeMetricRequest
 	if err := c.Bind(&req); err != nil {
@@ -87,7 +87,7 @@ func (h *LifeMetricHandler) Create(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/lifeMetrics/{id} [put]
-func (h *LifeMetricHandler) Update(c echo.Context) error {
+func (h *LifeMetricHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -124,7 +124,7 @@ func (h *LifeMetricHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/lifeMetrics/{id} [delete]
-func (h *LifeMetricHandler) Delete(c echo.Context) error {
+func (h *LifeMetricHandler) Delete(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -153,7 +153,7 @@ func (h *LifeMetricHandler) Delete(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/lifeMetrics/{id}/increment [post]
-func (h *LifeMetricHandler) Increment(c echo.Context) error {
+func (h *LifeMetricHandler) Increment(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -185,7 +185,7 @@ func (h *LifeMetricHandler) Increment(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/lifeMetrics/{id}/detail [get]
-func (h *LifeMetricHandler) GetDetail(c echo.Context) error {
+func (h *LifeMetricHandler) GetDetail(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

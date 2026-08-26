@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -57,7 +57,7 @@ func NewVaultSettingsHandler(
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings [get]
-func (h *VaultSettingsHandler) Get(c echo.Context) error {
+func (h *VaultSettingsHandler) Get(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	settings, err := h.settingsService.Get(vaultID)
 	if err != nil {
@@ -86,7 +86,7 @@ func (h *VaultSettingsHandler) Get(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings [put]
-func (h *VaultSettingsHandler) Update(c echo.Context) error {
+func (h *VaultSettingsHandler) Update(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.UpdateVaultSettingsRequest
 	if err := c.Bind(&req); err != nil {
@@ -120,7 +120,7 @@ func (h *VaultSettingsHandler) Update(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/visibility [put]
-func (h *VaultSettingsHandler) UpdateVisibility(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateVisibility(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.UpdateTabVisibilityRequest
 	if err := c.Bind(&req); err != nil {
@@ -145,7 +145,7 @@ func (h *VaultSettingsHandler) UpdateVisibility(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/users [get]
-func (h *VaultSettingsHandler) ListUsers(c echo.Context) error {
+func (h *VaultSettingsHandler) ListUsers(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	users, err := h.usersService.List(vaultID)
 	if err != nil {
@@ -171,7 +171,7 @@ func (h *VaultSettingsHandler) ListUsers(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/users [post]
-func (h *VaultSettingsHandler) AddUser(c echo.Context) error {
+func (h *VaultSettingsHandler) AddUser(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.AddVaultUserRequest
 	if err := c.Bind(&req); err != nil {
@@ -211,7 +211,7 @@ func (h *VaultSettingsHandler) AddUser(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/users/{id} [put]
-func (h *VaultSettingsHandler) UpdateUserPermission(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateUserPermission(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -248,7 +248,7 @@ func (h *VaultSettingsHandler) UpdateUserPermission(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/users/{id} [delete]
-func (h *VaultSettingsHandler) RemoveUser(c echo.Context) error {
+func (h *VaultSettingsHandler) RemoveUser(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -279,7 +279,7 @@ func (h *VaultSettingsHandler) RemoveUser(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/labels [get]
-func (h *VaultSettingsHandler) ListLabels(c echo.Context) error {
+func (h *VaultSettingsHandler) ListLabels(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	labels, err := h.labelService.List(vaultID)
 	if err != nil {
@@ -304,7 +304,7 @@ func (h *VaultSettingsHandler) ListLabels(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/labels [post]
-func (h *VaultSettingsHandler) CreateLabel(c echo.Context) error {
+func (h *VaultSettingsHandler) CreateLabel(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.CreateLabelRequest
 	if err := c.Bind(&req); err != nil {
@@ -338,7 +338,7 @@ func (h *VaultSettingsHandler) CreateLabel(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/labels/{id} [put]
-func (h *VaultSettingsHandler) UpdateLabel(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateLabel(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -374,7 +374,7 @@ func (h *VaultSettingsHandler) UpdateLabel(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/labels/{id} [delete]
-func (h *VaultSettingsHandler) DeleteLabel(c echo.Context) error {
+func (h *VaultSettingsHandler) DeleteLabel(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -401,7 +401,7 @@ func (h *VaultSettingsHandler) DeleteLabel(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/tags [get]
-func (h *VaultSettingsHandler) ListTags(c echo.Context) error {
+func (h *VaultSettingsHandler) ListTags(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	tags, err := h.tagService.List(vaultID)
 	if err != nil {
@@ -426,7 +426,7 @@ func (h *VaultSettingsHandler) ListTags(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/tags [post]
-func (h *VaultSettingsHandler) CreateTag(c echo.Context) error {
+func (h *VaultSettingsHandler) CreateTag(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.CreateTagRequest
 	if err := c.Bind(&req); err != nil {
@@ -460,7 +460,7 @@ func (h *VaultSettingsHandler) CreateTag(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/tags/{id} [put]
-func (h *VaultSettingsHandler) UpdateTag(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateTag(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -496,7 +496,7 @@ func (h *VaultSettingsHandler) UpdateTag(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/tags/{id} [delete]
-func (h *VaultSettingsHandler) DeleteTag(c echo.Context) error {
+func (h *VaultSettingsHandler) DeleteTag(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -523,7 +523,7 @@ func (h *VaultSettingsHandler) DeleteTag(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/dateTypes [get]
-func (h *VaultSettingsHandler) ListDateTypes(c echo.Context) error {
+func (h *VaultSettingsHandler) ListDateTypes(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	types, err := h.dateTypeService.List(vaultID)
 	if err != nil {
@@ -548,7 +548,7 @@ func (h *VaultSettingsHandler) ListDateTypes(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/dateTypes [post]
-func (h *VaultSettingsHandler) CreateDateType(c echo.Context) error {
+func (h *VaultSettingsHandler) CreateDateType(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.CreateImportantDateTypeRequest
 	if err := c.Bind(&req); err != nil {
@@ -582,7 +582,7 @@ func (h *VaultSettingsHandler) CreateDateType(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/dateTypes/{id} [put]
-func (h *VaultSettingsHandler) UpdateDateType(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateDateType(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -619,7 +619,7 @@ func (h *VaultSettingsHandler) UpdateDateType(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/dateTypes/{id} [delete]
-func (h *VaultSettingsHandler) DeleteDateType(c echo.Context) error {
+func (h *VaultSettingsHandler) DeleteDateType(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -649,7 +649,7 @@ func (h *VaultSettingsHandler) DeleteDateType(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/moodParams [get]
-func (h *VaultSettingsHandler) ListMoodParams(c echo.Context) error {
+func (h *VaultSettingsHandler) ListMoodParams(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	params, err := h.moodService.List(vaultID)
 	if err != nil {
@@ -674,7 +674,7 @@ func (h *VaultSettingsHandler) ListMoodParams(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/moodParams [post]
-func (h *VaultSettingsHandler) CreateMoodParam(c echo.Context) error {
+func (h *VaultSettingsHandler) CreateMoodParam(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.CreateMoodTrackingParameterRequest
 	if err := c.Bind(&req); err != nil {
@@ -708,7 +708,7 @@ func (h *VaultSettingsHandler) CreateMoodParam(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/moodParams/{id} [put]
-func (h *VaultSettingsHandler) UpdateMoodParam(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateMoodParam(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -748,7 +748,7 @@ func (h *VaultSettingsHandler) UpdateMoodParam(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/moodParams/{id}/position [post]
-func (h *VaultSettingsHandler) UpdateMoodParamOrder(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateMoodParamOrder(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -781,7 +781,7 @@ func (h *VaultSettingsHandler) UpdateMoodParamOrder(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/moodParams/{id} [delete]
-func (h *VaultSettingsHandler) DeleteMoodParam(c echo.Context) error {
+func (h *VaultSettingsHandler) DeleteMoodParam(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -808,7 +808,7 @@ func (h *VaultSettingsHandler) DeleteMoodParam(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/activityCategories [get]
-func (h *VaultSettingsHandler) ListActivityCategories(c echo.Context) error {
+func (h *VaultSettingsHandler) ListActivityCategories(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	cats, err := h.activitySvc.ListCategories(vaultID)
 	if err != nil {
@@ -833,7 +833,7 @@ func (h *VaultSettingsHandler) ListActivityCategories(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/activityCategories [post]
-func (h *VaultSettingsHandler) CreateActivityCategory(c echo.Context) error {
+func (h *VaultSettingsHandler) CreateActivityCategory(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.CreateActivityCategoryRequest
 	if err := c.Bind(&req); err != nil {
@@ -867,7 +867,7 @@ func (h *VaultSettingsHandler) CreateActivityCategory(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/activityCategories/{id} [put]
-func (h *VaultSettingsHandler) UpdateActivityCategory(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateActivityCategory(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -907,7 +907,7 @@ func (h *VaultSettingsHandler) UpdateActivityCategory(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/activityCategories/{id}/position [post]
-func (h *VaultSettingsHandler) UpdateActivityCategoryOrder(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateActivityCategoryOrder(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -941,7 +941,7 @@ func (h *VaultSettingsHandler) UpdateActivityCategoryOrder(c echo.Context) error
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/activityCategories/{id} [delete]
-func (h *VaultSettingsHandler) DeleteActivityCategory(c echo.Context) error {
+func (h *VaultSettingsHandler) DeleteActivityCategory(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -977,7 +977,7 @@ func (h *VaultSettingsHandler) DeleteActivityCategory(c echo.Context) error {
 //	@Failure		422				{object}	response.APIResponse
 //	@Failure		500				{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/activityCategories/{categoryId}/types [post]
-func (h *VaultSettingsHandler) CreateActivityType(c echo.Context) error {
+func (h *VaultSettingsHandler) CreateActivityType(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	categoryID, err := strconv.ParseUint(c.Param("categoryId"), 10, 64)
 	if err != nil {
@@ -1019,7 +1019,7 @@ func (h *VaultSettingsHandler) CreateActivityType(c echo.Context) error {
 //	@Failure		422				{object}	response.APIResponse
 //	@Failure		500				{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/activityCategories/{categoryId}/types/{typeId} [put]
-func (h *VaultSettingsHandler) UpdateActivityType(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateActivityType(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	categoryID, err := strconv.ParseUint(c.Param("categoryId"), 10, 64)
 	if err != nil {
@@ -1067,7 +1067,7 @@ func (h *VaultSettingsHandler) UpdateActivityType(c echo.Context) error {
 //	@Failure		404				{object}	response.APIResponse
 //	@Failure		500				{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/activityCategories/{categoryId}/activityTypes/{typeId}/position [post]
-func (h *VaultSettingsHandler) UpdateActivityTypeOrder(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateActivityTypeOrder(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	categoryID, err := strconv.ParseUint(c.Param("categoryId"), 10, 64)
 	if err != nil {
@@ -1109,7 +1109,7 @@ func (h *VaultSettingsHandler) UpdateActivityTypeOrder(c echo.Context) error {
 //	@Failure		404				{object}	response.APIResponse
 //	@Failure		500				{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/activityCategories/{categoryId}/types/{typeId} [delete]
-func (h *VaultSettingsHandler) DeleteActivityType(c echo.Context) error {
+func (h *VaultSettingsHandler) DeleteActivityType(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	categoryID, err := strconv.ParseUint(c.Param("categoryId"), 10, 64)
 	if err != nil {
@@ -1146,7 +1146,7 @@ func (h *VaultSettingsHandler) DeleteActivityType(c echo.Context) error {
 //	@Failure		401			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/quickFactTemplates [get]
-func (h *VaultSettingsHandler) ListQuickFactTemplates(c echo.Context) error {
+func (h *VaultSettingsHandler) ListQuickFactTemplates(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	tpls, err := h.quickFactSvc.List(vaultID)
 	if err != nil {
@@ -1171,7 +1171,7 @@ func (h *VaultSettingsHandler) ListQuickFactTemplates(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/quickFactTemplates [post]
-func (h *VaultSettingsHandler) CreateQuickFactTemplate(c echo.Context) error {
+func (h *VaultSettingsHandler) CreateQuickFactTemplate(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	var req dto.CreateQuickFactTemplateRequest
 	if err := c.Bind(&req); err != nil {
@@ -1208,7 +1208,7 @@ func (h *VaultSettingsHandler) CreateQuickFactTemplate(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/quickFactTemplates/{id} [put]
-func (h *VaultSettingsHandler) UpdateQuickFactTemplate(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateQuickFactTemplate(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -1255,7 +1255,7 @@ func isQuickFactValidationErr(err error) bool {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/quickFactTemplates/{id}/position [post]
-func (h *VaultSettingsHandler) UpdateQuickFactTemplateOrder(c echo.Context) error {
+func (h *VaultSettingsHandler) UpdateQuickFactTemplateOrder(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -1288,7 +1288,7 @@ func (h *VaultSettingsHandler) UpdateQuickFactTemplateOrder(c echo.Context) erro
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/settings/quickFactTemplates/{id} [delete]
-func (h *VaultSettingsHandler) DeleteQuickFactTemplate(c echo.Context) error {
+func (h *VaultSettingsHandler) DeleteQuickFactTemplate(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

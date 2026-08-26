@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/pkg/response"
 	"gorm.io/gorm"
@@ -42,7 +42,7 @@ const (
 )
 
 func (m *AuthMiddleware) Authenticate(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		var tokenString string
 
 		authHeader := c.Request().Header.Get("Authorization")
@@ -65,7 +65,7 @@ func (m *AuthMiddleware) Authenticate(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func (m *AuthMiddleware) authenticateWithJWT(c echo.Context, next echo.HandlerFunc, tokenString string) error {
+func (m *AuthMiddleware) authenticateWithJWT(c *echo.Context, next echo.HandlerFunc, tokenString string) error {
 	claims := &JWTClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -107,7 +107,7 @@ func (m *AuthMiddleware) authenticateWithJWT(c echo.Context, next echo.HandlerFu
 	return next(c)
 }
 
-func (m *AuthMiddleware) authenticateWithPAT(c echo.Context, next echo.HandlerFunc, rawToken string) error {
+func (m *AuthMiddleware) authenticateWithPAT(c *echo.Context, next echo.HandlerFunc, rawToken string) error {
 	hash := sha256Hash(rawToken)
 
 	var pat models.PersonalAccessToken
@@ -151,7 +151,7 @@ func (m *AuthMiddleware) authenticateWithPAT(c echo.Context, next echo.HandlerFu
 	return next(c)
 }
 
-func patHasScope(c echo.Context, scope string) bool {
+func patHasScope(c *echo.Context, scope string) bool {
 	raw, _ := c.Get(ctxPATScopes).(string)
 	for _, s := range strings.Split(raw, ",") {
 		if strings.TrimSpace(s) == scope {
@@ -161,7 +161,7 @@ func patHasScope(c echo.Context, scope string) bool {
 	return false
 }
 
-func isScopedPAT(c echo.Context) bool {
+func isScopedPAT(c *echo.Context) bool {
 	v, _ := c.Get(ctxIsScopedPAT).(bool)
 	return v
 }
@@ -172,7 +172,7 @@ func sha256Hash(s string) string {
 }
 
 func (m *AuthMiddleware) RequireAdmin(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		isAdmin, ok := c.Get("is_admin").(bool)
 		if !ok || !isAdmin {
 			return response.Forbidden(c, "err.administrator_access_required")
@@ -182,7 +182,7 @@ func (m *AuthMiddleware) RequireAdmin(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func (m *AuthMiddleware) RequireInstanceAdmin(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		isInstanceAdmin, ok := c.Get("is_instance_admin").(bool)
 		if !ok || !isInstanceAdmin {
 			return response.Forbidden(c, "err.instance_admin_access_required")
@@ -191,17 +191,17 @@ func (m *AuthMiddleware) RequireInstanceAdmin(next echo.HandlerFunc) echo.Handle
 	}
 }
 
-func GetUserID(c echo.Context) string {
+func GetUserID(c *echo.Context) string {
 	id, _ := c.Get("user_id").(string)
 	return id
 }
 
-func GetAccountID(c echo.Context) string {
+func GetAccountID(c *echo.Context) string {
 	id, _ := c.Get("account_id").(string)
 	return id
 }
 
-func GetClaims(c echo.Context) *JWTClaims {
+func GetClaims(c *echo.Context) *JWTClaims {
 	claims, _ := c.Get("claims").(*JWTClaims)
 	return claims
 }
@@ -225,7 +225,7 @@ func ParseJWTClaims(tokenString string, secret []byte) (*JWTClaims, error) {
 
 func RequireEmailVerification(isRequired func() bool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			if !isRequired() {
 				return next(c)
 			}
@@ -243,7 +243,7 @@ func RequireEmailVerification(isRequired func() bool) echo.MiddlewareFunc {
 // is the default-deny half of the scope model: an endpoint must opt in via
 // RequireScope, otherwise scoped tokens are rejected.
 func DenyScopedPAT(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		if isScopedPAT(c) {
 			return response.Forbidden(c, "err.insufficient_token_scope")
 		}
@@ -256,7 +256,7 @@ func DenyScopedPAT(next echo.HandlerFunc) echo.HandlerFunc {
 // always pass.
 func RequireScope(scope string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			if !isScopedPAT(c) {
 				return next(c)
 			}

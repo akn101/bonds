@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/pkg/response"
@@ -27,7 +27,7 @@ func NewAccountHandler(db *gorm.DB) *AccountHandler {
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		404	{object}	response.APIResponse
 //	@Router			/account [get]
-func (h *AccountHandler) GetAccount(c echo.Context) error {
+func (h *AccountHandler) GetAccount(c *echo.Context) error {
 	accountID := middleware.GetAccountID(c)
 	if accountID == "" {
 		return response.Unauthorized(c, "err.invalid_account")

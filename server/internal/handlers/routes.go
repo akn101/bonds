@@ -4,8 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
-	echoSwagger "github.com/swaggo/echo-swagger"
+	"github.com/labstack/echo/v5"
+	swaggerFiles "github.com/swaggo/files/v2"
+	"github.com/swaggo/swag"
 
 	"github.com/naiba/bonds/internal/config"
 	internalmcp "github.com/naiba/bonds/internal/mcp"
@@ -271,16 +272,36 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 
 	e.Use(middleware.CORS())
 
-	e.GET("/swagger/*", func(c echo.Context) error {
+	swaggerAssets := echo.WrapHandler(http.StripPrefix("/swagger/", http.FileServer(http.FS(swaggerFiles.FS))))
+	e.GET("/swagger/*", func(c *echo.Context) error {
 		if !systemSettingService.GetBool("swagger.enabled", cfg.Debug) {
 			return c.NoContent(http.StatusNotFound)
 		}
-		return echoSwagger.WrapHandler(c)
+		if c.Param("*") == "doc.json" {
+			doc, err := swag.ReadDoc()
+			if err != nil {
+				return err
+			}
+			return c.Blob(http.StatusOK, "application/json", []byte(doc))
+		}
+		if c.Param("*") == "swagger-initializer.js" {
+			return c.Blob(http.StatusOK, "application/javascript", []byte(`window.onload = function() {
+  window.ui = SwaggerUIBundle({
+    url: "/swagger/doc.json",
+    dom_id: "#swagger-ui",
+    deepLinking: true,
+    presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+    plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+    layout: "StandaloneLayout"
+  });
+};`))
+		}
+		return swaggerAssets(c)
 	})
 
 	api := e.Group("/api")
 
-	api.GET("/announcement", func(c echo.Context) error {
+	api.GET("/announcement", func(c *echo.Context) error {
 		content := systemSettingService.GetWithDefault("announcement", "")
 		return response.OK(c, map[string]string{"content": content})
 	})

@@ -3,7 +3,7 @@ package response
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/i18n"
 )
 
@@ -28,7 +28,7 @@ type Meta struct {
 }
 
 // localize resolves a message key using the locale from the echo context.
-func localize(c echo.Context, key string) string {
+func localize(c *echo.Context, key string) string {
 	lang := "en"
 	if locale, ok := c.Get("locale").(string); ok && locale != "" {
 		lang = locale
@@ -36,21 +36,21 @@ func localize(c echo.Context, key string) string {
 	return i18n.T(lang, key)
 }
 
-func OK(c echo.Context, data interface{}) error {
+func OK(c *echo.Context, data interface{}) error {
 	return c.JSON(http.StatusOK, APIResponse{
 		Success: true,
 		Data:    data,
 	})
 }
 
-func Created(c echo.Context, data interface{}) error {
+func Created(c *echo.Context, data interface{}) error {
 	return c.JSON(http.StatusCreated, APIResponse{
 		Success: true,
 		Data:    data,
 	})
 }
 
-func Paginated(c echo.Context, data interface{}, meta Meta) error {
+func Paginated(c *echo.Context, data interface{}, meta Meta) error {
 	return c.JSON(http.StatusOK, APIResponse{
 		Success: true,
 		Data:    data,
@@ -58,7 +58,7 @@ func Paginated(c echo.Context, data interface{}, meta Meta) error {
 	})
 }
 
-func BadRequest(c echo.Context, message string, details map[string]string) error {
+func BadRequest(c *echo.Context, message string, details map[string]string) error {
 	return c.JSON(http.StatusBadRequest, APIResponse{
 		Success: false,
 		Error: &APIError{
@@ -69,7 +69,7 @@ func BadRequest(c echo.Context, message string, details map[string]string) error
 	})
 }
 
-func Unauthorized(c echo.Context, message string) error {
+func Unauthorized(c *echo.Context, message string) error {
 	return c.JSON(http.StatusUnauthorized, APIResponse{
 		Success: false,
 		Error: &APIError{
@@ -79,7 +79,7 @@ func Unauthorized(c echo.Context, message string) error {
 	})
 }
 
-func Forbidden(c echo.Context, message string) error {
+func Forbidden(c *echo.Context, message string) error {
 	return c.JSON(http.StatusForbidden, APIResponse{
 		Success: false,
 		Error: &APIError{
@@ -89,7 +89,7 @@ func Forbidden(c echo.Context, message string) error {
 	})
 }
 
-func NotFound(c echo.Context, message string) error {
+func NotFound(c *echo.Context, message string) error {
 	return c.JSON(http.StatusNotFound, APIResponse{
 		Success: false,
 		Error: &APIError{
@@ -99,7 +99,7 @@ func NotFound(c echo.Context, message string) error {
 	})
 }
 
-func Conflict(c echo.Context, message string) error {
+func Conflict(c *echo.Context, message string) error {
 	return c.JSON(http.StatusConflict, APIResponse{
 		Success: false,
 		Error: &APIError{
@@ -109,7 +109,7 @@ func Conflict(c echo.Context, message string) error {
 	})
 }
 
-func InternalError(c echo.Context, message string) error {
+func InternalError(c *echo.Context, message string) error {
 	return c.JSON(http.StatusInternalServerError, APIResponse{
 		Success: false,
 		Error: &APIError{
@@ -119,7 +119,7 @@ func InternalError(c echo.Context, message string) error {
 	})
 }
 
-func ValidationError(c echo.Context, details map[string]string) error {
+func ValidationError(c *echo.Context, details map[string]string) error {
 	return c.JSON(http.StatusUnprocessableEntity, APIResponse{
 		Success: false,
 		Error: &APIError{
@@ -130,6 +130,6 @@ func ValidationError(c echo.Context, details map[string]string) error {
 	})
 }
 
-func NoContent(c echo.Context) error {
+func NoContent(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }

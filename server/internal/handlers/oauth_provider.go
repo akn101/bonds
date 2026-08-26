@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/services"
 	"github.com/naiba/bonds/pkg/response"
@@ -30,7 +30,7 @@ func NewOAuthProviderHandler(svc *services.OAuthProviderService) *OAuthProviderH
 //	@Failure		403	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/admin/oauth-providers [get]
-func (h *OAuthProviderHandler) List(c echo.Context) error {
+func (h *OAuthProviderHandler) List(c *echo.Context) error {
 	providers, err := h.svc.List()
 	if err != nil {
 		return response.InternalError(c, "err.failed_to_list_providers")
@@ -53,7 +53,7 @@ func (h *OAuthProviderHandler) List(c echo.Context) error {
 //	@Failure		403		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/admin/oauth-providers [post]
-func (h *OAuthProviderHandler) Create(c echo.Context) error {
+func (h *OAuthProviderHandler) Create(c *echo.Context) error {
 	var req dto.CreateOAuthProviderRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
@@ -89,7 +89,7 @@ func (h *OAuthProviderHandler) Create(c echo.Context) error {
 //	@Failure		404		{object}	response.APIResponse
 //	@Failure		500		{object}	response.APIResponse
 //	@Router			/admin/oauth-providers/{id} [put]
-func (h *OAuthProviderHandler) Update(c echo.Context) error {
+func (h *OAuthProviderHandler) Update(c *echo.Context) error {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)
@@ -125,7 +125,7 @@ func (h *OAuthProviderHandler) Update(c echo.Context) error {
 //	@Failure		404	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/admin/oauth-providers/{id} [delete]
-func (h *OAuthProviderHandler) Delete(c echo.Context) error {
+func (h *OAuthProviderHandler) Delete(c *echo.Context) error {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "err.invalid_request_body", nil)

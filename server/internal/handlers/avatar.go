@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/models"
@@ -38,7 +38,7 @@ func NewAvatarHandler(db *gorm.DB, vaultFileService *services.VaultFileService) 
 //	@Success		200			{file}		file
 //	@Failure		404			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/avatar [get]
-func (h *AvatarHandler) GetAvatar(c echo.Context) error {
+func (h *AvatarHandler) GetAvatar(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -50,7 +50,7 @@ func (h *AvatarHandler) GetAvatar(c echo.Context) error {
 
 	if contact.FileID != nil {
 		if _, filePath, err := h.vaultFileService.ResolvePath(*contact.FileID, vaultID); err == nil {
-			return c.File(filePath)
+			return serveLocalFile(c, filePath)
 		}
 	}
 
@@ -86,7 +86,7 @@ func (h *AvatarHandler) GetAvatar(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/avatar [put]
-func (h *AvatarHandler) UpdateAvatar(c echo.Context) error {
+func (h *AvatarHandler) UpdateAvatar(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 
@@ -138,7 +138,7 @@ func (h *AvatarHandler) UpdateAvatar(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/avatar [delete]
-func (h *AvatarHandler) DeleteAvatar(c echo.Context) error {
+func (h *AvatarHandler) DeleteAvatar(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 

@@ -9,7 +9,7 @@ import (
 	"github.com/emersion/go-webdav"
 	"github.com/emersion/go-webdav/caldav"
 	"github.com/emersion/go-webdav/carddav"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"gorm.io/gorm"
 )
 
@@ -49,10 +49,10 @@ func SetupDAVRoutes(e *echo.Echo, db *gorm.DB) {
 	davGroup.Any("", echo.WrapHandler(davHandler))
 
 	// Well-known discovery endpoints
-	e.Any("/.well-known/carddav", func(c echo.Context) error {
+	e.Any("/.well-known/carddav", func(c *echo.Context) error {
 		return c.Redirect(http.StatusMovedPermanently, "/dav/")
 	})
-	e.Any("/.well-known/caldav", func(c echo.Context) error {
+	e.Any("/.well-known/caldav", func(c *echo.Context) error {
 		return c.Redirect(http.StatusMovedPermanently, "/dav/")
 	})
 }

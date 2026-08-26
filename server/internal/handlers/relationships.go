@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/services"
@@ -34,7 +34,7 @@ func NewRelationshipHandler(relationshipService *services.RelationshipService) *
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/relationships [get]
-func (h *RelationshipHandler) List(c echo.Context) error {
+func (h *RelationshipHandler) List(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -66,7 +66,7 @@ func (h *RelationshipHandler) List(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/relationships [post]
-func (h *RelationshipHandler) Create(c echo.Context) error {
+func (h *RelationshipHandler) Create(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -111,7 +111,7 @@ func (h *RelationshipHandler) Create(c echo.Context) error {
 //	@Failure		422			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/relationships/{id} [put]
-func (h *RelationshipHandler) Update(c echo.Context) error {
+func (h *RelationshipHandler) Update(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -157,7 +157,7 @@ func (h *RelationshipHandler) Update(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/relationships/{id} [delete]
-func (h *RelationshipHandler) Delete(c echo.Context) error {
+func (h *RelationshipHandler) Delete(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -192,7 +192,7 @@ func (h *RelationshipHandler) Delete(c echo.Context) error {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/relationships/graph [get]
-func (h *RelationshipHandler) GetContactGraph(c echo.Context) error {
+func (h *RelationshipHandler) GetContactGraph(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -210,7 +210,7 @@ func (h *RelationshipHandler) GetContactGraph(c echo.Context) error {
 // Each facet may be repeated (?label=1&label=2) or comma-separated
 // (?label=1,2); both are accepted because these URLs get written by hand as
 // often as they get built.
-func vaultGraphFilterFromQuery(c echo.Context) services.VaultGraphFilter {
+func vaultGraphFilterFromQuery(c *echo.Context) services.VaultGraphFilter {
 	params := c.QueryParams()
 	filter := services.VaultGraphFilter{}
 	for _, key := range services.VaultGraphFacetKeys() {
@@ -250,7 +250,7 @@ func vaultGraphFilterFromQuery(c echo.Context) services.VaultGraphFilter {
 //	@Failure		404			{object}	response.APIResponse
 //	@Failure		500			{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/relationships/graph [get]
-func (h *RelationshipHandler) GetVaultGraph(c echo.Context) error {
+func (h *RelationshipHandler) GetVaultGraph(c *echo.Context) error {
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
 	limit, _ := strconv.Atoi(c.QueryParam("limit"))
@@ -280,7 +280,7 @@ func (h *RelationshipHandler) GetVaultGraph(c echo.Context) error {
 //	@Failure		404					{object}	response.APIResponse
 //	@Failure		500					{object}	response.APIResponse
 //	@Router			/vaults/{vault_id}/contacts/{contact_id}/relationships/kinship/{related_contact_id} [get]
-func (h *RelationshipHandler) CalculateKinship(c echo.Context) error {
+func (h *RelationshipHandler) CalculateKinship(c *echo.Context) error {
 	contactID := c.Param("contact_id")
 	vaultID := c.Param("vault_id")
 	userID := middleware.GetUserID(c)
@@ -307,7 +307,7 @@ func (h *RelationshipHandler) CalculateKinship(c echo.Context) error {
 //	@Failure		401	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/relationships/contacts [get]
-func (h *RelationshipHandler) ListContactsAcrossVaults(c echo.Context) error {
+func (h *RelationshipHandler) ListContactsAcrossVaults(c *echo.Context) error {
 	userID := middleware.GetUserID(c)
 	contacts, err := h.relationshipService.ListContactsAcrossVaults(userID)
 	if err != nil {
