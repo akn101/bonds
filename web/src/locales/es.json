@@ -49,6 +49,7 @@
     "vault": "Bóveda",
     "dashboard": "Panel de control",
     "contacts": "Contactos",
+    "graph": "Gráfico de relaciones",
     "journal": "Diario",
     "groups": "Grupos",
     "calendar": "Calendario",
@@ -300,6 +301,29 @@
       "col_calendar": "Calendario",
       "col_mood": "Ánimo",
       "contacts_in": "Contactos en {{location}}"
+    },
+    "graph": {
+      "title": "Gráfico de relaciones",
+      "description": "Todas las personas de esta bóveda conectadas con otra persona de la misma.",
+      "empty": "Todavía no hay dos contactos relacionados en esta bóveda",
+      "emptyFiltered": "No hay dos contactos que coincidan con este filtro y estén relacionados",
+      "limitLabel": "Dibujar hasta",
+      "limitOption": "{{count}} contactos",
+      "clearFilters": "Borrar filtros",
+      "facet": {
+        "gender": "Género",
+        "pronoun": "Pronombres",
+        "religion": "Religión",
+        "company": "Empresa",
+        "label": "Etiquetas",
+        "group": "Grupos"
+      },
+      "drawn": "{{count}} contactos dibujados",
+      "clusters": "{{count}} grupos separados",
+      "filteredOut": "{{count}} excluidos por el filtro",
+      "isolated": "{{count}} sin mostrar, sin ninguna relación dentro de esta bóveda",
+      "external": "{{count}} relaciones salen de esta bóveda",
+      "truncated": "Demasiado grande para dibujarlo entero; se omitieron los grupos más pequeños"
     },
     "journals": {
       "title": "Diarios",

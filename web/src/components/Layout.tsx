@@ -13,6 +13,7 @@ import {
 import {
   SettingOutlined,
   TeamOutlined,
+  ShareAltOutlined,
   LogoutOutlined,
   UserOutlined,
   CalendarOutlined,
@@ -98,6 +99,7 @@ export default function Layout() {
         [
           { key: `/vaults/${vaultId}`, icon: <DashboardOutlined />, label: t("nav.dashboard") },
           { key: `/vaults/${vaultId}/contacts`, icon: <TeamOutlined />, label: t("nav.contacts") },
+          { key: `/vaults/${vaultId}/graph`, icon: <ShareAltOutlined />, label: t("nav.graph") },
         ],
         // Content
         [

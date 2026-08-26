@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/naiba/bonds/internal/dto"
@@ -199,6 +200,64 @@ func (h *RelationshipHandler) GetContactGraph(c echo.Context) error {
 	if err != nil {
 		if errors.Is(err, services.ErrContactNotFound) {
 			return response.NotFound(c, "err.contact_not_found")
+		}
+		return response.InternalError(c, "err.failed_to_get_graph")
+	}
+	return response.OK(c, graph)
+}
+
+// vaultGraphFilterFromQuery reads the facet selections off the query string.
+// Each facet may be repeated (?label=1&label=2) or comma-separated
+// (?label=1,2); both are accepted because these URLs get written by hand as
+// often as they get built.
+func vaultGraphFilterFromQuery(c echo.Context) services.VaultGraphFilter {
+	params := c.QueryParams()
+	filter := services.VaultGraphFilter{}
+	for _, key := range services.VaultGraphFacetKeys() {
+		values := make([]string, 0, len(params[key]))
+		for _, raw := range params[key] {
+			for _, value := range strings.Split(raw, ",") {
+				if trimmed := strings.TrimSpace(value); trimmed != "" {
+					values = append(values, trimmed)
+				}
+			}
+		}
+		if len(values) > 0 {
+			filter[key] = values
+		}
+	}
+	return filter
+}
+
+// GetVaultGraph godoc
+//
+//	@Summary		Get vault relationship graph
+//	@Description	Return the relationship graph of a whole vault, with reciprocal rows collapsed and family relationships inferred. Contacts unrelated to anyone else in the vault, and relationships pointing outside it, are counted rather than drawn.
+//	@Tags			relationships
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			vault_id	path		string	true	"Vault ID"
+//	@Param			limit		query		integer	false	"Target node budget (default 1000, maximum 5000; the largest connected component is always kept whole)"
+//	@Param			gender		query		[]string	false	"Only draw contacts with one of these gender ids"	collectionFormat(multi)
+//	@Param			pronoun		query		[]string	false	"Only draw contacts with one of these pronoun ids"	collectionFormat(multi)
+//	@Param			religion	query		[]string	false	"Only draw contacts with one of these religion ids"	collectionFormat(multi)
+//	@Param			company		query		[]string	false	"Only draw contacts with one of these company ids"	collectionFormat(multi)
+//	@Param			label		query		[]string	false	"Only draw contacts carrying one of these label ids"	collectionFormat(multi)
+//	@Param			group		query		[]string	false	"Only draw contacts belonging to one of these group ids"	collectionFormat(multi)
+//	@Success		200			{object}	response.APIResponse{data=dto.VaultGraphResponse}
+//	@Failure		401			{object}	response.APIResponse
+//	@Failure		404			{object}	response.APIResponse
+//	@Failure		500			{object}	response.APIResponse
+//	@Router			/vaults/{vault_id}/relationships/graph [get]
+func (h *RelationshipHandler) GetVaultGraph(c echo.Context) error {
+	vaultID := c.Param("vault_id")
+	userID := middleware.GetUserID(c)
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	graph, err := h.relationshipService.GetVaultGraph(vaultID, userID, middleware.GetLocale(c), limit, vaultGraphFilterFromQuery(c))
+	if err != nil {
+		if errors.Is(err, services.ErrVaultNotFound) {
+			return response.NotFound(c, "err.vault_not_found")
 		}
 		return response.InternalError(c, "err.failed_to_get_graph")
 	}

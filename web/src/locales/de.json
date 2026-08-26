@@ -49,6 +49,7 @@
     "vault": "Tresor",
     "dashboard": "Dashboard",
     "contacts": "Kontakte",
+    "graph": "Beziehungsgraph",
     "journal": "Journal",
     "groups": "Gruppen",
     "calendar": "Kalender",
@@ -300,6 +301,29 @@
       "col_calendar": "Kalender",
       "col_mood": "Stimmung",
       "contacts_in": "Kontakte in {{location}}"
+    },
+    "graph": {
+      "title": "Beziehungsgraph",
+      "description": "Alle Personen in diesem Tresor, die mit einer anderen Person darin verbunden sind.",
+      "empty": "In diesem Tresor stehen noch keine zwei Kontakte in Beziehung",
+      "emptyFiltered": "Keine zwei Kontakte entsprechen diesem Filter und stehen zugleich in Beziehung",
+      "limitLabel": "Darstellen bis zu",
+      "limitOption": "{{count}} Kontakte",
+      "clearFilters": "Filter zurücksetzen",
+      "facet": {
+        "gender": "Geschlecht",
+        "pronoun": "Pronomen",
+        "religion": "Religion",
+        "company": "Unternehmen",
+        "label": "Labels",
+        "group": "Gruppen"
+      },
+      "drawn": "{{count}} Kontakte dargestellt",
+      "clusters": "{{count}} getrennte Gruppen",
+      "filteredOut": "{{count}} herausgefiltert",
+      "isolated": "{{count}} nicht dargestellt, ohne Beziehung innerhalb dieses Tresors",
+      "external": "{{count}} Beziehungen führen aus diesem Tresor hinaus",
+      "truncated": "Zu groß für eine vollständige Darstellung; die kleinsten Gruppen wurden ausgelassen"
     },
     "journals": {
       "title": "Journale",

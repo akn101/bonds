@@ -6,7 +6,12 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { httpClient } from "@/api";
 import type { ContactGraphRelation } from "@/api";
-import { networkGraphQueryKey } from "@/components/networkGraphQueryKey";
+import {
+  networkGraphQueryKey,
+  vaultGraphQueryKey,
+  vaultGraphURL,
+} from "@/components/networkGraphQueryKey";
+import type { VaultGraphFilters } from "@/components/networkGraphQueryKey";
 import { graphEdgeLabelForNode } from "@/components/networkGraphRelations";
 
 const { Text } = Typography;
@@ -37,12 +42,38 @@ interface KinshipResult {
 
 interface NetworkGraphProps {
   vaultId: string;
-  contactId: string;
+  /** Omit to draw the whole vault instead of one contact's component. */
+  contactId?: string;
+  /** Vault mode only: maximum nodes to draw. 0 leaves it to the server. */
+  limit?: number;
+  /** Vault mode only: facet selections narrowing which contacts are drawn. */
+  filters?: VaultGraphFilters;
+  height?: number;
+  emptyDescription?: string;
 }
 
-export default function NetworkGraph({
+export default function NetworkGraph(props: NetworkGraphProps) {
+  const identity = props.contactId
+    ? networkGraphQueryKey({
+        vaultId: props.vaultId,
+        contactId: props.contactId,
+      })
+    : vaultGraphQueryKey(props.vaultId, props.limit, props.filters);
+
+  // A different query represents a different canvas. Remounting prevents
+  // selected contacts and a completed kinship calculation from leaking into a
+  // filtered or differently-truncated graph, while TanStack Query still reuses
+  // the cached response for this identity.
+  return <NetworkGraphCanvas key={JSON.stringify(identity)} {...props} />;
+}
+
+function NetworkGraphCanvas({
   vaultId,
   contactId,
+  limit = 0,
+  filters,
+  height = 500,
+  emptyDescription,
 }: NetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,12 +89,18 @@ export default function NetworkGraph({
     isLoading: loading,
     isError: error,
   } = useQuery({
-    queryKey: networkGraphQueryKey({ vaultId, contactId }),
+    queryKey: contactId
+      ? networkGraphQueryKey({ vaultId, contactId })
+      : vaultGraphQueryKey(vaultId, limit, filters),
     queryFn: async () => {
       const res = await httpClient.instance.get<{
         success: boolean;
         data: GraphData;
-      }>(`/vaults/${vaultId}/contacts/${contactId}/relationships/graph`);
+      }>(
+        contactId
+          ? `/vaults/${vaultId}/contacts/${contactId}/relationships/graph`
+          : vaultGraphURL(vaultId, limit, filters),
+      );
       const data = res.data?.data ?? res.data;
       if (data && "nodes" in data && "edges" in data) {
         return data;
@@ -113,7 +150,6 @@ export default function NetworkGraph({
 
     const container = containerRef.current;
     const width = container.clientWidth;
-    const height = 500;
     const isMobile = width < 600;
 
     const svg = d3.select(svgRef.current);
@@ -346,6 +382,7 @@ export default function NetworkGraph({
     token.colorInfo,
     navigate,
     vaultId,
+    height,
     getNodeId,
     fetchKinship,
   ]);
@@ -423,7 +460,11 @@ export default function NetworkGraph({
   }
 
   if (error || !graphData || !graphData.nodes?.length) {
-    return <Empty description={t("modules.relationships.graph_empty")} />;
+    return (
+      <Empty
+        description={emptyDescription ?? t("modules.relationships.graph_empty")}
+      />
+    );
   }
 
   return (
@@ -432,7 +473,7 @@ export default function NetworkGraph({
         ref={svgRef}
         style={{
           width: "100%",
-          height: 500,
+          height,
           background: token.colorBgContainer,
           borderRadius: token.borderRadiusLG,
           border: `1px solid ${token.colorBorderSecondary}`,

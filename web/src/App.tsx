@@ -36,6 +36,7 @@ const VaultFiles = lazy(() => import("@/pages/vault/VaultFiles"));
 const VaultCalendar = lazy(() => import("@/pages/vault/VaultCalendar"));
 const VaultReports = lazy(() => import("@/pages/vault/VaultReports"));
 const VaultFeed = lazy(() => import("@/pages/vault/VaultFeed"));
+const VaultGraph = lazy(() => import("@/pages/vault/VaultGraph"));
 const VaultSettings = lazy(() => import("@/pages/vault/VaultSettings"));
 const VaultReminders = lazy(() => import("@/pages/vault/VaultReminders"));
 const DavSubscriptions = lazy(() => import("@/pages/vault/DavSubscriptions"));
@@ -183,6 +184,7 @@ export default function App() {
               <Route path="/vaults/:id/tasks" element={<VaultTasks />} />
               <Route path="/vaults/:id/files" element={<VaultFiles />} />
               <Route path="/vaults/:id/calendar" element={<VaultCalendar />} />
+              <Route path="/vaults/:id/graph" element={<VaultGraph />} />
               <Route path="/vaults/:id/reports" element={<VaultReports />} />
               <Route path="/vaults/:id/feed" element={<VaultFeed />} />
               <Route
