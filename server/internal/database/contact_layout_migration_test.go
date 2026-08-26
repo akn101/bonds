@@ -87,6 +87,41 @@ func TestDropLegacyContactTemplateForeignKeysWithDependentRows(t *testing.T) {
 	}
 }
 
+func TestEnsureLegacyContactTemplatePageVisibleColumn(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:legacy-template-page-visible?mode=memory&cache=shared"), &gorm.Config{PrepareStmt: false})
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE template_pages (
+		id integer PRIMARY KEY AUTOINCREMENT,
+		template_id integer NOT NULL,
+		slug text NOT NULL
+	)`).Error; err != nil {
+		t.Fatalf("create pre-visible template_pages: %v", err)
+	}
+	if err := db.Exec("INSERT INTO template_pages (template_id, slug) VALUES (1, 'contact')").Error; err != nil {
+		t.Fatalf("insert legacy page: %v", err)
+	}
+
+	if err := ensureLegacyContactTemplatePageVisibleColumn(db); err != nil {
+		t.Fatalf("add legacy visible column: %v", err)
+	}
+	if !hasColumn(db, "template_pages", "visible") {
+		t.Fatal("legacy visible column was not added")
+	}
+	var visible bool
+	if err := db.Table("template_pages").Select("visible").Where("id = 1").Scan(&visible).Error; err != nil {
+		t.Fatalf("read migrated visible value: %v", err)
+	}
+	if !visible {
+		t.Fatal("existing legacy template page should default to visible")
+	}
+
+	if err := ensureLegacyContactTemplatePageVisibleColumn(db); err != nil {
+		t.Fatalf("rerun legacy visible migration: %v", err)
+	}
+}
+
 func TestMigrateVaultContactLayoutsPreservesAndIsolatesLegacyAccountLayouts(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:contact-layout-migration?mode=memory&cache=shared"), &gorm.Config{
 		PrepareStmt: false,

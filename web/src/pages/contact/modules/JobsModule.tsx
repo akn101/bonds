@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   App,
+  AutoComplete,
   Button,
   Card,
   Empty,
@@ -8,7 +9,6 @@ import {
   Input,
   Modal,
   Popconfirm,
-  Select,
   Space,
   Typography,
 } from "antd";
@@ -17,11 +17,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api";
-import type { APIError, Company, ContactJob } from "@/api";
+import type { Company, ContactJob } from "@/api";
 
 const { Text, Title } = Typography;
 
 type JobFormValues = {
+  company_name: string;
+  job_position?: string;
+};
+
+type ResolvedJobFormValues = {
   company_id: number;
   job_position?: string;
 };
@@ -55,6 +60,9 @@ export default function JobsModule({ vaultId, contactId }: JobsModuleProps) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: jobsQueryKey }),
       queryClient.invalidateQueries({
+        queryKey: ["vaults", vaultId, "companies"],
+      }),
+      queryClient.invalidateQueries({
         queryKey: ["vaults", vaultId, "contacts", contactId],
       }),
     ]);
@@ -63,18 +71,64 @@ export default function JobsModule({ vaultId, contactId }: JobsModuleProps) {
     setEditingJob(null);
     form.resetFields();
   };
-  const onError = (error: APIError) =>
-    message.error(error.message || t("common.error"));
+  const onError = (error: unknown) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof error.message === "string" &&
+      error.message !== ""
+    ) {
+      message.error(error.message);
+      return;
+    }
+    message.error(t("common.error"));
+  };
+
+  const resolveJobValues = async (
+    values: JobFormValues,
+  ): Promise<ResolvedJobFormValues> => {
+    const companyName = values.company_name.trim();
+    const existing = companies.find(
+      (company) =>
+        company.name?.trim().toLocaleLowerCase() ===
+        companyName.toLocaleLowerCase(),
+    );
+    if (existing?.id != null) {
+      return { company_id: existing.id, job_position: values.job_position };
+    }
+
+    const created = await api.companies.companiesCreate(vaultId, {
+      name: companyName,
+      type: "employer",
+    });
+    if (created.data?.id == null) {
+      throw new Error(t("contact.detail.company_create_failed"));
+    }
+    return {
+      company_id: created.data.id,
+      job_position: values.job_position,
+    };
+  };
 
   const createMutation = useMutation({
-    mutationFn: (values: JobFormValues) =>
-      api.contacts.contactsJobsCreate(vaultId, contactId, values),
+    mutationFn: async (values: JobFormValues) =>
+      api.contacts.contactsJobsCreate(
+        vaultId,
+        contactId,
+        await resolveJobValues(values),
+      ),
     onSuccess: () => finishMutation("contact.detail.job_added"),
     onError,
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, values }: { id: number; values: JobFormValues }) =>
-      api.contacts.contactsJobsUpdate(vaultId, contactId, id, values),
+    mutationFn: async ({ id, values }: { id: number; values: JobFormValues }) =>
+      api.contacts.contactsJobsUpdate(
+        vaultId,
+        contactId,
+        id,
+        await resolveJobValues(values),
+      ),
     onSuccess: () => finishMutation("contact.detail.job_updated"),
     onError,
   });
@@ -150,7 +204,7 @@ export default function JobsModule({ vaultId, contactId }: JobsModuleProps) {
                     onClick={() => {
                       setEditingJob(job);
                       form.setFieldsValue({
-                        company_id: job.company_id,
+                        company_name: companyName,
                         job_position: job.job_position,
                       });
                       setOpen(true);
@@ -197,28 +251,35 @@ export default function JobsModule({ vaultId, contactId }: JobsModuleProps) {
       >
         <Form form={form} layout="vertical" onFinish={submit}>
           <Form.Item
-            name="company_id"
+            name="company_name"
             label={t("contact.detail.company")}
-            rules={[{ required: true, message: t("common.required") }]}
+            rules={[
+              {
+                required: true,
+                whitespace: true,
+                message: t("common.required"),
+              },
+            ]}
           >
-            <Select
+            <AutoComplete
               allowClear
-              showSearch
-              optionFilterProp="label"
+              filterOption={(inputValue, option) =>
+                String(option?.label ?? "")
+                  .toLocaleLowerCase()
+                  .includes(inputValue.toLocaleLowerCase())
+              }
               options={companies.map((company) => ({
                 label: company.name,
-                value: company.id,
+                value: company.name,
               }))}
-              placeholder={t("contact.detail.labels.select_placeholder")}
+              placeholder={t("contact.detail.company_placeholder")}
             />
           </Form.Item>
-          {companies.length === 0 && (
-            <div style={{ marginTop: -12, marginBottom: 16, fontSize: 12 }}>
-              <Link to={`/vaults/${vaultId}/settings`}>
-                {t("contact.detail.manage_companies_hint")}
-              </Link>
-            </div>
-          )}
+          <div style={{ marginTop: -12, marginBottom: 16, fontSize: 12 }}>
+            <Text type="secondary">
+              {t("contact.detail.company_create_hint")}
+            </Text>
+          </div>
           <Form.Item
             name="job_position"
             label={t("contact.detail.job_position")}

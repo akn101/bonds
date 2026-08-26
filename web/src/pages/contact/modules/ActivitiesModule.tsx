@@ -7,6 +7,7 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Select,
@@ -104,9 +105,7 @@ export default function ActivitiesModule({
       };
     },
     getNextPageParam: ({ meta, page }) =>
-      (meta?.page ?? page) < (meta?.total_pages ?? page)
-        ? page + 1
-        : undefined,
+      (meta?.page ?? page) < (meta?.total_pages ?? page) ? page + 1 : undefined,
   });
   const items = useMemo(
     () => activityPages?.pages.flatMap((result) => result.items) ?? [],
@@ -446,10 +445,7 @@ export default function ActivitiesModule({
       )}
       {hasNextPage && (
         <div style={{ textAlign: "center" }}>
-          <Button
-            loading={isFetchingNextPage}
-            onClick={() => fetchNextPage()}
-          >
+          <Button loading={isFetchingNextPage} onClick={() => fetchNextPage()}>
             {t("common.load_more")}
           </Button>
         </div>
@@ -575,7 +571,7 @@ export default function ActivitiesModule({
             name="duration_in_minutes"
             label={t("modules.activities.duration_minutes")}
           >
-            <Input type="number" min={0} />
+            <InputNumber min={0} precision={0} style={{ width: "100%" }} />
           </Form.Item>
           <Form.Item
             name="parent_id"

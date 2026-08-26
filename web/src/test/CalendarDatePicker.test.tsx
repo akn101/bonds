@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App as AntApp, Button, ConfigProvider, Form } from "antd";
 import userEvent from "@testing-library/user-event";
 import CalendarDatePicker from "@/components/CalendarDatePicker";
@@ -126,7 +126,6 @@ describe("CalendarDatePicker", () => {
   });
 
   it("clears the value when the clear button is clicked", async () => {
-    const user = userEvent.setup();
     const onChange = vi.fn();
     renderPicker({
       value: { calendarType: "gregorian", day: 15, month: 8, year: 2025 },
@@ -135,7 +134,7 @@ describe("CalendarDatePicker", () => {
 
     const clearButton = document.querySelector(".ant-picker-clear");
     expect(clearButton).not.toBeNull();
-    await user.click(clearButton as Element);
+    fireEvent.click(clearButton as Element);
 
     await waitFor(() => {
       expect(onChange).toHaveBeenCalledWith(null);
@@ -172,7 +171,7 @@ describe("CalendarDatePicker", () => {
 
     const clearButton = document.querySelector(".ant-picker-clear");
     expect(clearButton).not.toBeNull();
-    await user.click(clearButton as Element);
+    fireEvent.click(clearButton as Element);
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => expect(onFinishFailed).toHaveBeenCalledOnce());
@@ -336,7 +335,6 @@ describe("CalendarAwareDatePicker", () => {
   });
 
   it("forwards clear as null in the alternative-calendar path", async () => {
-    const user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <ConfigProvider>
@@ -359,7 +357,7 @@ describe("CalendarAwareDatePicker", () => {
 
     const clearButton = document.querySelector(".ant-picker-clear");
     expect(clearButton).not.toBeNull();
-    await user.click(clearButton as Element);
+    fireEvent.click(clearButton as Element);
 
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(null));
   });

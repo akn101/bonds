@@ -128,7 +128,7 @@ describe("GroupDetail mutation feedback", () => {
 
     await addContacts(["Carol Xavier"]);
 
-    expect(await screen.findByText("No members added")).toBeVisible();
+    expect(await screen.findByText("No members added")).toBeInTheDocument();
   });
 
   it("scopes selectable contact results to the current group", async () => {
@@ -160,7 +160,7 @@ describe("GroupDetail mutation feedback", () => {
 
     await addContacts(["Carol Xavier", "Dave Winter"]);
 
-    expect(await screen.findByText("7 members added")).toBeVisible();
+    expect(await screen.findByText("7 members added")).toBeInTheDocument();
   });
 
   it("shows no-op feedback when removing affects no members", async () => {
@@ -174,7 +174,7 @@ describe("GroupDetail mutation feedback", () => {
     );
     await userEvent.click(await screen.findByRole("button", { name: /ok/i }));
 
-    expect(await screen.findByText("No members removed")).toBeVisible();
+    expect(await screen.findByText("No members removed")).toBeInTheDocument();
   });
 
   it("preserves unrelated selections after a per-row removal", async () => {

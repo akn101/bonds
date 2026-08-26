@@ -78,6 +78,9 @@ func AutoMigrate(db *gorm.DB) error {
 }
 
 func runPostAutoMigrateBackfills(db *gorm.DB) error {
+	if err := ensureLegacyContactTemplatePageVisibleColumn(db); err != nil {
+		return err
+	}
 	if err := backfillContactFeedEventContext(db); err != nil {
 		return err
 	}

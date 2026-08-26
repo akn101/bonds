@@ -18,13 +18,12 @@ export default function VerifyEmail() {
   const navigate = useNavigate();
   const verifyToken = searchParams.get("token");
 
-  const [verifying, setVerifying] = useState(false);
+  const [verifying, setVerifying] = useState(() => Boolean(verifyToken));
   const [verified, setVerified] = useState(false);
   const [resending, setResending] = useState(false);
 
   useEffect(() => {
     if (!verifyToken) return;
-    setVerifying(true);
     api.auth
       .verifyEmailCreate({ token: verifyToken })
       .then(() => {
@@ -76,14 +75,28 @@ export default function VerifyEmail() {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20 }}>
-            <img src={logoImg} alt="Bonds" style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0 }} />
-            <span style={{
-              fontWeight: 700,
-              fontSize: 22,
-              letterSpacing: "-0.02em",
-              color: colorToken.colorPrimary,
-            }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              marginBottom: 20,
+            }}
+          >
+            <img
+              src={logoImg}
+              alt="Bonds"
+              style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}
+            />
+            <span
+              style={{
+                fontWeight: 700,
+                fontSize: 22,
+                letterSpacing: "-0.02em",
+                color: colorToken.colorPrimary,
+              }}
+            >
               Bonds
             </span>
           </div>
@@ -101,7 +114,9 @@ export default function VerifyEmail() {
         {verified && (
           <div style={{ textAlign: "center", padding: "32px 0" }}>
             <Space direction="vertical" align="center" size="middle">
-              <CheckCircleOutlined style={{ fontSize: 48, color: colorToken.colorSuccess }} />
+              <CheckCircleOutlined
+                style={{ fontSize: 48, color: colorToken.colorSuccess }}
+              />
               <Text>{t("verify_email.success")}</Text>
             </Space>
           </div>
@@ -109,12 +124,23 @@ export default function VerifyEmail() {
 
         {!verifying && !verified && (
           <div style={{ textAlign: "center" }}>
-            <MailOutlined style={{ fontSize: 48, color: colorToken.colorPrimary, marginBottom: 16 }} />
+            <MailOutlined
+              style={{
+                fontSize: 48,
+                color: colorToken.colorPrimary,
+                marginBottom: 16,
+              }}
+            />
             <Paragraph type="secondary" style={{ marginBottom: 24 }}>
               {t("verify_email.description")}
             </Paragraph>
             <Space direction="vertical" style={{ width: "100%" }} size="middle">
-              <Button type="primary" loading={resending} onClick={handleResend} block>
+              <Button
+                type="primary"
+                loading={resending}
+                onClick={handleResend}
+                block
+              >
                 {t("verify_email.resend")}
               </Button>
               <Button type="link" onClick={logout}>

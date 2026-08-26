@@ -39,6 +39,20 @@ type legacyContactModulePlacement struct {
 	Position       *int
 }
 
+// ensureLegacyContactTemplatePageVisibleColumn prepares account-scoped
+// contact layouts created before v0.22 for the backfills that run immediately
+// before they are copied into vault-scoped layouts. TemplatePage is no longer
+// part of AllModels, so AutoMigrate cannot add this transitional column for us.
+func ensureLegacyContactTemplatePageVisibleColumn(db *gorm.DB) error {
+	if !db.Migrator().HasTable("template_pages") || hasColumn(db, "template_pages", "visible") {
+		return nil
+	}
+	if err := db.Migrator().AddColumn(&models.TemplatePage{}, "Visible"); err != nil {
+		return fmt.Errorf("add visible column to legacy template_pages: %w", err)
+	}
+	return nil
+}
+
 func migrateVaultContactLayouts(db *gorm.DB) error {
 	if !db.Migrator().HasTable("vaults") {
 		return nil

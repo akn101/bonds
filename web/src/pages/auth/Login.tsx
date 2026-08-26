@@ -1,7 +1,26 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Form, Input, Button, Typography, App, Divider, theme, Tooltip } from "antd";
-import { MailOutlined, LockOutlined, GithubOutlined, GoogleOutlined, KeyOutlined, SunOutlined, MoonOutlined, DesktopOutlined, LinkOutlined } from "@ant-design/icons";
+import {
+  Form,
+  Input,
+  Button,
+  Typography,
+  App,
+  Divider,
+  theme,
+  Tooltip,
+} from "antd";
+import {
+  MailOutlined,
+  LockOutlined,
+  GithubOutlined,
+  GoogleOutlined,
+  KeyOutlined,
+  SunOutlined,
+  MoonOutlined,
+  DesktopOutlined,
+  LinkOutlined,
+} from "@ant-design/icons";
 import { useAuth } from "@/stores/auth";
 import logoImg from "@/assets/logo.svg";
 import { useTranslation } from "react-i18next";
@@ -9,15 +28,24 @@ import { useTheme } from "@/stores/theme";
 import type { ThemeMode } from "@/stores/theme";
 import { api } from "@/api";
 import type { LoginRequest, APIError, InstanceInfo } from "@/api";
-import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
+import {
+  startAuthentication,
+  browserSupportsWebAuthn,
+} from "@simplewebauthn/browser";
 import { httpClient } from "@/api";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { parseWebAuthnAuthenticationOptions } from "@/utils/webauthnAuthenticationOptions";
 
 const { Title, Text } = Typography;
 
-function isFormValidationError(error: unknown): error is { errorFields: unknown[] } {
-  if (typeof error !== "object" || error === null || !("errorFields" in error)) {
+function isFormValidationError(
+  error: unknown,
+): error is { errorFields: unknown[] } {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("errorFields" in error)
+  ) {
     return false;
   }
   return Array.isArray((error as { errorFields?: unknown }).errorFields);
@@ -63,7 +91,7 @@ export default function Login() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
-  const [isWebAuthnSupported, setIsWebAuthnSupported] = useState(false);
+  const [isWebAuthnSupported] = useState(() => browserSupportsWebAuthn());
   const [instanceInfo, setInstanceInfo] = useState<InstanceInfo | null>(null);
   const [form] = Form.useForm<LoginRequest>();
 
@@ -84,9 +112,9 @@ export default function Login() {
   };
 
   useEffect(() => {
-    setIsWebAuthnSupported(browserSupportsWebAuthn());
-    api.instance.infoList()
-      .then(res => setInstanceInfo((res.data ?? null) as InstanceInfo | null))
+    api.instance
+      .infoList()
+      .then((res) => setInstanceInfo((res.data ?? null) as InstanceInfo | null))
       .catch(() => {});
   }, []);
 
@@ -95,7 +123,10 @@ export default function Login() {
     if (redirect && redirect.startsWith("/") && !redirect.startsWith("//")) {
       return redirect;
     }
-    return (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/vaults";
+    return (
+      (location.state as { from?: { pathname: string } })?.from?.pathname ??
+      "/vaults"
+    );
   })();
 
   async function onFinish(values: LoginRequest) {
@@ -183,115 +214,228 @@ export default function Login() {
           justifyContent: "center",
           alignItems: "center",
           padding: "64px 48px",
-          background: "linear-gradient(160deg, #3a6347 0%, #4a7c59 35%, #5e9a6f 65%, #3d6a4c 100%)",
+          background:
+            "linear-gradient(160deg, #3a6347 0%, #4a7c59 35%, #5e9a6f 65%, #3d6a4c 100%)",
         }}
       >
         {/* Decorative background orbs */}
-        <div style={{
-          position: "absolute", top: "-10%", left: "-10%", width: "55%", height: "55%",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)",
-          animation: "bondsHeroPulse 8s ease-in-out infinite",
-          pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", bottom: "-15%", right: "-8%", width: "50%", height: "60%",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)",
-          animation: "bondsHeroPulse 10s ease-in-out infinite 2s",
-          pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", top: "20%", right: "15%", width: "30%", height: "30%",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(212,168,83,0.1) 0%, transparent 70%)",
-          animation: "bondsHeroDrift 14s ease-in-out infinite",
-          pointerEvents: "none",
-        }} />
+        <div
+          style={{
+            position: "absolute",
+            top: "-10%",
+            left: "-10%",
+            width: "55%",
+            height: "55%",
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)",
+            animation: "bondsHeroPulse 8s ease-in-out infinite",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "-15%",
+            right: "-8%",
+            width: "50%",
+            height: "60%",
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)",
+            animation: "bondsHeroPulse 10s ease-in-out infinite 2s",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "20%",
+            right: "15%",
+            width: "30%",
+            height: "30%",
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(212,168,83,0.1) 0%, transparent 70%)",
+            animation: "bondsHeroDrift 14s ease-in-out infinite",
+            pointerEvents: "none",
+          }}
+        />
 
         {/* Grid pattern overlay */}
-        <div style={{
-          position: "absolute", inset: 0, opacity: 0.04, pointerEvents: "none",
-          backgroundImage: `
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0.04,
+            pointerEvents: "none",
+            backgroundImage: `
             linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
             linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)
           `,
-          backgroundSize: "60px 60px",
-        }} />
+            backgroundSize: "60px 60px",
+          }}
+        />
 
         {/* Decorative leaf shapes — CSS only */}
-        <div style={{
-          position: "absolute", top: "12%", left: "8%", width: 36, height: 36,
-          borderRadius: "50% 0 50% 0", border: "2px solid rgba(255,255,255,0.15)",
-          transform: "rotate(30deg)", animation: "bondsLeafFloat 6s ease-in-out infinite",
-          pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", bottom: "18%", left: "20%", width: 24, height: 24,
-          borderRadius: "50% 0 50% 0", border: "2px solid rgba(255,255,255,0.1)",
-          transform: "rotate(-20deg)", animation: "bondsLeafFloat 8s ease-in-out infinite 1s",
-          pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", top: "35%", right: "8%", width: 28, height: 28,
-          borderRadius: "0 50% 0 50%", border: "2px solid rgba(255,255,255,0.12)",
-          transform: "rotate(15deg)", animation: "bondsLeafFloat 7s ease-in-out infinite 0.5s",
-          pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", bottom: "30%", right: "25%", width: 20, height: 20,
-          borderRadius: "50% 0 50% 0", background: "rgba(255,255,255,0.06)",
-          transform: "rotate(45deg)", animation: "bondsLeafFloat 9s ease-in-out infinite 2s",
-          pointerEvents: "none",
-        }} />
+        <div
+          style={{
+            position: "absolute",
+            top: "12%",
+            left: "8%",
+            width: 36,
+            height: 36,
+            borderRadius: "50% 0 50% 0",
+            border: "2px solid rgba(255,255,255,0.15)",
+            transform: "rotate(30deg)",
+            animation: "bondsLeafFloat 6s ease-in-out infinite",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "18%",
+            left: "20%",
+            width: 24,
+            height: 24,
+            borderRadius: "50% 0 50% 0",
+            border: "2px solid rgba(255,255,255,0.1)",
+            transform: "rotate(-20deg)",
+            animation: "bondsLeafFloat 8s ease-in-out infinite 1s",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "35%",
+            right: "8%",
+            width: 28,
+            height: 28,
+            borderRadius: "0 50% 0 50%",
+            border: "2px solid rgba(255,255,255,0.12)",
+            transform: "rotate(15deg)",
+            animation: "bondsLeafFloat 7s ease-in-out infinite 0.5s",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "30%",
+            right: "25%",
+            width: 20,
+            height: 20,
+            borderRadius: "50% 0 50% 0",
+            background: "rgba(255,255,255,0.06)",
+            transform: "rotate(45deg)",
+            animation: "bondsLeafFloat 9s ease-in-out infinite 2s",
+            pointerEvents: "none",
+          }}
+        />
 
         {/* Diamond accent */}
-        <div style={{
-          position: "absolute", top: "55%", left: "12%", width: 16, height: 16,
-          border: "1.5px solid rgba(212,168,83,0.25)", transform: "rotate(45deg)",
-          pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", top: "70%", right: "12%", width: 12, height: 12,
-          border: "1.5px solid rgba(255,255,255,0.1)", transform: "rotate(45deg)",
-          pointerEvents: "none",
-        }} />
+        <div
+          style={{
+            position: "absolute",
+            top: "55%",
+            left: "12%",
+            width: 16,
+            height: 16,
+            border: "1.5px solid rgba(212,168,83,0.25)",
+            transform: "rotate(45deg)",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "70%",
+            right: "12%",
+            width: 12,
+            height: 12,
+            border: "1.5px solid rgba(255,255,255,0.1)",
+            transform: "rotate(45deg)",
+            pointerEvents: "none",
+          }}
+        />
 
         {/* Hero content */}
-        <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 380 }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 14, marginBottom: 32,
-            padding: "10px 22px", borderRadius: 50,
-            background: "rgba(255,255,255,0.1)", backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.15)",
-          }}>
-            <img src={logoImg} alt="Bonds" style={{ width: 32, height: 32, borderRadius: 8 }} />
-            <span style={{
-              fontSize: 20, fontWeight: 700, color: token.colorTextLightSolid,
-              letterSpacing: "0.12em", textTransform: "uppercase",
-            }}>
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            textAlign: "center",
+            maxWidth: 380,
+          }}
+        >
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 14,
+              marginBottom: 32,
+              padding: "10px 22px",
+              borderRadius: 50,
+              background: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(255,255,255,0.15)",
+            }}
+          >
+            <img
+              src={logoImg}
+              alt="Bonds"
+              style={{ width: 32, height: 32, borderRadius: 8 }}
+            />
+            <span
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: token.colorTextLightSolid,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
               Bonds
             </span>
           </div>
 
-          <h1 style={{
-            fontSize: 34, fontWeight: 400, color: token.colorTextLightSolid, lineHeight: 1.3, fontFamily: "\x27Playfair Display\x27, serif",
-            margin: "0 0 16px 0", letterSpacing: "-0.01em",
-          }}>
+          <h1
+            style={{
+              fontSize: 34,
+              fontWeight: 400,
+              color: token.colorTextLightSolid,
+              lineHeight: 1.3,
+              fontFamily: "\x27Playfair Display\x27, serif",
+              margin: "0 0 16px 0",
+              letterSpacing: "-0.01em",
+            }}
+          >
             {t("auth.login.hero_title")}
           </h1>
-          <p style={{
-            fontSize: 15, color: "rgba(255,255,255,0.7)", lineHeight: 1.7,
-            margin: 0, fontWeight: 400,
-          }}>
+          <p
+            style={{
+              fontSize: 15,
+              color: "rgba(255,255,255,0.7)",
+              lineHeight: 1.7,
+              margin: 0,
+              fontWeight: 400,
+            }}
+          >
             {t("auth.login.hero_subtitle")}
           </p>
 
           {/* Decorative line */}
-          <div style={{
-            width: 48, height: 2, background: "rgba(212,168,83,0.5)",
-            margin: "28px auto 0", borderRadius: 1,
-          }} />
+          <div
+            style={{
+              width: 48,
+              height: 2,
+              background: "rgba(212,168,83,0.5)",
+              margin: "28px auto 0",
+              borderRadius: 1,
+            }}
+          />
         </div>
       </div>
 
@@ -309,9 +453,22 @@ export default function Login() {
         }}
       >
         {/* Theme & language toggles */}
-        <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 4 }}>
+        <div
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            display: "flex",
+            gap: 4,
+          }}
+        >
           <Tooltip title={themeModeLabels[themeMode]}>
-            <Button type="text" size="small" icon={themeModeIcons[themeMode]} onClick={nextThemeMode} />
+            <Button
+              type="text"
+              size="small"
+              icon={themeModeIcons[themeMode]}
+              onClick={nextThemeMode}
+            />
           </Tooltip>
           <LanguageSwitcher />
         </div>
@@ -319,7 +476,13 @@ export default function Login() {
         <div style={{ width: "100%", maxWidth: 400 }}>
           {/* Header */}
           <div style={{ marginBottom: 36, ...fadeIn(0) }}>
-            <Title level={2} style={{ marginBottom: 8, fontFamily: "\x27Playfair Display\x27, serif" }}>
+            <Title
+              level={2}
+              style={{
+                marginBottom: 8,
+                fontFamily: "\x27Playfair Display\x27, serif",
+              }}
+            >
               {t("auth.login.title")}
             </Title>
             <Text type="secondary">{t("auth.login.subtitle")}</Text>
@@ -335,7 +498,10 @@ export default function Login() {
                   { type: "email", message: t("auth.login.email_invalid") },
                 ]}
               >
-                <Input prefix={<MailOutlined />} placeholder={t("auth.login.email_placeholder")} />
+                <Input
+                  prefix={<MailOutlined />}
+                  placeholder={t("auth.login.email_placeholder")}
+                />
               </Form.Item>
             </div>
 
@@ -343,16 +509,27 @@ export default function Login() {
               <Form.Item
                 name="password"
                 rules={[
-                  { required: true, message: t("auth.login.password_required") },
+                  {
+                    required: true,
+                    message: t("auth.login.password_required"),
+                  },
                 ]}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder={t("auth.login.password_placeholder")} />
+                <Input.Password
+                  prefix={<LockOutlined />}
+                  placeholder={t("auth.login.password_placeholder")}
+                />
               </Form.Item>
             </div>
 
             <div style={fadeIn(3)}>
               <Form.Item style={{ marginBottom: 16 }}>
-                <Button type="primary" htmlType="submit" loading={loading} block>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  block
+                >
                   {t("auth.login.submit")}
                 </Button>
               </Form.Item>
@@ -361,9 +538,9 @@ export default function Login() {
 
           {isWebAuthnSupported && instanceInfo?.webauthn_enabled && (
             <div style={{ marginBottom: 24, ...fadeIn(4) }}>
-              <Button 
-                block 
-                icon={<KeyOutlined />} 
+              <Button
+                block
+                icon={<KeyOutlined />}
                 onClick={handleWebAuthnLogin}
                 style={{ borderColor: token.colorBorderSecondary }}
               >
@@ -376,16 +553,38 @@ export default function Login() {
             <div style={fadeIn(5)}>
               <Divider>{t("oauth.continueWith")}</Divider>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                {(instanceInfo?.oauth_providers ?? []).map(name => {
-                  const displayName = instanceInfo?.oauth_provider_details?.find(provider => provider.name === name)?.display_name;
-                  const icon = name === "github" ? <GithubOutlined /> : name === "google" ? <GoogleOutlined /> : <LinkOutlined />;
-                  const label = displayName || (name === "github" ? t("oauth.github") : name === "google" ? t("oauth.google") : name === "openid-connect" ? t("oauth.sso") : name);
+                {(instanceInfo?.oauth_providers ?? []).map((name) => {
+                  const displayName =
+                    instanceInfo?.oauth_provider_details?.find(
+                      (provider) => provider.name === name,
+                    )?.display_name;
+                  const icon =
+                    name === "github" ? (
+                      <GithubOutlined />
+                    ) : name === "google" ? (
+                      <GoogleOutlined />
+                    ) : (
+                      <LinkOutlined />
+                    );
+                  const label =
+                    displayName ||
+                    (name === "github"
+                      ? t("oauth.github")
+                      : name === "google"
+                        ? t("oauth.google")
+                        : name === "openid-connect"
+                          ? t("oauth.sso")
+                          : name);
                   return (
                     <Button
                       key={name}
                       icon={icon}
                       href={`/api/auth/${encodeURIComponent(name)}`}
-                      style={{ flex: 1, minWidth: 120, borderColor: token.colorBorderSecondary }}
+                      style={{
+                        flex: 1,
+                        minWidth: 120,
+                        borderColor: token.colorBorderSecondary,
+                      }}
                     >
                       {label}
                     </Button>
@@ -395,7 +594,7 @@ export default function Login() {
             </div>
           )}
 
-          {(instanceInfo?.registration_enabled !== false) && (
+          {instanceInfo?.registration_enabled !== false && (
             <div style={{ textAlign: "center", marginTop: 24, ...fadeIn(6) }}>
               <Text type="secondary">
                 {t("auth.login.no_account")}{" "}
@@ -406,15 +605,37 @@ export default function Login() {
         </div>
 
         {/* Footer */}
-        <div style={{
-          textAlign: "center", marginTop: 48, color: token.colorTextQuaternary, fontSize: 12,
-          position: "absolute", bottom: 20, left: 0, right: 0,
-        }}>
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: 48,
+            color: token.colorTextQuaternary,
+            fontSize: 12,
+            position: "absolute",
+            bottom: 20,
+            left: 0,
+            right: 0,
+          }}
+        >
           © {new Date().getFullYear()}{" "}
-          <a href="https://github.com/naiba/bonds" target="_blank" rel="noopener noreferrer" style={{ color: token.colorTextTertiary }}>Bonds</a>
+          <a
+            href="https://github.com/naiba/bonds"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: token.colorTextTertiary }}
+          >
+            Bonds
+          </a>
           {instanceInfo?.version && ` ${instanceInfo.version}`}
           {" " + t("auth.login.footer_by") + " "}
-          <a href="https://nai.ba" target="_blank" rel="noopener noreferrer" style={{ color: token.colorTextTertiary }}>naiba</a>
+          <a
+            href="https://nai.ba"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: token.colorTextTertiary }}
+          >
+            naiba
+          </a>
         </div>
       </div>
     </div>

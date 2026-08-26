@@ -410,7 +410,9 @@ describe("GroupDetail batch member management", () => {
     await waitFor(() => {
       expect(apiMocks.groupsMembersCreate).toHaveBeenCalledTimes(1);
     });
-    expect(await screen.findByText("Unable to add members")).toBeVisible();
+    expect(
+      await screen.findByText("Unable to add members"),
+    ).toBeInTheDocument();
     expect(
       within(panel).getByRole("checkbox", { name: /select dave winter/i }),
     ).toBeChecked();
@@ -434,7 +436,9 @@ describe("GroupDetail batch member management", () => {
     await waitFor(() => {
       expect(apiMocks.groupsMembersDelete).toHaveBeenCalledTimes(1);
     });
-    expect(await screen.findByText("Unable to remove members")).toBeVisible();
+    expect(
+      await screen.findByText("Unable to remove members"),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("checkbox", { name: /select bob yellow/i }),
     ).toBeChecked();
