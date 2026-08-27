@@ -57,6 +57,15 @@ const KNOWN_SETTINGS: SettingDef[] = [
     ],
   },
   { key: "geocoding.api_key", type: "password", section: "geocoding" },
+  {
+    key: "geocoding.precision",
+    type: "select",
+    section: "geocoding",
+    options: [
+      { value: "exact", label: "admin.settings.geocoding.precision_exact" },
+      { value: "locality", label: "admin.settings.geocoding.precision_locality" },
+    ],
+  },
 
   // Storage
   { key: "storage.max_size_mb", type: "number", section: "storage" },
