@@ -55,6 +55,7 @@ import {
 } from "@/utils/queryInvalidation";
 import { invalidateVaultTaskImpactQueries } from "@/utils/taskQueryInvalidation";
 import { refreshMostConsultedProjections } from "@/utils/mostConsultedProjection";
+import { sortLabelsByName } from "@/utils/labelSort";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -147,7 +148,7 @@ export default function ContactList() {
   );
   const { message } = App.useApp();
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { token } = theme.useToken();
   const nameOrder = useNameOrder();
   const dateFormats = useDateFormat();
@@ -160,11 +161,15 @@ export default function ContactList() {
     columnsOverride ??
     preferences?.contact_list_columns ??
     DEFAULT_VISIBLE_COLUMNS;
-  const { data: labels = [] } = useQuery({
+  const { data: labels = [] } = useQuery<LabelResponse[]>({
     queryKey: ["vault", vaultId, "labels"],
     queryFn: async () =>
       (await api.vaultSettings.settingsLabelsList(String(vaultId))).data ?? [],
   });
+  const sortedLabels = sortLabelsByName(
+    labels,
+    i18n.resolvedLanguage ?? i18n.language,
+  );
 
   const { data: groups = [] } = useQuery<Group[]>({
     queryKey: ["vault", vaultId, "groups"],
@@ -781,7 +786,7 @@ export default function ContactList() {
           allowClear
         >
           <Option value={null}>{t("contact.list.all_labels")}</Option>
-          {labels.map((l: LabelResponse) => (
+          {sortedLabels.map((l: LabelResponse) => (
             <Option key={l.id} value={l.id}>
               {l.name}
             </Option>

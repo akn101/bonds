@@ -91,6 +91,7 @@ import type {
 } from "@/utils/queryInvalidation";
 import { invalidateVaultTaskImpactQueries } from "@/utils/taskQueryInvalidation";
 import { refreshMostConsultedProjections } from "@/utils/mostConsultedProjection";
+import { sortLabelsByName } from "@/utils/labelSort";
 import ContactLayoutManager from "@/components/contact-layout/ContactLayoutManager";
 
 import NotesModule from "./modules/NotesModule";
@@ -228,7 +229,7 @@ function vaultLabelsQueryKey(vaultId: string) {
 }
 
 function ContactEditLabelsField({ vaultId }: { readonly vaultId: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: allLabels = [], isLoading: allLabelsLoading } = useQuery<
     LabelResponse[]
   >({
@@ -246,6 +247,10 @@ function ContactEditLabelsField({ vaultId }: { readonly vaultId: string }) {
       </div>
     );
   }
+  const sortedLabels = sortLabelsByName(
+    allLabels,
+    i18n.resolvedLanguage ?? i18n.language,
+  );
 
   return (
     <>
@@ -259,7 +264,7 @@ function ContactEditLabelsField({ vaultId }: { readonly vaultId: string }) {
           showSearch
           optionFilterProp="label"
           placeholder={t("contact.detail.labels.select_placeholder")}
-          options={allLabels.flatMap((label) =>
+          options={sortedLabels.flatMap((label) =>
             label.id === undefined
               ? []
               : [{ label: label.name ?? "", value: label.id }],
