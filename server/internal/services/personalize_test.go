@@ -1,12 +1,20 @@
 package services
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/internal/testutil"
 )
+
+func TestSyncAllTranslationsRejectsUnsupportedLocale(t *testing.T) {
+	svc, accountID := setupPersonalizeTest(t)
+	if err := svc.SyncAllTranslations(accountID, "ja"); !errors.Is(err, ErrUnsupportedLocale) {
+		t.Fatalf("SyncAllTranslations unsupported locale error = %v, want ErrUnsupportedLocale", err)
+	}
+}
 
 func setupPersonalizeTest(t *testing.T) (*PersonalizeService, string) {
 	t.Helper()

@@ -103,11 +103,11 @@ func (s *ReminderSchedulerService) discardIneligibleSchedule(scheduleID uint) er
 
 func reminderDeliveryLocale(user *models.User) (string, bool) {
 	if user == nil {
-		return "en", false
+		return i18n.Default, false
 	}
 	locale := user.Locale
 	if locale == "" {
-		locale = "en"
+		locale = i18n.Default
 	}
 	return locale, user.EnableAlternativeCalendar
 }
@@ -200,7 +200,7 @@ func rescheduleRecurringReminder(db *gorm.DB, scheduled *models.ContactReminderS
 	if !ok {
 		return nil
 	}
-	if err := db.Create(&models.ContactReminderScheduled{UserNotificationChannelID: channel.ID, ContactReminderID: reminder.ID, ScheduledAt: nextSchedule}).Error; err != nil {
+	if err := db.Create(&models.ContactReminderScheduled{UserNotificationChannelID: channel.ID, ContactReminderID: reminder.ID, ScheduledAt: nextSchedule.UTC()}).Error; err != nil {
 		return fmt.Errorf("create next schedule: %w", err)
 	}
 	return nil

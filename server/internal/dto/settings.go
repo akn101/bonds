@@ -33,11 +33,8 @@ type UpdateTimezoneRequest struct {
 	Timezone string `json:"timezone" validate:"required" example:"America/New_York"`
 }
 
-// UpdateLocaleRequest must keep its oneof list in sync with i18n.Supported.
-// Struct tags require a literal, so the two cannot share a constant — a CI
-// guard in the i18n package's tests cross-checks them.
 type UpdateLocaleRequest struct {
-	Locale string `json:"locale" validate:"required,oneof=en zh es fr de pt-BR pt-PT" example:"en"`
+	Locale string `json:"locale" validate:"required" example:"en"`
 }
 
 type UpdatePreferencesRequest struct {
@@ -93,7 +90,7 @@ type PersonalizeEntityRequest struct {
 // SyncSharedTranslationsRequest deliberately carries an explicit shared data
 // locale. It must never be inferred from the current user's UI locale.
 type SyncSharedTranslationsRequest struct {
-	Locale string `json:"locale" validate:"required,oneof=en zh es fr de pt-BR pt-PT" example:"en"`
+	Locale string `json:"locale" validate:"required" example:"en"`
 }
 
 type PersonalizeEntityResponse struct {

@@ -207,6 +207,15 @@ func TestCreateReminderSchedulesActiveChannelsAtPreferredTime(t *testing.T) {
 		if scheduled.TriggeredAt != nil {
 			t.Fatalf("Expected channel %d scheduled reminder to be pending", expectation.channelID)
 		}
+		var dueCount int64
+		if err := db.Model(&models.ContactReminderScheduled{}).
+			Where("id = ? AND scheduled_at <= ?", scheduled.ID, scheduled.ScheduledAt.UTC()).
+			Count(&dueCount).Error; err != nil {
+			t.Fatalf("Query channel %d at its UTC fire instant failed: %v", expectation.channelID, err)
+		}
+		if dueCount != 1 {
+			t.Fatalf("Expected channel %d schedule to be due at %s UTC", expectation.channelID, scheduled.ScheduledAt.UTC().Format(time.RFC3339))
+		}
 	}
 }
 

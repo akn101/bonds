@@ -78,6 +78,12 @@ func AutoMigrate(db *gorm.DB) error {
 }
 
 func runPostAutoMigrateBackfills(db *gorm.DB) error {
+	if err := normalizeUserRegionalPreferences(db); err != nil {
+		return err
+	}
+	if err := normalizePendingReminderScheduleTimes(db); err != nil {
+		return err
+	}
 	if err := ensureLegacyContactTemplatePageVisibleColumn(db); err != nil {
 		return err
 	}

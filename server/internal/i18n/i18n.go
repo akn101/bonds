@@ -41,8 +41,8 @@ func T(lang, key string) string {
 		}
 	}
 	// fallback to English
-	if lang != "en" {
-		if msgs, ok := translations["en"]; ok {
+	if lang != Default {
+		if msgs, ok := translations[Default]; ok {
 			if val, ok := msgs[key]; ok {
 				return val
 			}

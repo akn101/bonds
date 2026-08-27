@@ -102,4 +102,13 @@ func TestRescheduleRecurringReminderRespectsUserTimezone(t *testing.T) {
 		t.Errorf("rescheduled fire time = %s; expected 16:30 in Asia/Tokyo (got %02d:%02d local)",
 			rescheduled.ScheduledAt.Format(time.RFC3339), local.Hour(), local.Minute())
 	}
+	var dueCount int64
+	if err := db.Model(&models.ContactReminderScheduled{}).
+		Where("id = ? AND scheduled_at <= ?", rescheduled.ID, rescheduled.ScheduledAt.UTC()).
+		Count(&dueCount).Error; err != nil {
+		t.Fatalf("query recurring schedule at UTC fire instant: %v", err)
+	}
+	if dueCount != 1 {
+		t.Fatalf("recurring schedule is not due at its UTC fire instant %s", rescheduled.ScheduledAt.UTC().Format(time.RFC3339))
+	}
 }

@@ -19,7 +19,7 @@ func (s *NotificationService) getAppURL() string {
 func (s *NotificationService) loadUserLocale(userID string) string {
 	var user models.User
 	if err := s.db.Select("locale").Where("id = ?", userID).First(&user).Error; err != nil || user.Locale == "" {
-		return "en"
+		return i18n.Default
 	}
 	return user.Locale
 }

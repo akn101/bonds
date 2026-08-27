@@ -15,6 +15,7 @@ dayjs.extend(timezone);
 type DateInput = string | number | Date | Dayjs | null | undefined;
 
 const DEFAULT_DATE_FORMAT = "MMM D, YYYY";
+const DEFAULT_TIMEZONE = "UTC";
 
 /**
  * Derive variant format strings from the user's base date format preference.
@@ -47,8 +48,8 @@ export interface DateFormatVariants {
    * IANA timezone the user has saved in Preferences (e.g. "Asia/Tokyo").
    * The format helpers below pin date arithmetic to this zone — without it
    * timestamps render in the browser's tz, so a UTC server log of "09:00Z"
-   * appears as "18:00" to someone in Tokyo. Optional because the hook
-   * gracefully falls back to local time when the preference isn't loaded.
+   * appears as "18:00" to someone in Tokyo. Optional for standalone callers;
+   * missing or invalid values use the same UTC fallback as the backend.
    */
   tz?: string;
 }
@@ -110,18 +111,21 @@ export function useDateFormat(): DateFormatVariants {
     gcTime: 30 * 60 * 1000,
   });
 
-  return buildVariants(data?.date_format || DEFAULT_DATE_FORMAT, data?.timezone);
+  return buildVariants(
+    data?.date_format || DEFAULT_DATE_FORMAT,
+    data?.timezone || DEFAULT_TIMEZONE,
+  );
 }
 
 function applyTz(d: dayjs.Dayjs, tz?: string): dayjs.Dayjs {
-  if (!tz) return d;
+  const timezone = tz || DEFAULT_TIMEZONE;
   try {
-    return d.tz(tz);
+    return d.tz(timezone);
   } catch {
     // An invalid timezone string (e.g. a legacy preference we no longer
-    // support) shouldn't blow up the entire formatter. Fall back to
-    // browser-local rather than throwing.
-    return d;
+    // support) shouldn't blow up the entire formatter. Use the same UTC
+    // fallback as the backend rather than inheriting the browser timezone.
+    return d.utc();
   }
 }
 

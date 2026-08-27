@@ -102,7 +102,7 @@ func contactLayoutLocale(tx *gorm.DB, accountID string) string {
 		Limit(1).
 		Pluck("locale", &locale).Error
 	if locale == "" {
-		return "en"
+		return i18n.Default
 	}
 	return locale
 }

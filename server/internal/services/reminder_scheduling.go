@@ -59,7 +59,8 @@ func scheduleReminderForVaultUsers(db *gorm.DB, reminder *models.ContactReminder
 	}
 	for index := range channels {
 		channel := &channels[index]
-		if err := db.Create(&models.ContactReminderScheduled{UserNotificationChannelID: channel.ID, ContactReminderID: reminder.ID, ScheduledAt: calcInitialSchedule(reminder, channel.PreferredTime, userLocation(channel.User))}).Error; err != nil {
+		scheduledAt := calcInitialSchedule(reminder, channel.PreferredTime, userLocation(channel.User)).UTC()
+		if err := db.Create(&models.ContactReminderScheduled{UserNotificationChannelID: channel.ID, ContactReminderID: reminder.ID, ScheduledAt: scheduledAt}).Error; err != nil {
 			return err
 		}
 	}

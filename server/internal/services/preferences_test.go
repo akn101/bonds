@@ -3,8 +3,10 @@ package services
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/naiba/bonds/internal/dto"
+	"github.com/naiba/bonds/internal/models"
 	"github.com/naiba/bonds/internal/testutil"
 )
 
@@ -45,6 +47,86 @@ func TestPreferenceGet(t *testing.T) {
 	}
 	if prefs.WeekStart != "sunday" {
 		t.Errorf("Expected week_start to default to sunday, got %q", prefs.WeekStart)
+	}
+	if prefs.Timezone != "UTC" {
+		t.Errorf("Expected timezone to default to UTC, got %q", prefs.Timezone)
+	}
+}
+
+func TestPreferenceRejectsInvalidTimezone(t *testing.T) {
+	svc, userID := setupPreferenceTest(t)
+
+	if err := svc.UpdateTimezone(userID, dto.UpdateTimezoneRequest{Timezone: "Mars/Olympus_Mons"}); !errors.Is(err, ErrInvalidTimezone) {
+		t.Fatalf("UpdateTimezone invalid error = %v, want ErrInvalidTimezone", err)
+	}
+	if _, err := svc.UpdateAll(userID, dto.UpdatePreferencesRequest{Timezone: "Mars/Olympus_Mons"}); !errors.Is(err, ErrInvalidTimezone) {
+		t.Fatalf("UpdateAll invalid timezone error = %v, want ErrInvalidTimezone", err)
+	}
+	prefs, err := svc.Get(userID)
+	if err != nil {
+		t.Fatalf("Get after rejected timezone: %v", err)
+	}
+	if prefs.Timezone != "UTC" {
+		t.Fatalf("timezone changed after rejected update: %q", prefs.Timezone)
+	}
+}
+
+func TestPreferenceTimezoneChangeRebuildsPendingReminderSchedules(t *testing.T) {
+	notifications, userID, reminderID := setupNotificationReminderScenario(t, "timezone-reschedule@example.com")
+	channel, err := notifications.Create(userID, dto.CreateNotificationChannelRequest{
+		Type:          "shoutrrr",
+		Content:       "ntfy://timezone-reschedule",
+		PreferredTime: "09:00",
+	})
+	if err != nil {
+		t.Fatalf("create notification channel: %v", err)
+	}
+	var original models.ContactReminderScheduled
+	if err := notifications.db.Where("user_notification_channel_id = ? AND contact_reminder_id = ? AND triggered_at IS NULL", channel.ID, reminderID).
+		First(&original).Error; err != nil {
+		t.Fatalf("load original schedule: %v", err)
+	}
+
+	preferences := NewPreferenceService(notifications.db)
+	if err := preferences.UpdateTimezone(userID, dto.UpdateTimezoneRequest{Timezone: "Australia/Sydney"}); err != nil {
+		t.Fatalf("update timezone: %v", err)
+	}
+
+	var rebuilt models.ContactReminderScheduled
+	if err := notifications.db.Where("user_notification_channel_id = ? AND contact_reminder_id = ? AND triggered_at IS NULL", channel.ID, reminderID).
+		First(&rebuilt).Error; err != nil {
+		t.Fatalf("load rebuilt schedule: %v", err)
+	}
+	if rebuilt.ID == original.ID {
+		t.Fatal("timezone update kept the stale pending schedule")
+	}
+	sydney, err := time.LoadLocation("Australia/Sydney")
+	if err != nil {
+		t.Fatalf("load Australia/Sydney: %v", err)
+	}
+	local := rebuilt.ScheduledAt.In(sydney)
+	if local.Hour() != 9 || local.Minute() != 0 {
+		t.Fatalf("rebuilt schedule = %s, want 09:00 Australia/Sydney", local.Format(time.RFC3339))
+	}
+	var dueCount int64
+	if err := notifications.db.Model(&models.ContactReminderScheduled{}).
+		Where("id = ? AND scheduled_at <= ?", rebuilt.ID, rebuilt.ScheduledAt.UTC()).
+		Count(&dueCount).Error; err != nil {
+		t.Fatalf("query rebuilt schedule at UTC instant: %v", err)
+	}
+	if dueCount != 1 {
+		t.Fatal("rebuilt schedule is not queryable at its UTC fire instant")
+	}
+	if _, err := preferences.UpdateAll(userID, dto.UpdatePreferencesRequest{Timezone: "Australia/Sydney", DateFormat: "YYYY-MM-DD"}); err != nil {
+		t.Fatalf("save unchanged timezone: %v", err)
+	}
+	var unchanged models.ContactReminderScheduled
+	if err := notifications.db.Where("user_notification_channel_id = ? AND contact_reminder_id = ? AND triggered_at IS NULL", channel.ID, reminderID).
+		First(&unchanged).Error; err != nil {
+		t.Fatalf("load schedule after unchanged timezone save: %v", err)
+	}
+	if unchanged.ID != rebuilt.ID {
+		t.Fatalf("unchanged timezone replaced schedule %d with %d", rebuilt.ID, unchanged.ID)
 	}
 }
 

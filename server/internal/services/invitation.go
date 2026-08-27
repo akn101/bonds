@@ -10,6 +10,7 @@ import (
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/i18n"
 	"github.com/naiba/bonds/internal/models"
+	userTimezone "github.com/naiba/bonds/internal/timezone"
 	"github.com/naiba/bonds/pkg/response"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -74,7 +75,7 @@ func (s *InvitationService) Create(accountID, createdBy string, req dto.CreateIn
 	// account yet so no stored preference exists. The inviter at least
 	// understands the language they themselves chose, and is the one who can
 	// re-send a different version if needed.
-	locale := "en"
+	locale := i18n.Default
 	var creator models.User
 	if err := s.db.Select("locale").Where("id = ?", createdBy).First(&creator).Error; err == nil && creator.Locale != "" {
 		locale = creator.Locale
@@ -114,6 +115,7 @@ func (s *InvitationService) Accept(req dto.AcceptInvitationRequest, locale strin
 
 	hashedStr := string(hashedPassword)
 	now := time.Now()
+	defaultTimezone := userTimezone.Default
 
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		user := models.User{
@@ -122,6 +124,7 @@ func (s *InvitationService) Accept(req dto.AcceptInvitationRequest, locale strin
 			LastName:             strPtrOrNil(req.LastName),
 			Email:                invitation.Email,
 			Password:             &hashedStr,
+			Timezone:             &defaultTimezone,
 			Locale:               locale,
 			InvitationCode:       &invitation.Token,
 			InvitationAcceptedAt: &now,

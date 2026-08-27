@@ -12,6 +12,7 @@ import (
 	"github.com/naiba/bonds/internal/i18n"
 	"github.com/naiba/bonds/internal/middleware"
 	"github.com/naiba/bonds/internal/models"
+	userTimezone "github.com/naiba/bonds/internal/timezone"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -102,12 +103,14 @@ func (s *AuthService) Register(req dto.RegisterRequest, locale string) (*dto.Aut
 	}
 
 	hashedStr := string(hashedPassword)
+	defaultTimezone := userTimezone.Default
 	account := models.Account{}
 	user := models.User{
 		FirstName:               &req.FirstName,
 		LastName:                &req.LastName,
 		Email:                   req.Email,
 		Password:                &hashedStr,
+		Timezone:                &defaultTimezone,
 		Locale:                  locale,
 		IsAccountAdministrator:  true,
 		IsInstanceAdministrator: isFirstUser,

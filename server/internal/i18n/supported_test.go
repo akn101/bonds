@@ -56,3 +56,24 @@ func TestIsSupported(t *testing.T) {
 		}
 	}
 }
+
+func TestMatch(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+		ok    bool
+	}{
+		{input: "zh-CN", want: "zh", ok: true},
+		{input: "PT-br", want: "pt-BR", ok: true},
+		{input: "pt", want: "pt-PT", ok: true},
+		{input: "de-DE", want: "de", ok: true},
+		{input: "ja", ok: false},
+		{input: "", ok: false},
+	}
+	for _, test := range tests {
+		got, ok := Match(test.input)
+		if got != test.want || ok != test.ok {
+			t.Errorf("Match(%q) = (%q, %t), want (%q, %t)", test.input, got, ok, test.want, test.ok)
+		}
+	}
+}

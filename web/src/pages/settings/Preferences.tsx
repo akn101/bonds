@@ -39,11 +39,11 @@ const weekStartOptions = [
 // hardcoded subset — users in zones we forgot to enumerate (e.g. Africa/Cairo,
 // Pacific/Honolulu, half-hour offsets like Asia/Kolkata) can now pick their
 // own. Sorted alphabetically so the Select's search box is easy to scan.
-const timezones = (
+const runtimeTimezones =
   typeof Intl.supportedValuesOf === "function"
     ? Intl.supportedValuesOf("timeZone")
-    : ["UTC"]
-)
+    : ["UTC"];
+const timezones = Array.from(new Set(["UTC", ...runtimeTimezones]))
   .slice()
   .sort()
   .map((tz: string) => ({ value: tz, label: tz }));

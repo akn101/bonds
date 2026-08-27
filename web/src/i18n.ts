@@ -16,21 +16,38 @@ import de from "./locales/de.json";
 import ptBR from "./locales/pt-BR.json";
 import ptPT from "./locales/pt-PT.json";
 
-// Source of truth for which languages the UI/backend can actually serve.
-// Keep this in sync with `resources` below and with `server/internal/i18n/*.json`.
-// Adding a label here exposes that language in the top-bar switcher and the
-// account-settings Preferences page.
-export const SUPPORTED_LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "zh", label: "中文" },
-  { code: "es", label: "Español" },
-  { code: "fr", label: "Français" },
-  { code: "de", label: "Deutsch" },
-  { code: "pt-BR", label: "Português (BR)" },
-  { code: "pt-PT", label: "Português (PT)" },
-] as const;
+// Translation resources are the frontend source of truth for supported locale
+// codes. Labels and library adapters below are typed Records, so TypeScript
+// fails the build when a new bundle is not wired through every consumer.
+const TRANSLATION_RESOURCES = {
+  en: { translation: en },
+  zh: { translation: zh },
+  es: { translation: es },
+  fr: { translation: fr },
+  de: { translation: de },
+  "pt-BR": { translation: ptBR },
+  "pt-PT": { translation: ptPT },
+} as const;
 
-export type SupportedLanguageCode = (typeof SUPPORTED_LANGUAGES)[number]["code"];
+export type SupportedLanguageCode = keyof typeof TRANSLATION_RESOURCES;
+export const DEFAULT_LANGUAGE: SupportedLanguageCode = "en";
+
+const LANGUAGE_LABELS: Record<SupportedLanguageCode, string> = {
+  en: "English",
+  zh: "中文",
+  es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  "pt-BR": "Português (BR)",
+  "pt-PT": "Português (PT)",
+};
+
+export const SUPPORTED_LANGUAGES: readonly {
+  code: SupportedLanguageCode;
+  label: string;
+}[] = (Object.keys(TRANSLATION_RESOURCES) as SupportedLanguageCode[]).map(
+  (code) => ({ code, label: LANGUAGE_LABELS[code] }),
+);
 
 // When a bare primary code (e.g. "pt") is not itself a supported language but
 // should resolve to a region-specific variant, list it here with its target.
@@ -46,7 +63,7 @@ const REGION_FALLBACKS: Record<string, SupportedLanguageCode> = {
 // Matching is case-insensitive: the canonical codes use uppercase region
 // ("pt-BR"), matching i18next's normalization of "pt-br" → "pt-BR".
 export function normalizeLanguageCode(language: string | undefined): SupportedLanguageCode {
-  if (!language) return "en";
+  if (!language) return DEFAULT_LANGUAGE;
   const lower = language.toLowerCase();
   // Try exact case-insensitive match (e.g. "pt-br" → "pt-BR", "pt-BR" → "pt-BR")
   const exact = SUPPORTED_LANGUAGES.find((l) => l.code.toLowerCase() === lower);
@@ -56,7 +73,7 @@ export function normalizeLanguageCode(language: string | undefined): SupportedLa
   // Fall back to primary subtag (e.g. "zh-CN" → "zh")
   const primary = lower.split("-")[0];
   const match = SUPPORTED_LANGUAGES.find((l) => l.code.toLowerCase() === primary);
-  return match ? match.code : "en";
+  return match ? match.code : DEFAULT_LANGUAGE;
 }
 
 // dayjs uses lowercase locale tags with hyphens; ours come from i18next.
@@ -92,16 +109,8 @@ i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    resources: {
-      en: { translation: en },
-      zh: { translation: zh },
-      es: { translation: es },
-      fr: { translation: fr },
-      de: { translation: de },
-      "pt-BR": { translation: ptBR },
-      "pt-PT": { translation: ptPT },
-    },
-    fallbackLng: "en",
+    resources: TRANSLATION_RESOURCES,
+    fallbackLng: DEFAULT_LANGUAGE,
     interpolation: {
       escapeValue: false,
     },

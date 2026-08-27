@@ -1,6 +1,9 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"github.com/naiba/bonds/internal/i18n"
+	"gorm.io/gorm"
+)
 
 // BackfillTaskStatuses ensures every account has the seeded TaskStatus rows.
 // Runs at server startup so accounts that pre-date the TaskStatus model
@@ -25,7 +28,7 @@ func BackfillTaskStatuses(db *gorm.DB) error {
 			continue
 		}
 		if err := db.Transaction(func(tx *gorm.DB) error {
-			return seedTaskStatuses(tx, accountID, "en")
+			return seedTaskStatuses(tx, accountID, i18n.Default)
 		}); err != nil {
 			return err
 		}

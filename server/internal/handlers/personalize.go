@@ -172,6 +172,7 @@ func (h *PersonalizeHandler) Delete(c *echo.Context) error {
 //	@Param			request	body		dto.SyncSharedTranslationsRequest	true	"Shared data locale"
 //	@Success		200	{object}	response.APIResponse
 //	@Failure		401	{object}	response.APIResponse
+//	@Failure		422	{object}	response.APIResponse
 //	@Failure		500	{object}	response.APIResponse
 //	@Router			/settings/personalize/sync [post]
 func (h *PersonalizeHandler) SyncTranslations(c *echo.Context) error {
@@ -185,6 +186,9 @@ func (h *PersonalizeHandler) SyncTranslations(c *echo.Context) error {
 	}
 
 	if err := h.personalizeService.SyncAllTranslations(accountID, req.Locale); err != nil {
+		if errors.Is(err, services.ErrUnsupportedLocale) {
+			return response.ValidationError(c, map[string]string{"locale": err.Error()})
+		}
 		return response.InternalError(c, "err.failed_to_sync_translations")
 	}
 	return response.OK(c, nil)

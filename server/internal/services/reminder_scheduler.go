@@ -6,6 +6,7 @@ import (
 
 	"github.com/naiba/bonds/internal/i18n"
 	"github.com/naiba/bonds/internal/models"
+	userTimezone "github.com/naiba/bonds/internal/timezone"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +24,7 @@ func NewReminderSchedulerService(db *gorm.DB, mailer Mailer, sender Notification
 
 // ProcessDueReminders finds all scheduled reminders that are due and processes them.
 func (s *ReminderSchedulerService) ProcessDueReminders() {
-	now := time.Now().Truncate(time.Minute)
+	now := time.Now().UTC().Truncate(time.Minute)
 
 	var scheduled []models.ContactReminderScheduled
 	err := s.db.
@@ -54,14 +55,10 @@ func (s *ReminderSchedulerService) ProcessDueReminders() {
 // reminder dates) so different users in the same vault don't all fire at
 // the server's wall-clock 09:00.
 func userLocation(user *models.User) *time.Location {
-	if user == nil || user.Timezone == nil || *user.Timezone == "" {
-		return time.UTC
+	if user == nil {
+		return userTimezone.Location(nil)
 	}
-	loc, err := time.LoadLocation(*user.Timezone)
-	if err != nil {
-		return time.UTC
-	}
-	return loc
+	return userTimezone.Location(user.Timezone)
 }
 
 func buildContactName(contact *models.Contact, locale string) string {

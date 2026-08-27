@@ -9,6 +9,7 @@ import (
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/i18n"
 	"github.com/naiba/bonds/internal/models"
+	userTimezone "github.com/naiba/bonds/internal/timezone"
 	"gorm.io/gorm"
 )
 
@@ -16,6 +17,7 @@ var (
 	ErrInvalidNameOrder      = errors.New("name_order must contain at least one variable like %first_name%")
 	ErrInvalidWeekStart      = errors.New("week_start must be sunday or monday")
 	ErrInvalidViewPreference = errors.New("invalid view preference")
+	ErrInvalidTimezone       = errors.New("timezone is not a valid IANA timezone")
 
 	// ErrUnsupportedLocale is returned when a caller tries to persist a locale
 	// code that the embedded i18n bundle does not load. Without this guard the
@@ -49,9 +51,11 @@ func (s *PreferenceService) Get(userID string) (*dto.PreferencesResponse, error)
 		}
 		return nil, err
 	}
-	tz := ""
+	tz := userTimezone.Default
 	if user.Timezone != nil {
-		tz = *user.Timezone
+		if normalized, err := userTimezone.Normalize(*user.Timezone); err == nil {
+			tz = normalized
+		}
 	}
 	columns := defaultContactListColumns()
 	if err := json.Unmarshal([]byte(user.ContactListColumns), &columns); err != nil || !validContactListColumns(columns) {
@@ -89,7 +93,23 @@ func (s *PreferenceService) UpdateDateFormat(userID string, req dto.UpdateDateFo
 }
 
 func (s *PreferenceService) UpdateTimezone(userID string, req dto.UpdateTimezoneRequest) error {
-	return s.db.Model(&models.User{}).Where("id = ?", userID).Update("timezone", req.Timezone).Error
+	timezone, err := userTimezone.Normalize(req.Timezone)
+	if err != nil {
+		return ErrInvalidTimezone
+	}
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		timezoneChanged, err := userTimezonePreferenceChanged(tx, userID, timezone)
+		if err != nil {
+			return err
+		}
+		if err := tx.Model(&models.User{}).Where("id = ?", userID).Update("timezone", timezone).Error; err != nil {
+			return err
+		}
+		if timezoneChanged {
+			return rebuildPendingReminderSchedulesForUser(tx, userID)
+		}
+		return nil
+	})
 }
 
 func (s *PreferenceService) UpdateLocale(userID string, req dto.UpdateLocaleRequest) error {
@@ -197,7 +217,11 @@ func (s *PreferenceService) UpdateAll(userID string, req dto.UpdatePreferencesRe
 		updates["week_start"] = req.WeekStart
 	}
 	if req.Timezone != "" {
-		updates["timezone"] = req.Timezone
+		timezone, err := userTimezone.Normalize(req.Timezone)
+		if err != nil {
+			return nil, ErrInvalidTimezone
+		}
+		updates["timezone"] = timezone
 	}
 	if req.Locale != "" {
 		if !i18n.IsSupported(req.Locale) {
@@ -263,10 +287,67 @@ func (s *PreferenceService) UpdateAll(userID string, req dto.UpdatePreferencesRe
 	if len(updates) == 0 {
 		return s.Get(userID)
 	}
-	if err := s.db.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		timezoneChanged := false
+		if timezone, ok := updates["timezone"].(string); ok {
+			changed, err := userTimezonePreferenceChanged(tx, userID, timezone)
+			if err != nil {
+				return err
+			}
+			timezoneChanged = changed
+		}
+		if err := tx.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+			return err
+		}
+		if timezoneChanged {
+			return rebuildPendingReminderSchedulesForUser(tx, userID)
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	return s.Get(userID)
+}
+
+func userTimezonePreferenceChanged(db *gorm.DB, userID, timezone string) (bool, error) {
+	var user models.User
+	if err := db.Select("timezone").First(&user, "id = ?", userID).Error; err != nil {
+		return false, err
+	}
+	if user.Timezone == nil {
+		return true, nil
+	}
+	current, err := userTimezone.Normalize(*user.Timezone)
+	if err != nil {
+		return true, nil
+	}
+	return current != timezone, nil
+}
+
+func rebuildPendingReminderSchedulesForUser(db *gorm.DB, userID string) error {
+	var channelIDs []uint
+	if err := db.Model(&models.UserNotificationChannel{}).Where("user_id = ?", userID).Pluck("id", &channelIDs).Error; err != nil {
+		return err
+	}
+	if len(channelIDs) == 0 {
+		return nil
+	}
+	if err := db.Where("user_notification_channel_id IN ? AND triggered_at IS NULL", channelIDs).
+		Delete(&models.ContactReminderScheduled{}).Error; err != nil {
+		return err
+	}
+	var activeChannelIDs []uint
+	if err := db.Model(&models.UserNotificationChannel{}).
+		Where("id IN ? AND active = ?", channelIDs, true).
+		Pluck("id", &activeChannelIDs).Error; err != nil {
+		return err
+	}
+	for _, channelID := range activeChannelIDs {
+		if err := scheduleAllContactReminders(db, channelID, userID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func defaultContactListColumns() []string {

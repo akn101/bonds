@@ -60,7 +60,7 @@ func (h *PreferenceHandler) UpdateAll(c *echo.Context) error {
 	}
 	prefs, err := h.preferenceService.UpdateAll(userID, req)
 	if err != nil {
-		if errors.Is(err, services.ErrInvalidNameOrder) || errors.Is(err, services.ErrUnsupportedLocale) || errors.Is(err, services.ErrInvalidWeekStart) || errors.Is(err, services.ErrInvalidViewPreference) {
+		if errors.Is(err, services.ErrInvalidNameOrder) || errors.Is(err, services.ErrUnsupportedLocale) || errors.Is(err, services.ErrInvalidTimezone) || errors.Is(err, services.ErrInvalidWeekStart) || errors.Is(err, services.ErrInvalidViewPreference) {
 			return response.ValidationError(c, map[string]string{"validation": err.Error()})
 		}
 		return response.InternalError(c, "err.failed_to_update_preferences")
@@ -156,6 +156,9 @@ func (h *PreferenceHandler) UpdateTimezone(c *echo.Context) error {
 		return response.ValidationError(c, map[string]string{"validation": err.Error()})
 	}
 	if err := h.preferenceService.UpdateTimezone(userID, req); err != nil {
+		if errors.Is(err, services.ErrInvalidTimezone) {
+			return response.ValidationError(c, map[string]string{"timezone": err.Error()})
+		}
 		return response.InternalError(c, "err.failed_to_update_timezone")
 	}
 	return response.OK(c, map[string]string{"status": "ok"})
@@ -186,6 +189,9 @@ func (h *PreferenceHandler) UpdateLocale(c *echo.Context) error {
 		return response.ValidationError(c, map[string]string{"validation": err.Error()})
 	}
 	if err := h.preferenceService.UpdateLocale(userID, req); err != nil {
+		if errors.Is(err, services.ErrUnsupportedLocale) {
+			return response.ValidationError(c, map[string]string{"locale": err.Error()})
+		}
 		return response.InternalError(c, "err.failed_to_update_locale")
 	}
 	return response.OK(c, map[string]string{"status": "ok"})

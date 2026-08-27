@@ -277,6 +277,9 @@ var vaultSyncEntities = []syncableEntity{
 }
 
 func (s *PersonalizeService) SyncAllTranslations(accountID, locale string) error {
+	if !i18n.IsSupported(locale) {
+		return ErrUnsupportedLocale
+	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := syncEntities(tx, accountSyncEntities, accountID, locale); err != nil {
 			return err

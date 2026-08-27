@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Cross-checks that en.json, zh.json, and es.json all expose the same key set.
- * Exits with code 1 if any locale is missing or has extra keys compared to en.
+ * Discovers locale bundles, verifies that frontend/backend expose the same
+ * locale set, and checks that every frontend bundle has the same keys as en.
  *
  * Usage: node scripts/check-i18n-keys.mjs
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const localesDir = join(__dirname, '..', 'src', 'locales');
+const serverLocalesDir = join(__dirname, '..', '..', 'server', 'internal', 'i18n');
 
 function flattenKeys(obj, prefix = '') {
   const keys = [];
@@ -27,9 +28,19 @@ function flattenKeys(obj, prefix = '') {
   return keys;
 }
 
-// Add or remove from this list when adding a locale bundle. SUPPORTED_LANGUAGES
-// in web/src/i18n.ts is the user-facing source of truth — keep these in sync.
-const locales = ['en', 'zh', 'es', 'fr', 'de', 'pt-BR', 'pt-PT'];
+function localeCodes(directory) {
+  return readdirSync(directory)
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => name.slice(0, -'.json'.length))
+    .sort((a, b) => (a === 'en' ? -1 : b === 'en' ? 1 : a.localeCompare(b)));
+}
+
+const locales = localeCodes(localesDir);
+const serverLocales = localeCodes(serverLocalesDir);
+if (JSON.stringify(locales) !== JSON.stringify(serverLocales)) {
+  console.error(`❌ Frontend locales (${locales.join(', ')}) do not match backend locales (${serverLocales.join(', ')})`);
+  process.exit(1);
+}
 
 const flatByLocale = {};
 for (const locale of locales) {

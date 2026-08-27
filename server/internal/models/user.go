@@ -36,7 +36,7 @@ type User struct {
 	WeekStart                 string     `json:"week_start" gorm:"size:8;default:'sunday'"`
 	NumberFormat              string     `json:"number_format" gorm:"size:8;default:'locale'"`
 	DistanceFormat            string     `json:"distance_format" gorm:"default:'miles'"`
-	Timezone                  *string    `json:"timezone"`
+	Timezone                  *string    `json:"timezone" gorm:"default:'UTC'"`
 	DefaultMapSite            string     `json:"default_map_site" gorm:"default:'openstreetmap'"`
 	EnableAlternativeCalendar bool       `json:"enable_alternative_calendar" gorm:"default:false"`
 	Locale                    string     `json:"locale" gorm:"default:'en'"`
