@@ -420,6 +420,7 @@ export type { GithubComNaibaBondsInternalDtoUpdateContactReligionRequest as Upda
 export type { GithubComNaibaBondsInternalDtoContactLabelResponse as ContactLabel } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabsResponse as ContactTabsResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabPage as ContactTabPage } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoContactTabModule as ContactTabModule } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactLayoutResponse as ContactLayout } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactLayoutPage as ContactLayoutPage } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactLayoutModuleDefinition as ContactLayoutModuleDefinition } from "./generated/data-contracts";
@@ -513,6 +514,19 @@ export type { GithubComNaibaBondsInternalDtoAddressReportItem as AddressReportIt
 export type { GithubComNaibaBondsInternalDtoImportantDateReportItem as ImportantDateReportItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoMoodReportItem as MoodReportItem } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoAddressContactItem as AddressContactItem } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoDemographicsReportResponse as DemographicsReportResponse } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoDemographicDimension as DemographicDimension } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoDemographicBucket as DemographicBucket } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoMapReportResponse as MapReportResponse } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoMapPoint as MapPoint } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoMapCountryItem as MapCountryItem } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoMapContactItem as MapContactItem } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoInteractionsReportResponse as InteractionsReportResponse } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoInteractionChannel as InteractionChannel } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoInteractionBucket as InteractionBucket } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoInteractionContactItem as InteractionContactItem } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoAddressSuggestionsResponse as AddressSuggestionsResponse } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoAddressSuggestionItem as AddressSuggestionItem } from "./generated/data-contracts";
 
 // DAV Subscriptions
 export type { GithubComNaibaBondsInternalDtoDavSubscriptionResponse as DavSubscription } from "./generated/data-contracts";

@@ -36,6 +36,7 @@ import {
   invalidateFeedQueries,
   type ContactQueryScope,
 } from "@/utils/queryInvalidation";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { sourceRecordKey, useSourceRecordReveal } from "../contactSourceRecord";
 import {
   createContactSaveMutationOperation,
@@ -52,6 +53,10 @@ interface AddressFormValues {
   readonly is_past_address?: boolean;
   readonly date_from?: Dayjs | null;
   readonly date_to?: Dayjs | null;
+  // Set only when the address came from a lookup, so the server can store the
+  // coordinates it already knows instead of geocoding the same string again.
+  readonly latitude?: number;
+  readonly longitude?: number;
 }
 
 type AddressSaveMutationOperation =
@@ -129,6 +134,8 @@ export default function AddressesModule({
           ? values.date_from.toISOString()
           : undefined,
         date_to: values.date_to ? values.date_to.toISOString() : undefined,
+        latitude: values.latitude,
+        longitude: values.longitude,
       };
 
       switch (operation.kind) {
@@ -410,6 +417,20 @@ export default function AddressesModule({
             })
           }
         >
+          <AddressAutocomplete
+            vaultId={scope.vaultId}
+            onPick={(suggestion) =>
+              form.setFieldsValue({
+                line_1: suggestion.line_1 || undefined,
+                city: suggestion.city || undefined,
+                province: suggestion.province || undefined,
+                postal_code: suggestion.postal_code || undefined,
+                country: suggestion.country || undefined,
+                latitude: suggestion.latitude ?? undefined,
+                longitude: suggestion.longitude ?? undefined,
+              })
+            }
+          />
           <Form.Item
             name="line_1"
             label={t("modules.addresses.address_line_1")}
