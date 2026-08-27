@@ -90,6 +90,15 @@ vi.mock("@/api", () => ({
     },
     vaults: {
       vaultsList: vi.fn(),
+      vaultsDetail: vi.fn(),
+    },
+    contactLabels: {
+      contactsLabelsList: vi.fn(),
+      contactsLabelsCreate: vi.fn(),
+      contactsLabelsDelete: vi.fn(),
+    },
+    vaultSettings: {
+      settingsLabelsList: vi.fn(),
     },
     personalize: {
       personalizeDetail: vi.fn(),
@@ -144,53 +153,111 @@ describe("ContactEdit Validation", () => {
       data: [],
     });
     vi.mocked(api.vaults.vaultsList).mockResolvedValue({ data: [] });
+    vi.mocked(api.vaults.vaultsDetail).mockResolvedValue({
+      data: { id: "v1", current_user_permission: 100 },
+    });
+    vi.mocked(api.contactLabels.contactsLabelsList).mockResolvedValue({
+      data: [{ id: 101, label_id: 7, name: "Family" }],
+    });
+    vi.mocked(api.vaultSettings.settingsLabelsList).mockResolvedValue({
+      data: [
+        { id: 7, name: "Family" },
+        { id: 8, name: "Friends" },
+      ],
+    });
+    vi.mocked(api.contactLabels.contactsLabelsCreate).mockResolvedValue({
+      data: { id: 102, label_id: 8, name: "Friends" },
+    });
+    vi.mocked(api.contactLabels.contactsLabelsDelete).mockResolvedValue({});
   });
 
-  it("blocks submission if both first_name and nickname are emptied out", async () => {
-    renderWithProviders();
+  it(
+    "blocks submission if both first_name and nickname are emptied out",
+    async () => {
+      renderWithProviders();
 
-    await screen.findByText("John");
+      await screen.findByText("John");
 
-    fireEvent.click(await screen.findByRole("button", { name: /edit/i }));
+      fireEvent.click(await screen.findByRole("button", { name: /edit/i }));
 
-    const firstNameInput = await screen.findByLabelText("First name");
-    fireEvent.change(firstNameInput, { target: { value: "" } });
+      const firstNameInput = await screen.findByLabelText("First name");
+      fireEvent.change(firstNameInput, { target: { value: "" } });
 
-    const nicknameInput = await screen.findByLabelText("Nickname");
-    fireEvent.change(nicknameInput, { target: { value: "" } });
+      const nicknameInput = await screen.findByLabelText("Nickname");
+      fireEvent.change(nicknameInput, { target: { value: "" } });
 
-    fireEvent.click(await screen.findByRole("button", { name: /save/i }));
+      fireEvent.click(await screen.findByRole("button", { name: /save/i }));
 
-    // Wait for validation errors
-    await waitFor(() => {
-      const errors = screen.getAllByText(/First name or nickname is required/i);
-      expect(errors.length).toBeGreaterThan(0);
-    });
+      // Wait for validation errors
+      await waitFor(() => {
+        const errors = screen.getAllByText(
+          /First name or nickname is required/i,
+        );
+        expect(errors.length).toBeGreaterThan(0);
+      });
 
-    expect(api.contacts.contactsUpdate).not.toHaveBeenCalled();
-  }, CONTACT_EDIT_VALIDATION_TIMEOUT_MS);
+      expect(api.contacts.contactsUpdate).not.toHaveBeenCalled();
+    },
+    CONTACT_EDIT_VALIDATION_TIMEOUT_MS,
+  );
 
-  it("allows submission if first_name is emptied out but nickname remains", async () => {
-    renderWithProviders();
+  it(
+    "allows submission if first_name is emptied out but nickname remains",
+    async () => {
+      renderWithProviders();
 
-    await screen.findByText("John");
+      await screen.findByText("John");
 
-    fireEvent.click(await screen.findByRole("button", { name: /edit/i }));
+      fireEvent.click(await screen.findByRole("button", { name: /edit/i }));
 
-    const firstNameInput = await screen.findByLabelText("First name");
-    fireEvent.change(firstNameInput, { target: { value: "" } });
+      const firstNameInput = await screen.findByLabelText("First name");
+      fireEvent.change(firstNameInput, { target: { value: "" } });
 
-    fireEvent.click(await screen.findByRole("button", { name: /save/i }));
+      fireEvent.click(await screen.findByRole("button", { name: /save/i }));
 
-    await waitFor(() => {
+      await waitFor(() => {
+        expect(api.contacts.contactsUpdate).toHaveBeenCalledWith(
+          "v1",
+          "c1",
+          expect.objectContaining({
+            first_name: "",
+            nickname: "Johnny",
+          }),
+        );
+      });
+    },
+    CONTACT_EDIT_VALIDATION_TIMEOUT_MS,
+  );
+
+  it(
+    "adds selected labels while keeping label IDs out of the contact request",
+    async () => {
+      renderWithProviders();
+
+      await screen.findByText("John");
+      fireEvent.click(await screen.findByRole("button", { name: /edit/i }));
+
+      const labelSelect = await screen.findByRole("combobox", {
+        name: "Labels",
+      });
+      fireEvent.mouseDown(labelSelect);
+      fireEvent.click(await screen.findByText("Friends"));
+      fireEvent.click(await screen.findByRole("button", { name: /save/i }));
+
+      await waitFor(() => {
+        expect(api.contactLabels.contactsLabelsCreate).toHaveBeenCalledWith(
+          "v1",
+          "c1",
+          { label_id: 8 },
+        );
+      });
+      expect(api.contactLabels.contactsLabelsDelete).not.toHaveBeenCalled();
       expect(api.contacts.contactsUpdate).toHaveBeenCalledWith(
         "v1",
         "c1",
-        expect.objectContaining({
-          first_name: "",
-          nickname: "Johnny",
-        }),
+        expect.not.objectContaining({ label_ids: expect.anything() }),
       );
-    });
-  }, CONTACT_EDIT_VALIDATION_TIMEOUT_MS);
+    },
+    CONTACT_EDIT_VALIDATION_TIMEOUT_MS,
+  );
 });

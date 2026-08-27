@@ -527,7 +527,7 @@ export default function ContactSummaryCard({
                 return (
                   <Link
                     key={label.id}
-                    to={`/vaults/${vaultId}/contacts?label=${label.id}`}
+                    to={`/vaults/${vaultId}/contacts?label=${label.label_id}`}
                   >
                     <Tag
                       color={labelTagColors.color}

@@ -215,7 +215,13 @@ describe("ContactSummaryCard — Family Summary (Issue #77)", () => {
   it("keeps populated summary fields in read mode", () => {
     resetMocks();
     mockLabels = [
-      { id: 1, name: "Running club", bg_color: "green", text_color: "#123" },
+      {
+        id: 1,
+        label_id: 11,
+        name: "Running club",
+        bg_color: "green",
+        text_color: "#123",
+      },
     ];
 
     renderCard({ readOnly: true });
@@ -245,7 +251,8 @@ describe("ContactSummaryCard — Family Summary (Issue #77)", () => {
     ];
     mockLabels = [
       {
-        id: 3,
+        id: 30,
+        label_id: 3,
         name: "Close friend",
         bg_color: "#2563eb",
         text_color: "#ffffff",

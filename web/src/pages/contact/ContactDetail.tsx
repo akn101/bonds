@@ -70,6 +70,8 @@ import type {
   ContactLayoutTemplateSummary,
   ContactTabsResponse,
   ContactTabPage,
+  ContactLabel,
+  LabelResponse,
   PersonalizeItem,
 } from "@/api";
 import { useTranslation } from "react-i18next";
@@ -114,6 +116,7 @@ import JobsModule from "./modules/JobsModule";
 import GroupsModule from "./modules/GroupsModule";
 import ContactSummaryModule from "./modules/ContactSummaryModule";
 import RelationshipNetworkModule from "./modules/RelationshipNetworkModule";
+import { buildContactLabelSyncPlan } from "./modules/contactLabelSync";
 
 const { Title, Text } = Typography;
 
@@ -157,6 +160,7 @@ type ContactEditFormValues = Omit<
 > & {
   last_talked_to?: string;
   first_met?: CalendarDatePickerValue;
+  label_ids?: number[];
 };
 
 type MoveContactMutationOperation = {
@@ -170,6 +174,7 @@ type ContactMutationOperation = {
 
 type UpdateContactMutationOperation = ContactMutationOperation & {
   readonly request: UpdateContactRequest;
+  readonly labelIds?: readonly number[];
 };
 
 type DeleteContactMutationOperation = ContactMutationOperation & {
@@ -193,8 +198,10 @@ function createContactQueryScope(
 function buildUpdateContactRequest(
   values: ContactEditFormValues,
 ): UpdateContactRequest {
+  const contactValues = { ...values };
+  delete contactValues.label_ids;
   const request: UpdateContactRequest = {
-    ...values,
+    ...contactValues,
     last_talked_to: dateInputToTimestamp(values.last_talked_to),
     ...buildContactFirstMetRequest(values.first_met),
   };
@@ -210,6 +217,64 @@ function buildUpdateContactRequest(
   if (request.stay_in_touch_frequency_days == null)
     delete request.stay_in_touch_frequency_days;
   return request;
+}
+
+function contactLabelAssignmentsQueryKey(vaultId: string, contactId: string) {
+  return ["vaults", vaultId, "contacts", contactId, "labels"] as const;
+}
+
+function vaultLabelsQueryKey(vaultId: string) {
+  return ["vaults", vaultId, "labels"] as const;
+}
+
+function ContactEditLabelsField({ vaultId }: { readonly vaultId: string }) {
+  const { t } = useTranslation();
+  const { data: allLabels = [], isLoading: allLabelsLoading } = useQuery<
+    LabelResponse[]
+  >({
+    queryKey: vaultLabelsQueryKey(vaultId),
+    queryFn: async () => {
+      const response = await api.vaultSettings.settingsLabelsList(vaultId);
+      return response.data ?? [];
+    },
+  });
+
+  if (allLabelsLoading) {
+    return (
+      <div style={{ display: "grid", placeItems: "center", minHeight: 72 }}>
+        <Spin size="small" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Form.Item<ContactEditFormValues>
+        name="label_ids"
+        label={t("contact.detail.labels.title")}
+      >
+        <Select
+          mode="multiple"
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder={t("contact.detail.labels.select_placeholder")}
+          options={allLabels.flatMap((label) =>
+            label.id === undefined
+              ? []
+              : [{ label: label.name ?? "", value: label.id }],
+          )}
+        />
+      </Form.Item>
+      {allLabels.length === 0 && (
+        <div style={{ marginTop: -16, marginBottom: 16 }}>
+          <Link to={`/vaults/${vaultId}/settings`}>
+            {t("contact.detail.manage_labels_hint")}
+          </Link>
+        </div>
+      )}
+    </>
+  );
 }
 
 // Module type → component mapping for dynamic section rendering.
@@ -617,12 +682,50 @@ export default function ContactDetail() {
   });
 
   const updateContactMutation = useMutation({
-    mutationFn: (operation: UpdateContactMutationOperation) =>
-      api.contacts.contactsUpdate(
+    mutationFn: async (operation: UpdateContactMutationOperation) => {
+      const response = await api.contacts.contactsUpdate(
         operation.contact.vaultId,
         operation.contact.contactId,
         operation.request,
-      ),
+      );
+      if (operation.labelIds === undefined) return response;
+
+      const currentAssignments =
+        queryClient.getQueryData<ContactLabel[]>(
+          contactLabelAssignmentsQueryKey(
+            operation.contact.vaultId,
+            operation.contact.contactId,
+          ),
+        ) ?? [];
+      const syncPlan = buildContactLabelSyncPlan(
+        currentAssignments,
+        operation.labelIds,
+      );
+      try {
+        await Promise.all([
+          ...syncPlan.addLabelIds.map((labelId) =>
+            api.contactLabels.contactsLabelsCreate(
+              operation.contact.vaultId,
+              operation.contact.contactId,
+              { label_id: labelId },
+            ),
+          ),
+          ...syncPlan.removeAssignmentIds.map((assignmentId) =>
+            api.contactLabels.contactsLabelsDelete(
+              operation.contact.vaultId,
+              operation.contact.contactId,
+              assignmentId,
+            ),
+          ),
+        ]);
+      } catch (error) {
+        await invalidateContactQueries(queryClient, [
+          operation.contact.vaultId,
+        ]);
+        throw error;
+      }
+      return response;
+    },
     onSuccess: async (_, operation) => {
       await Promise.all([
         queryClient.invalidateQueries({
@@ -956,6 +1059,50 @@ export default function ContactDetail() {
   }
 
   if (!contact) return null;
+
+  async function openEditContactModal(): Promise<void> {
+    let assignedLabels: ContactLabel[];
+    try {
+      assignedLabels = await queryClient.fetchQuery({
+        queryKey: contactLabelAssignmentsQueryKey(vaultId, cId),
+        queryFn: async () => {
+          const response = await api.contactLabels.contactsLabelsList(
+            vaultId,
+            cId,
+          );
+          return response.data ?? [];
+        },
+      });
+    } catch (error) {
+      message.error(
+        error instanceof Error && error.message
+          ? error.message
+          : t("common.error"),
+      );
+      return;
+    }
+
+    editForm.setFieldsValue({
+      prefix: contact.prefix,
+      first_name: contact.first_name,
+      middle_name: contact.middle_name,
+      last_name: contact.last_name,
+      suffix: contact.suffix,
+      nickname: contact.nickname,
+      maiden_name: contact.maiden_name,
+      gender_id: contact.gender_id,
+      pronoun_id: contact.pronoun_id,
+      first_met: contactFirstMetToCalendarDate(contact),
+      first_met_through_contact_id: contact.first_met_through_contact_id,
+      last_talked_to: timestampToDateInput(contact.last_talked_to),
+      stay_in_touch_frequency_days: contact.stay_in_touch_frequency_days,
+      needs_verification: contact.needs_verification,
+      label_ids: assignedLabels.flatMap((label) =>
+        label.label_id === undefined ? [] : [label.label_id],
+      ),
+    });
+    setIsEditModalOpen(true);
+  }
 
   const initials = formatContactInitials(nameOrder, contact);
   const moduleProps = {
@@ -1437,27 +1584,7 @@ export default function ContactDetail() {
             icon={<EditOutlined />}
             type="text"
             size="small"
-            onClick={() => {
-              editForm.setFieldsValue({
-                prefix: contact.prefix,
-                first_name: contact.first_name,
-                middle_name: contact.middle_name,
-                last_name: contact.last_name,
-                suffix: contact.suffix,
-                nickname: contact.nickname,
-                maiden_name: contact.maiden_name,
-                gender_id: contact.gender_id,
-                pronoun_id: contact.pronoun_id,
-                first_met: contactFirstMetToCalendarDate(contact),
-                first_met_through_contact_id:
-                  contact.first_met_through_contact_id,
-                last_talked_to: timestampToDateInput(contact.last_talked_to),
-                stay_in_touch_frequency_days:
-                  contact.stay_in_touch_frequency_days,
-                needs_verification: contact.needs_verification,
-              });
-              setIsEditModalOpen(true);
-            }}
+            onClick={() => void openEditContactModal()}
           >
             {t("common.edit")}
           </Button>
@@ -1588,6 +1715,7 @@ export default function ContactDetail() {
               Object.freeze({
                 contact: createContactQueryScope(vaultId, cId),
                 request: Object.freeze(buildUpdateContactRequest(values)),
+                labelIds: values.label_ids,
               } satisfies UpdateContactMutationOperation),
             )
           }
@@ -1675,6 +1803,7 @@ export default function ContactDetail() {
               <Input />
             </Form.Item>
           </div>
+          <ContactEditLabelsField vaultId={vaultId} />
           {/* Fix #62: gender and pronoun fields — fetched from personalize API */}
           <div style={{ display: "flex", gap: 16 }}>
             <Form.Item

@@ -88,14 +88,15 @@ test.describe("Contact Summary Card", () => {
 
     const nameInput = page.getByPlaceholder("Name");
     await expect(nameInput).toBeVisible({ timeout: 10000 });
-    await nameInput.fill("summary-label");
-
-    const labelResponse = page.waitForResponse(
-      (resp) =>
-        resp.url().includes("/labels") && resp.request().method() === "POST",
-    );
-    await page.getByRole("button", { name: "Add" }).click();
-    await labelResponse;
+    for (const labelName of ["unused-label", "summary-label"]) {
+      await nameInput.fill(labelName);
+      const labelResponse = page.waitForResponse(
+        (resp) =>
+          resp.url().includes("/labels") && resp.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Add" }).click();
+      await labelResponse;
+    }
     await page.waitForLoadState("networkidle");
 
     // Create contact and add the label
@@ -104,29 +105,27 @@ test.describe("Contact Summary Card", () => {
     await goToContacts(page);
     await createContact(page, "LabelSum", "User");
 
-    await navigateToTab(page, "Profile and contact");
-
-    // Use h5 title to precisely match the module card, not the summary card
-    const labelsCard = page
-      .locator(".ant-card")
-      .filter({ has: page.locator("h5", { hasText: "Labels" }) });
-    await expect(labelsCard).toBeVisible({ timeout: 10000 });
-    await labelsCard.getByRole("button", { name: /add/i }).click();
-
-    const modal = page.locator(".ant-modal").filter({ hasText: /add label/i });
+    await page.getByRole("button", { name: "Edit" }).first().click();
+    const modal = page.getByRole("dialog", { name: "Edit Contact" });
     await expect(modal).toBeVisible({ timeout: 5000 });
-    await modal.locator(".ant-select").click();
+    await modal.getByRole("combobox", { name: "Labels" }).click();
     await page
       .locator(".ant-select-dropdown:visible .ant-select-item-option")
       .filter({ hasText: "summary-label" })
       .click();
 
+    const updateResp = page.waitForResponse(
+      (resp) =>
+        /\/contacts\/[^/]+$/.test(new URL(resp.url()).pathname) &&
+        resp.request().method() === "PUT",
+    );
     const addResp = page.waitForResponse(
       (resp) =>
-        resp.url().includes("/labels") && resp.request().method() === "POST",
+        /\/contacts\/[^/]+\/labels$/.test(new URL(resp.url()).pathname) &&
+        resp.request().method() === "POST",
     );
     await modal.getByRole("button", { name: /save/i }).click();
-    await addResp;
+    await Promise.all([updateResp, addResp]);
     await page.waitForLoadState("networkidle");
 
     // Now verify the summary card shows the label

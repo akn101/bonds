@@ -620,6 +620,12 @@ vi.mock("@tanstack/react-query", async () => {
       ) {
         return { data: mockMeetingContacts, isLoading: false };
       }
+      if (key[0] === "vaults" && key[2] === "contacts" && key[4] === "labels") {
+        return { data: [], isLoading: false };
+      }
+      if (key.length === 3 && key[0] === "vaults" && key[2] === "labels") {
+        return { data: [], isLoading: false };
+      }
       if (key.includes("contacts") && !key.includes("tabs")) {
         return mockContactQuery(opts);
       }
@@ -650,6 +656,8 @@ vi.mock("@tanstack/react-query", async () => {
     },
     useQueryClient: () => ({
       invalidateQueries: mockInvalidateQueries,
+      fetchQuery: async () => [],
+      getQueryData: () => [],
       setQueriesData: mockSetQueriesData,
       setQueryData: mockSetQueryData,
     }),
@@ -881,8 +889,7 @@ async function submitMoveContact(): Promise<void> {
 }
 
 function invalidatedQueryFilters(): readonly (
-  | InvalidateQueryFilters
-  | undefined
+  InvalidateQueryFilters | undefined
 )[] {
   return mockInvalidateQueries.mock.calls.map(([filters]) => filters);
 }
@@ -1442,6 +1449,7 @@ describe("ContactDetail", () => {
     const submittedOperation = mockMutate.mock.calls.at(-1)?.[0];
     expect(submittedOperation).toEqual({
       contact: { vaultId: SOURCE_VAULT_ID, contactId: SOURCE_CONTACT_ID },
+      labelIds: [],
       request: expect.objectContaining({ first_name: "John" }),
     });
     expect(Object.isFrozen(submittedOperation)).toBe(true);
@@ -1556,8 +1564,7 @@ describe("ContactDetail", () => {
 
     await clickMoreMenuItem(user, "Delete");
     const confirmOptions = modalConfirmMock.mock.calls.at(-1)?.[0] as
-      | ModalConfirmOptions
-      | undefined;
+      ModalConfirmOptions | undefined;
     if (typeof confirmOptions?.onOk !== "function") {
       throw new Error("Delete confirmation was not opened");
     }
