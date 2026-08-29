@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { dateInputToTimestamp, formatDateOnly, formatShortDateOnly, timestampToDateInput } from "@/utils/dateOnlyInput";
+import {
+  dateInputToTimestamp,
+  formatDateOnly,
+  formatMonthYearOnly,
+  formatShortDateOnly,
+  formatYearOnly,
+  parseDateOnly,
+  timestampToDateInput,
+} from "@/utils/dateOnlyInput";
 import type { DateFormatVariants } from "@/utils/dateFormat";
 
 const isoDateFormat: DateFormatVariants = {
@@ -8,13 +16,26 @@ const isoDateFormat: DateFormatVariants = {
   short: "MM-DD",
   dateTime: "YYYY-MM-DD HH:mm",
   dateTimeFull: "YYYY-MM-DD HH:mm:ss",
+  tz: "America/New_York",
 };
 
 describe("date-only input helpers", () => {
   it("keeps UTC-midnight API timestamps on the same calendar date", () => {
     expect(timestampToDateInput("2026-01-02T00:00:00Z")).toBe("2026-01-02");
-    expect(formatDateOnly("2026-01-02T00:00:00Z", isoDateFormat)).toBe("2026-01-02");
-    expect(formatShortDateOnly("2026-01-02T00:00:00Z", isoDateFormat)).toBe("01-02");
+    expect(formatDateOnly("2026-01-02T00:00:00Z", isoDateFormat)).toBe(
+      "2026-01-02",
+    );
+    expect(formatShortDateOnly("2026-01-02T00:00:00Z", isoDateFormat)).toBe(
+      "01-02",
+    );
+  });
+
+  it("preserves month and year precision across timezone boundaries", () => {
+    const newYear = "2025-01-01T00:00:00Z";
+
+    expect(parseDateOnly(newYear)?.format("YYYY-MM-DD")).toBe("2025-01-01");
+    expect(formatMonthYearOnly(newYear, isoDateFormat)).toBe("2025-01");
+    expect(formatYearOnly(newYear)).toBe("2025");
   });
 
   it("round-trips valid date input values through API timestamps", () => {

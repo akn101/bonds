@@ -16,7 +16,11 @@ vi.mock("@/api", () => ({
     },
     preferences: {
       preferencesList: vi.fn().mockResolvedValue({
-        data: { name_order: "%first_name% %last_name%" },
+        data: {
+          name_order: "%first_name% %last_name%",
+          date_format: "YYYY-MM-DD",
+          timezone: "America/New_York",
+        },
       }),
     },
   },
@@ -108,5 +112,25 @@ describe("ActivityDetail", () => {
     expect(
       screen.getByRole("link", { name: "Bob Participant" }),
     ).toBeInTheDocument();
+  });
+
+  it("displays activity dates without shifting them into the user timezone", async () => {
+    mocks.detail.mockResolvedValueOnce({
+      data: {
+        id: 42,
+        title: "New year activity",
+        start_date: "2025-01-01T00:00:00Z",
+        start_precision: "month",
+        end_date: "2026-01-01T00:00:00Z",
+        end_precision: "day",
+        end_status: "known",
+        participants: [],
+        mentioned_contacts: [],
+      },
+    });
+
+    renderDetail();
+
+    expect(await screen.findByText("2025-01 – 2026-01-01")).toBeInTheDocument();
   });
 });
