@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { VaultTask } from "@/api";
 import {
   createDeleteVaultTaskRequest,
+  createVaultTaskCompletionOperation,
   createVaultTaskOperation,
   resolveDeleteVaultTaskOperation,
   updateVaultTaskOperation,
@@ -96,6 +97,28 @@ describe("vault task mutation operation snapshots", () => {
     });
     expect(Object.isFrozen(deleteRequest)).toBe(true);
     expect(Object.isFrozen(deleteRequest.rootAssigneeContactIds)).toBe(true);
+  });
+
+  it("snapshots checkbox completion targets and assignee impact", () => {
+    const pendingOperation = createVaultTaskCompletionOperation({
+      vaultId: "vault-1",
+      task: task(11, ["101", "101", "202"]),
+    });
+    const completedOperation = createVaultTaskCompletionOperation({
+      vaultId: "vault-1",
+      task: { ...task(12, []), completed: true, status: "done" },
+    });
+
+    expect(pendingOperation).toEqual({
+      kind: "set-completion",
+      vaultId: "vault-1",
+      taskId: 11,
+      status: "done",
+      assigneeContactIds: ["101", "202"],
+    });
+    expect(completedOperation.status).toBe("todo");
+    expect(Object.isFrozen(pendingOperation)).toBe(true);
+    expect(Object.isFrozen(pendingOperation.assigneeContactIds)).toBe(true);
   });
 
   it("resolves exact recursive root, child, and grandchild assignees without unrelated tasks", () => {

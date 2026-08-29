@@ -11,7 +11,9 @@ interface VaultTaskListProps {
   readonly completedTasks: readonly VaultTask[];
   readonly dateFormats: DateFormatVariants;
   readonly onSelectTask: (task: VaultTask) => void;
+  readonly onToggleTask: (task: VaultTask) => void;
   readonly onNavigateToContact: (contactId: string) => void;
+  readonly completionPending?: boolean;
 }
 
 type VaultTaskListRow =
@@ -28,7 +30,9 @@ export function VaultTaskList({
   completedTasks,
   dateFormats,
   onSelectTask,
+  onToggleTask,
   onNavigateToContact,
+  completionPending = false,
 }: VaultTaskListProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
@@ -93,6 +97,8 @@ export function VaultTaskList({
           <span onClick={stop} style={{ minWidth: 0, flex: 1 }}>
             <Checkbox
               checked={false}
+              disabled={completionPending}
+              onChange={() => onToggleTask(task)}
               style={{ display: "flex", alignItems: "flex-start" }}
             >
               <span
@@ -149,6 +155,8 @@ export function VaultTaskList({
           <span onClick={stop} style={{ minWidth: 0, flex: 1 }}>
             <Checkbox
               checked
+              disabled={completionPending}
+              onChange={() => onToggleTask(task)}
               style={{ display: "flex", alignItems: "flex-start" }}
             >
               <span

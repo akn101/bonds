@@ -30,6 +30,7 @@ function renderTaskList(
   completedTasks: readonly VaultTask[],
 ) {
   const onSelectTask = vi.fn();
+  const onToggleTask = vi.fn();
   const onNavigateToContact = vi.fn();
 
   render(
@@ -43,6 +44,7 @@ function renderTaskList(
             completedTasks={completedTasks}
             dateFormats={dateFormats}
             onSelectTask={onSelectTask}
+            onToggleTask={onToggleTask}
             onNavigateToContact={onNavigateToContact}
           />
         </VirtuosoMockContext.Provider>
@@ -50,7 +52,7 @@ function renderTaskList(
     </ConfigProvider>,
   );
 
-  return { onSelectTask, onNavigateToContact };
+  return { onSelectTask, onToggleTask, onNavigateToContact };
 }
 
 function renderTaskListWithoutMeasuredViewport(
@@ -64,6 +66,7 @@ function renderTaskListWithoutMeasuredViewport(
           completedTasks={[]}
           dateFormats={dateFormats}
           onSelectTask={vi.fn()}
+          onToggleTask={vi.fn()}
           onNavigateToContact={vi.fn()}
         />
       </AntApp>
@@ -123,6 +126,29 @@ describe("VaultTaskList", () => {
     expect(
       document.querySelectorAll('[data-viewport-type="window"]'),
     ).toHaveLength(1);
+  });
+
+  it("forwards pending and completed checkbox changes without selecting a row", async () => {
+    const user = userEvent.setup();
+    const pendingTask = createTask({ id: 3, label: "Pending toggle" });
+    const completedTask = createTask({
+      id: 4,
+      label: "Completed toggle",
+      completed: true,
+    });
+    const { onSelectTask, onToggleTask } = renderTaskList(
+      [pendingTask],
+      [completedTask],
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "Pending toggle" }));
+    await user.click(
+      screen.getByRole("checkbox", { name: "Completed toggle" }),
+    );
+
+    expect(onToggleTask).toHaveBeenNthCalledWith(1, pendingTask);
+    expect(onToggleTask).toHaveBeenNthCalledWith(2, completedTask);
+    expect(onSelectTask).not.toHaveBeenCalled();
   });
 
   it("preserves row selection and contact navigation", async () => {

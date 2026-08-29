@@ -10,6 +10,7 @@ import {
   snapshotVaultTaskContactIds,
   type CreateVaultTaskOperation,
   type DeleteVaultTaskOperation,
+  type SetVaultTaskCompletionOperation,
   type UpdateVaultTaskOperation,
 } from "./vaultTaskMutationOperation";
 
@@ -95,6 +96,17 @@ export function invalidateUpdatedVaultTask(
     )
       ? []
       : impactedContactIds,
+  });
+}
+
+export function invalidateSetVaultTaskCompletion(
+  queryClient: QueryClient,
+  operation: SetVaultTaskCompletionOperation,
+): Promise<void> {
+  return invalidateVaultTaskImpact(queryClient, {
+    vaultId: operation.vaultId,
+    taskContactIds: operation.assigneeContactIds,
+    feedContactIds: [],
   });
 }
 
