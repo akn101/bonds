@@ -222,7 +222,7 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	avatarHandler := NewAvatarHandler(db, vaultFileService)
 	companyHandler := NewCompanyHandler(companyService, contactJobService)
 	calendarHandler := NewCalendarHandler(calendarService, calendarICSService)
-	reportHandler := NewReportHandler(reportService)
+	reportHandler := NewReportHandler(reportService, addressService)
 	feedHandler := NewFeedHandler(feedService)
 	preferenceHandler := NewPreferenceHandler(preferenceService)
 	notificationHandler := NewNotificationHandler(notificationService)

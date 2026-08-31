@@ -131,6 +131,44 @@ func TestAddressSuggestDisabledForPublicNominatim(t *testing.T) {
 	}
 }
 
+func TestMapReportIncludesAttributionForDisplayedCoordinates(t *testing.T) {
+	ts := setupTestServerWithConfig(t, func(cfg *config.Config) {
+		cfg.Geocoding = config.GeocodingConfig{Provider: "nominatim", Precision: "exact"}
+	})
+	token, _ := ts.registerTestUser(t, "map-attribution@example.com")
+	vault := ts.createTestVault(t, token, "Attributed Map Vault")
+	contact := ts.createTestContact(t, token, vault.ID, "Mapped Contact")
+
+	rec := ts.doRequest(http.MethodPost,
+		"/api/vaults/"+vault.ID+"/contacts/"+contact.ID+"/addresses",
+		`{"line_1":"Synthetic Street","city":"London","country":"United Kingdom","latitude":51.5,"longitude":-0.12}`,
+		token)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create mapped address: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = ts.doRequest(http.MethodGet, "/api/vaults/"+vault.ID+"/reports/map", "", token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("map report: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	resp := parseResponse(t, rec)
+	var data struct {
+		GeocodedCount int `json:"geocoded_count"`
+		Attribution   []struct {
+			URL string `json:"url"`
+		} `json:"attribution"`
+	}
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		t.Fatalf("parse map report: %v", err)
+	}
+	if data.GeocodedCount != 1 {
+		t.Fatalf("expected one displayed coordinate, got %d", data.GeocodedCount)
+	}
+	if len(data.Attribution) != 1 || data.Attribution[0].URL != "https://www.openstreetmap.org/copyright" {
+		t.Fatalf("displayed Nominatim coordinates need linked OSM attribution, got %v", data.Attribution)
+	}
+}
+
 // Every lookup spends a request against the instance's geocoding quota, so the
 // route is held to the same permission as saving the address it would fill in.
 func TestAddressSuggestRequiresEditorPermission(t *testing.T) {
