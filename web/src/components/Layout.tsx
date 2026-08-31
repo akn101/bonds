@@ -338,7 +338,11 @@ export default function Layout() {
           // the containing block for position:sticky inside it, so an overflow
           // here silently stops the contact-section nav (and anything else
           // sticky) from sticking to the viewport. Wide content scrolls in its
-          // own container instead.
+          // own container instead — and `clip` (which, unlike auto/hidden,
+          // creates no scroll container and leaves sticky alone) guarantees
+          // that anything without its own container can only be cut at the
+          // edge, never widen the document and pan the header off-screen.
+          overflowX: "clip",
           minWidth: 0,
         }}
       >

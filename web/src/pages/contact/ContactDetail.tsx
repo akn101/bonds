@@ -224,6 +224,41 @@ function contactLabelAssignmentsQueryKey(vaultId: string, contactId: string) {
   return ["vaults", vaultId, "contacts", contactId, "labels"] as const;
 }
 
+// How far a jumped-to anchor must stay below the viewport top: past the app
+// header and vault nav (116px) plus breathing room. In compact mode the sticky
+// section Select (8px padding + 32px control + 12px padding, from 116) also
+// stands over the content, so anchors must clear its bottom edge at 168px too
+// — an anchor at 132 would put the heading underneath it.
+const SECTION_ANCHOR_MARGIN = 132;
+const COMPACT_SECTION_ANCHOR_MARGIN = 176;
+
+// Smooth scrolling aims at where the target was when the animation started,
+// but lazily-mounted sections between here and there inflate from their
+// placeholder height as the viewport passes them, moving the target. Once the
+// animation goes quiet, re-assert the destination if it drifted; give up after
+// a few seconds rather than fight a reader who has scrolled on.
+function settleIntoView(node: HTMLElement) {
+  node.scrollIntoView({ behavior: "smooth", block: "start" });
+  let lastY = Number.NaN;
+  let quietFrames = 0;
+  let frames = 0;
+  const watch = () => {
+    if (frames++ > 240) return;
+    const y = window.scrollY;
+    quietFrames = y === lastY ? quietFrames + 1 : 0;
+    lastY = y;
+    if (quietFrames < 3) {
+      requestAnimationFrame(watch);
+      return;
+    }
+    const margin = parseFloat(getComputedStyle(node).scrollMarginTop) || 0;
+    if (Math.abs(node.getBoundingClientRect().top - margin) > 4) {
+      node.scrollIntoView({ behavior: "auto", block: "start" });
+    }
+  };
+  requestAnimationFrame(watch);
+}
+
 function vaultLabelsQueryKey(vaultId: string) {
   return ["vaults", vaultId, "labels"] as const;
 }
@@ -380,7 +415,7 @@ function ContactSectionLayout({
     const section = getSectionNodes().find(
       (node) => node.dataset.contactSectionKey === key,
     );
-    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (section) settleIntoView(section);
   };
 
   // Scrolls to one card within a section. Sections below the fold are not
@@ -394,7 +429,7 @@ function ContactSectionLayout({
         `[data-contact-module-key="${moduleKey}"]`,
       );
       if (node) {
-        node.scrollIntoView({ behavior: "smooth", block: "start" });
+        settleIntoView(node);
         return;
       }
       if (attempts++ < 10) requestAnimationFrame(scrollWhenReady);
@@ -622,7 +657,9 @@ function ContactSectionLayout({
               aria-labelledby={headingID}
               aria-busy={!shouldRender}
               style={{
-                scrollMarginTop: 132,
+                scrollMarginTop: compactNavigation
+                  ? COMPACT_SECTION_ANCHOR_MARGIN
+                  : SECTION_ANCHOR_MARGIN,
                 marginBottom: index === pageEntries.length - 1 ? 0 : 40,
                 minWidth: 0,
               }}
@@ -1492,7 +1529,12 @@ export default function ContactDetail() {
         <div
           key={key}
           data-contact-module-key={key}
-          style={{ scrollMarginTop: 132, minWidth: 0 }}
+          style={{
+            scrollMarginTop: detailScreens.lg
+              ? SECTION_ANCHOR_MARGIN
+              : COMPACT_SECTION_ANCHOR_MARGIN,
+            minWidth: 0,
+          }}
         >
           {child}
         </div>

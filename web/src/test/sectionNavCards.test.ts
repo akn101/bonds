@@ -35,21 +35,23 @@ describe("sectionNavCards", () => {
     expect(sectionNavCards(page("Relationship network", ["Relationship  Network"]))).toEqual([]);
   });
 
-  it("drops only the restating card, not its siblings", () => {
+  it("keeps a name-sharing card when it has siblings", () => {
+    // With siblings present, the section and the card are demonstrably
+    // different things, and the card is a distinct scroll target: renaming a
+    // page to match one of its cards must not silently delete that card.
     const cards = sectionNavCards(page("Social", ["Social", "Pets", "Groups"]));
-    expect(cards.map((c) => c.name)).toEqual(["Pets", "Groups"]);
+    expect(cards.map((c) => c.name)).toEqual(["Social", "Pets", "Groups"]);
   });
 
-  it("never produces a duplicate of the section's own name", () => {
-    // The property that matters: whatever the layout, the nav cannot end up
-    // with two identically labelled buttons under one section.
+  it("only ever folds the lone-card case", () => {
+    // The fold exists to stop "Activities > Activities" — a nav entry that
+    // duplicates its own section header and nothing else. Any layout with
+    // more than one card keeps every card.
     for (const p of [
-      page("Activities", ["Activities"]),
       page("Notes and records", ["Notes", "Documents", "Notes and records"]),
-      page("Summary", ["Contact summary"]),
+      page("Social", ["Social", "Pets"]),
     ]) {
-      const names = sectionNavCards(p).map((c) => c.name?.toLowerCase());
-      expect(names).not.toContain(p.name?.toLowerCase());
+      expect(sectionNavCards(p)).toHaveLength(p.modules?.length ?? 0);
     }
   });
 
