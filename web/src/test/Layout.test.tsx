@@ -86,6 +86,27 @@ function renderLayout() {
   );
 }
 
+describe("Layout scrolling", () => {
+  beforeEach(() => {
+    mockUseQuery.mockReset();
+    mockUseQuery.mockReturnValue({ data: undefined, isLoading: false });
+    authState.isAdmin = false;
+  });
+
+  it("leaves the content region scrollable by the page, not by itself", () => {
+    // A scrollable ancestor becomes the containing block for position:sticky
+    // inside it. Setting overflow here silently stops the contact-section
+    // navigation from sticking to the viewport, with no error anywhere — so the
+    // absence of an overflow is worth asserting.
+    const { container } = renderLayout();
+    const content = container.querySelector(".ant-layout-content");
+    expect(content).not.toBeNull();
+
+    const overflow = (content as HTMLElement).style.overflow;
+    expect(overflow === "" || overflow === "visible").toBe(true);
+  });
+});
+
 describe("Layout vault navigation visibility", () => {
   beforeEach(() => {
     mockUseQuery.mockReset();

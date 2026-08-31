@@ -17,6 +17,7 @@ import {
   timestampToDateInput,
 } from "@/utils/dateOnlyInput";
 import CalendarDatePicker from "@/components/CalendarDatePicker";
+import { sectionNavCards } from "@/pages/contact/sectionNavCards";
 import type { CalendarDatePickerValue } from "@/components/CalendarDatePicker";
 import {
   buildContactFirstMetRequest,
@@ -361,7 +362,10 @@ function ContactSectionLayout({
     [],
   );
 
-  const jumpToSection = (key: string) => {
+  // Marks a section current and makes sure it is mounted, without moving the
+  // page. Kept separate from scrolling so that jumping to a card does not also
+  // start a competing smooth scroll to the top of its section.
+  const openSection = (key: string) => {
     setActiveSectionKey(key);
     setLoadedSectionKeys((current) => {
       if (current.has(key)) return current;
@@ -369,10 +373,33 @@ function ContactSectionLayout({
       next.add(key);
       return next;
     });
+  };
+
+  const jumpToSection = (key: string) => {
+    openSection(key);
     const section = getSectionNodes().find(
       (node) => node.dataset.contactSectionKey === key,
     );
     section?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // Scrolls to one card within a section. Sections below the fold are not
+  // rendered until they are needed, so the card may not exist yet — hence the
+  // few frames of grace before giving up.
+  const jumpToModule = (sectionKey: string, moduleKey: string) => {
+    openSection(sectionKey);
+    let attempts = 0;
+    const scrollWhenReady = () => {
+      const node = containerRef.current?.querySelector<HTMLElement>(
+        `[data-contact-module-key="${moduleKey}"]`,
+      );
+      if (node) {
+        node.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (attempts++ < 10) requestAnimationFrame(scrollWhenReady);
+    };
+    requestAnimationFrame(scrollWhenReady);
   };
 
   useEffect(() => {
@@ -495,28 +522,73 @@ function ContactSectionLayout({
       <Space orientation="vertical" size={2} style={{ width: "100%" }}>
         {pageEntries.map((entry) => {
           const active = entry.key === currentSectionKey;
+          // Only the section being read is expanded into its cards: showing
+          // every card of every section would be a wall of forty links, and the
+          // point of this nav is to be scannable.
+          //
+          // A lone card that just restates its section's name is dropped —
+          // "Activities > Activities" tells the reader nothing, and repeating
+          // the name puts two identically labelled buttons in one navigation,
+          // which is ambiguous to a screen reader and to anything selecting by
+          // accessible name. Sections whose single card is named differently
+          // ("Summary" holding "Contact summary") still expand: suppressing
+          // every single-card section made the control look broken, because in
+          // a default layout five of the eight sections hold one card.
+          const cards = active ? sectionNavCards(entry.page) : [];
           return (
-            <Button
-              key={entry.key}
-              type="text"
-              block
-              aria-current={active ? "location" : undefined}
-              onClick={() => jumpToSection(entry.key)}
-              style={{
-                height: "auto",
-                minHeight: 34,
-                padding: "7px 10px",
-                textAlign: "left",
-                justifyContent: "flex-start",
-                whiteSpace: "normal",
-                lineHeight: 1.35,
-                color: active ? token.colorPrimary : token.colorTextSecondary,
-                background: active ? token.colorPrimaryBg : undefined,
-                fontWeight: active ? 600 : 400,
-              }}
-            >
-              {entry.page.name ?? entry.page.slug ?? ""}
-            </Button>
+            <div key={entry.key} style={{ width: "100%" }}>
+              <Button
+                type="text"
+                block
+                aria-current={active ? "location" : undefined}
+                onClick={() => jumpToSection(entry.key)}
+                style={{
+                  height: "auto",
+                  minHeight: 34,
+                  padding: "7px 10px",
+                  textAlign: "left",
+                  justifyContent: "flex-start",
+                  whiteSpace: "normal",
+                  lineHeight: 1.35,
+                  color: active ? token.colorPrimary : token.colorTextSecondary,
+                  background: active ? token.colorPrimaryBg : undefined,
+                  fontWeight: active ? 600 : 400,
+                }}
+              >
+                {entry.page.name ?? entry.page.slug ?? ""}
+              </Button>
+              {cards.length > 0 && (
+                <div
+                  style={{
+                    marginLeft: 10,
+                    paddingLeft: 8,
+                    borderLeft: `1px solid ${token.colorSplit}`,
+                  }}
+                >
+                  {cards.map((card) => (
+                    <Button
+                      key={card.id}
+                      type="text"
+                      block
+                      onClick={() => jumpToModule(entry.key, `mod-${card.id}`)}
+                      style={{
+                        height: "auto",
+                        minHeight: 26,
+                        padding: "4px 8px",
+                        textAlign: "left",
+                        justifyContent: "flex-start",
+                        whiteSpace: "normal",
+                        lineHeight: 1.3,
+                        fontSize: 12,
+                        color: token.colorTextTertiary,
+                      }}
+                    >
+                      {card.name ?? card.type ?? ""}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </Space>
@@ -1407,12 +1479,32 @@ export default function ContactDetail() {
     if (children.length === 0) {
       return null;
     }
-    if (children.length === 1) {
-      return children[0];
+
+    // Each card is wrapped in an anchor carrying the key it was pushed with, so
+    // the section navigation can scroll straight to one card rather than only
+    // to the top of the page it lives on.
+    const anchored = children.map((child, index) => {
+      const key =
+        React.isValidElement(child) && child.key != null
+          ? String(child.key)
+          : `child-${index}`;
+      return (
+        <div
+          key={key}
+          data-contact-module-key={key}
+          style={{ scrollMarginTop: 132, minWidth: 0 }}
+        >
+          {child}
+        </div>
+      );
+    });
+
+    if (anchored.length === 1) {
+      return anchored[0];
     }
     return (
       <Space direction="vertical" style={{ width: "100%" }} size={16}>
-        {children}
+        {anchored}
       </Space>
     );
   }

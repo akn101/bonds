@@ -334,7 +334,12 @@ export default function Layout() {
           padding: "24px 16px",
           background: token.colorBgLayout,
           minHeight: 280,
-          overflow: "auto",
+          // Deliberately not `overflow: auto`. Any scrollable ancestor becomes
+          // the containing block for position:sticky inside it, so an overflow
+          // here silently stops the contact-section nav (and anything else
+          // sticky) from sticking to the viewport. Wide content scrolls in its
+          // own container instead.
+          minWidth: 0,
         }}
       >
         <div style={{ maxWidth: 1600, margin: "0 auto" }}>
