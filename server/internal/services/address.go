@@ -2,6 +2,8 @@ package services
 
 import (
 	"errors"
+	"log"
+	"strings"
 	"time"
 
 	"github.com/naiba/bonds/internal/dto"
@@ -135,6 +137,13 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 		return nil, ErrAddressNotFound
 	}
 
+	// Remember where the address was before it is overwritten, so an edit that
+	// does not move it keeps its coordinates. The address form does not send
+	// latitude or longitude, so assigning them straight from the request would
+	// erase the geocode on every save and nothing would ever recompute it.
+	previousQuery := geocodeQuery(&address)
+	previousLatitude, previousLongitude := address.Latitude, address.Longitude
+
 	address.Line1 = strPtrOrNil(req.Line1)
 	address.Line2 = strPtrOrNil(req.Line2)
 	address.City = strPtrOrNil(req.City)
@@ -142,8 +151,24 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	address.PostalCode = strPtrOrNil(req.PostalCode)
 	address.Country = strPtrOrNil(req.Country)
 	address.AddressTypeID = req.AddressTypeID
-	address.Latitude = req.Latitude
-	address.Longitude = req.Longitude
+
+	coordinatesGiven := req.Latitude != nil && req.Longitude != nil
+	movedElsewhere := geocodeQuery(&address) != previousQuery
+	switch {
+	case coordinatesGiven:
+		address.Latitude = req.Latitude
+		address.Longitude = req.Longitude
+	case movedElsewhere:
+		// The address now describes somewhere else, so the old coordinates are
+		// simply wrong. Drop them before re-geocoding: keeping them until a
+		// replacement arrives would leave the address pinned to its previous
+		// location whenever the provider errors or finds nothing, which is a
+		// worse answer than having no pin at all.
+		address.Latitude, address.Longitude = nil, nil
+	default:
+		address.Latitude = previousLatitude
+		address.Longitude = previousLongitude
+	}
 
 	isPast := req.IsPastAddress || req.DateTo != nil
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -157,6 +182,13 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// Only re-geocode when the address actually moved; re-running it on every
+	// save would spend a provider request, and a rate-limit slot, to arrive back
+	// at the coordinates already stored.
+	if !coordinatesGiven && movedElsewhere {
+		s.tryGeocode(&address)
 	}
 
 	resp := toAddressResponse(&address, isPast, req.DateFrom, req.DateTo)
@@ -179,33 +211,43 @@ func (s *AddressService) Delete(id uint, contactID, vaultID string) error {
 	})
 }
 
-func (s *AddressService) tryGeocode(address *models.Address) {
-	if s.geocoder == nil {
-		return
-	}
+// geocodeQuery renders the address as the single line a geocoder is asked
+// about. Line 2 is left out deliberately: flat and building numbers are noise
+// to a geocoder and routinely cost it the match.
+func geocodeQuery(address *models.Address) string {
 	parts := []string{}
 	for _, p := range []*string{address.Line1, address.City, address.Province, address.PostalCode, address.Country} {
 		if p != nil && *p != "" {
 			parts = append(parts, *p)
 		}
 	}
-	if len(parts) == 0 {
+	return strings.Join(parts, ", ")
+}
+
+func (s *AddressService) tryGeocode(address *models.Address) {
+	if s.geocoder == nil {
 		return
 	}
-	query := ""
-	for i, p := range parts {
-		if i > 0 {
-			query += ", "
-		}
-		query += p
+	query := geocodeQuery(address)
+	if query == "" {
+		return
 	}
 	result, err := s.geocoder.Geocode(query)
-	if err != nil || result == nil {
+	if err != nil {
+		// Worth a line in the log: a misconfigured provider or a blocked IP is
+		// otherwise completely invisible, and the only symptom is addresses
+		// quietly never getting coordinates.
+		log.Printf("geocoding %q failed: %v", query, err)
+		return
+	}
+	if result == nil {
 		return
 	}
 	address.Latitude = &result.Latitude
 	address.Longitude = &result.Longitude
-	s.db.Model(address).Select("latitude", "longitude").Updates(address)
+	if err := s.db.Model(address).Select("latitude", "longitude").Updates(address).Error; err != nil {
+		log.Printf("storing geocode for address %d failed: %v", address.ID, err)
+	}
 }
 
 func toAddressResponse(a *models.Address, isPastAddress bool, dateFrom, dateTo *time.Time) dto.AddressResponse {
