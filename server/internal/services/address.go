@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/naiba/bonds/internal/dto"
@@ -16,8 +17,10 @@ import (
 var ErrAddressNotFound = errors.New("address not found")
 
 type AddressService struct {
-	db                 *gorm.DB
-	feedRecorder       *FeedRecorder
+	db           *gorm.DB
+	feedRecorder *FeedRecorder
+
+	geocodingMu        sync.RWMutex
 	geocoder           Geocoder
 	geocodingPrecision string
 }
@@ -31,6 +34,8 @@ func (s *AddressService) SetFeedRecorder(fr *FeedRecorder) {
 }
 
 func (s *AddressService) SetGeocoder(g Geocoder) {
+	s.geocodingMu.Lock()
+	defer s.geocodingMu.Unlock()
 	s.geocoder = g
 }
 
@@ -38,7 +43,40 @@ func (s *AddressService) SetGeocoder(g Geocoder) {
 // it is geocoded. Anything other than GeocodingPrecisionLocality behaves as
 // exact, which is the historical behaviour.
 func (s *AddressService) SetGeocodingPrecision(precision string) {
-	s.geocodingPrecision = precision
+	s.geocodingMu.Lock()
+	defer s.geocodingMu.Unlock()
+	s.geocodingPrecision = normalizeGeocodingPrecision(precision)
+}
+
+// ConfigureGeocoding atomically replaces every runtime setting used for an
+// outbound lookup. Admin updates can change the provider, key and privacy
+// precision together, so no request may observe a half-reloaded combination.
+func (s *AddressService) ConfigureGeocoding(g Geocoder, precision string) {
+	s.geocodingMu.Lock()
+	defer s.geocodingMu.Unlock()
+	s.geocoder = g
+	s.geocodingPrecision = normalizeGeocodingPrecision(precision)
+}
+
+type geocodingRuntime struct {
+	geocoder  Geocoder
+	precision string
+}
+
+func (s *AddressService) geocodingSnapshot() geocodingRuntime {
+	s.geocodingMu.RLock()
+	defer s.geocodingMu.RUnlock()
+	return geocodingRuntime{
+		geocoder:  s.geocoder,
+		precision: normalizeGeocodingPrecision(s.geocodingPrecision),
+	}
+}
+
+func normalizeGeocodingPrecision(precision string) string {
+	if precision == GeocodingPrecisionLocality {
+		return GeocodingPrecisionLocality
+	}
+	return GeocodingPrecisionExact
 }
 
 func (s *AddressService) List(contactID, vaultID string) ([]dto.AddressResponse, error) {
@@ -123,7 +161,7 @@ func (s *AddressService) Create(contactID, vaultID string, req dto.CreateAddress
 	// provider request to second-guess them would make POST and PUT disagree
 	// about whose coordinates win.
 	if address.Latitude == nil || address.Longitude == nil {
-		s.tryGeocode(&address)
+		s.tryGeocode(&address, s.geocodingSnapshot())
 	}
 
 	if s.feedRecorder != nil {
@@ -151,12 +189,13 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	if err := s.db.First(&address, id).Error; err != nil {
 		return nil, ErrAddressNotFound
 	}
+	runtime := s.geocodingSnapshot()
 
 	// Remember where the address was before it is overwritten, so an edit that
 	// does not move it keeps its coordinates. The address form does not send
 	// latitude or longitude, so assigning them straight from the request would
 	// erase the geocode on every save and nothing would ever recompute it.
-	previousQuery := geocodeQuery(&address, s.geocodingPrecision)
+	previousQuery := geocodeQuery(&address, runtime.precision)
 	previousLatitude, previousLongitude := address.Latitude, address.Longitude
 
 	address.Line1 = strPtrOrNil(req.Line1)
@@ -170,7 +209,7 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	// A cosmetic edit is not a move: trailing whitespace or a change of case
 	// would be asked of the geocoder as the same question, so it must not cost
 	// the stored coordinates (nor a provider request to recompute them).
-	movedElsewhere := !sameGeocodeQuery(geocodeQuery(&address, s.geocodingPrecision), previousQuery)
+	movedElsewhere := !sameGeocodeQuery(geocodeQuery(&address, runtime.precision), previousQuery)
 
 	// Coordinates in the request only count as caller-supplied when they say
 	// something the server did not already say. PUT is full-replace, so a
@@ -219,7 +258,7 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	// while the provider was down would otherwise never get a pin without the
 	// user mangling its text and changing it back.
 	if !coordinatesGiven && (movedElsewhere || address.Latitude == nil || address.Longitude == nil) {
-		s.tryGeocode(&address)
+		s.tryGeocode(&address, runtime)
 	}
 
 	resp := toAddressResponse(&address, isPast, req.DateFrom, req.DateTo)
@@ -315,22 +354,22 @@ func sameGeocodeQuery(a, b string) bool {
 	return strings.EqualFold(strings.Join(strings.Fields(a), ""), strings.Join(strings.Fields(b), ""))
 }
 
-func (s *AddressService) tryGeocode(address *models.Address) {
-	if s.geocoder == nil {
+func (s *AddressService) tryGeocode(address *models.Address, runtime geocodingRuntime) {
+	if runtime.geocoder == nil {
 		return
 	}
-	query := geocodeQuery(address, s.geocodingPrecision)
+	query := geocodeQuery(address, runtime.precision)
 	if query == "" {
 		return
 	}
-	result, err := s.geocoder.Geocode(query)
+	result, err := runtime.geocoder.Geocode(query)
 	if err != nil {
 		// Worth a line in the log: a misconfigured provider or a blocked IP is
 		// otherwise completely invisible, and the only symptom is addresses
 		// quietly never getting coordinates. The query itself stays out of the
 		// log, though — in exact mode it is a contact's complete home address,
 		// and the address ID identifies the row just as well.
-		log.Printf("geocoding address %d via %T failed: %v", address.ID, s.geocoder, redactGeocodeError(err))
+		log.Printf("geocoding address %d via %T failed: %v", address.ID, runtime.geocoder, redactGeocodeError(err))
 		return
 	}
 	if result == nil {
@@ -403,25 +442,26 @@ func toAddressResponse(a *models.Address, isPastAddress bool, dateFrom, dateTo *
 //     partial line the reader is typing. There is no way to answer a street
 //     query at district precision, so the feature is withdrawn rather than
 //     quietly weakened.
-func (s *AddressService) autocompleteAvailable() bool {
-	if s.geocoder == nil {
+func autocompleteAvailable(runtime geocodingRuntime) bool {
+	if runtime.geocoder == nil {
 		return false
 	}
-	if s.geocodingPrecision == GeocodingPrecisionLocality {
+	if runtime.precision == GeocodingPrecisionLocality {
 		return false
 	}
-	return s.geocoder.SupportsAutocomplete()
+	return runtime.geocoder.SupportsAutocomplete()
 }
 
 // Attribution lists the data credits that must be shown wherever this
-// instance's address suggestions are, as required by the configured
-// provider's licence. Empty when lookup is unavailable, because then nothing
-// is shown that would need crediting.
+// provider's data is displayed. Forward geocoding can still create stored
+// coordinates when autocomplete is unavailable (public Nominatim and locality
+// precision), so attribution must not be tied to the suggestion control.
 func (s *AddressService) Attribution() []dto.AddressAttribution {
-	if !s.autocompleteAvailable() {
+	runtime := s.geocodingSnapshot()
+	if runtime.geocoder == nil {
 		return []dto.AddressAttribution{}
 	}
-	credits := s.geocoder.Attribution()
+	credits := runtime.geocoder.Attribution()
 	attribution := make([]dto.AddressAttribution, 0, len(credits))
 	for _, credit := range credits {
 		attribution = append(attribution, dto.AddressAttribution{Label: credit.Label, URL: credit.URL})
@@ -437,14 +477,15 @@ func (s *AddressService) Attribution() []dto.AddressAttribution {
 // no suggestions to offer, and the caller should hide the control rather than
 // show an empty one.
 func (s *AddressService) Suggest(query string, limit int) ([]dto.AddressSuggestionItem, bool, error) {
-	if !s.autocompleteAvailable() {
+	runtime := s.geocodingSnapshot()
+	if !autocompleteAvailable(runtime) {
 		return []dto.AddressSuggestionItem{}, false, nil
 	}
 	if strings.TrimSpace(query) == "" {
 		return []dto.AddressSuggestionItem{}, true, nil
 	}
 
-	results, err := s.geocoder.Suggest(query, limit)
+	results, err := runtime.geocoder.Suggest(query, limit)
 	if err != nil {
 		return nil, true, err
 	}

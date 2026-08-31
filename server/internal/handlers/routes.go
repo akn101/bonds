@@ -118,16 +118,21 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	notificationService.SetSender(notificationSender)
 	notificationService.SetSystemSettings(systemSettingService)
 
-	geocodingProvider := systemSettingService.GetWithDefault("geocoding.provider", cfg.Geocoding.Provider)
-	if geocodingProvider != "" {
-		geocodingAPIKey := systemSettingService.GetWithDefault("geocoding.api_key", cfg.Geocoding.APIKey)
-		geocoder := services.NewGeocoder(geocodingProvider, geocodingAPIKey)
-		addressService.SetGeocoder(geocoder)
+	reloadGeocoding := func() {
+		provider := systemSettingService.GetWithDefault("geocoding.provider", cfg.Geocoding.Provider)
+		var geocoder services.Geocoder
+		if provider != "" {
+			apiKey := systemSettingService.GetWithDefault("geocoding.api_key", cfg.Geocoding.APIKey)
+			geocoder = services.NewGeocoder(provider, apiKey)
+		}
+		// Provider, key and precision are swapped as one runtime snapshot. An
+		// empty provider deliberately removes the active geocoder.
+		addressService.ConfigureGeocoding(
+			geocoder,
+			systemSettingService.GetWithDefault("geocoding.precision", cfg.Geocoding.Precision),
+		)
 	}
-	// Precision governs how much of an address may leave the server, so it is
-	// applied whether or not a provider is configured today: a geocoder added
-	// later must not default to sending more than the admin chose.
-	addressService.SetGeocodingPrecision(systemSettingService.GetWithDefault("geocoding.precision", cfg.Geocoding.Precision))
+	reloadGeocoding()
 
 	oauthProviderService := services.NewOAuthProviderServiceWithCipher(db, cfg.Security.SettingsEncKey)
 	oauthProviderService.SetSystemSettings(systemSettingService)
@@ -258,6 +263,7 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	currencyHandler := NewCurrencyHandler(currencyService)
 	davClientHandler := NewDavClientHandler(davClientService, davSyncService)
 	adminHandler := NewAdminHandler(adminService, systemSettingService, searchService, db)
+	adminHandler.RegisterReloader(reloadGeocoding)
 	adminHandler.RegisterReloader(func() {
 		oauthProviderService.ReloadProviders()
 	})

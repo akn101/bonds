@@ -384,7 +384,7 @@ func TestSuggestWorksWhenProviderPermitsAndPrecisionIsExact(t *testing.T) {
 	}
 }
 
-func TestAttributionFollowsAvailability(t *testing.T) {
+func TestAttributionFollowsProviderEvenWhenAutocompleteIsUnavailable(t *testing.T) {
 	svc, _, _ := setupAddressTest(t)
 
 	// No provider: nothing is shown, so nothing needs crediting.
@@ -398,10 +398,11 @@ func TestAttributionFollowsAvailability(t *testing.T) {
 		t.Fatalf("expected the provider's credit passed through, got %v", credits)
 	}
 
-	// Locality precision withdraws lookup, and the credit goes with it.
+	// Locality precision withdraws autocomplete, but forward geocoding still
+	// creates coordinates that may be displayed elsewhere and still need credit.
 	svc.SetGeocodingPrecision(GeocodingPrecisionLocality)
-	if credits := svc.Attribution(); len(credits) != 0 {
-		t.Fatalf("expected no attribution at locality precision, got %v", credits)
+	if credits := svc.Attribution(); len(credits) != 1 || credits[0].Label != "Test data" {
+		t.Fatalf("expected provider attribution at locality precision, got %v", credits)
 	}
 }
 

@@ -51,8 +51,8 @@ func TestAddressSuggestHonoursThePersistedPrecisionSetting(t *testing.T) {
 	if data.Enabled {
 		t.Fatal("locality precision must withdraw address lookup, but the route reports it enabled")
 	}
-	if len(data.Attribution) != 0 {
-		t.Fatalf("no lookup means nothing to credit, got %v", data.Attribution)
+	if len(data.Attribution) != 2 {
+		t.Fatalf("forward-geocoded coordinates still require provider credits, got %v", data.Attribution)
 	}
 }
 
@@ -75,6 +75,46 @@ func TestAddressSuggestEnabledAtExactPrecisionWithCapableProvider(t *testing.T) 
 	}
 }
 
+func TestAdminGeocodingSettingsHotReloadTheRunningAddressService(t *testing.T) {
+	ts := setupTestServerWithConfig(t, func(cfg *config.Config) {
+		cfg.Geocoding = config.GeocodingConfig{Provider: "locationiq", APIKey: "old-key", Precision: "exact"}
+	})
+	adminToken, _ := ts.registerTestUser(t, "suggest-hot-reload@example.com")
+	vault := ts.createTestVault(t, adminToken, "Hot Reload Vault")
+
+	if data := suggestProbe(t, ts, vault.ID, adminToken); !data.Enabled {
+		t.Fatal("precondition: exact LocationIQ lookup should be enabled")
+	}
+
+	// Saving privacy precision must affect the already-running service; a
+	// restart-only setting would leave this probe enabled.
+	rec := ts.doRequest(http.MethodPut, "/api/admin/settings",
+		`{"settings":[{"key":"geocoding.precision","value":"locality"},{"key":"geocoding.api_key","value":"new-key"}]}`,
+		adminToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update geocoding precision: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	data := suggestProbe(t, ts, vault.ID, adminToken)
+	if data.Enabled {
+		t.Fatal("the running service kept exact precision after the admin update")
+	}
+	if len(data.Attribution) != 2 {
+		t.Fatalf("the active LocationIQ provider should retain both credits, got %v", data.Attribution)
+	}
+
+	// Removing the provider must atomically remove its runtime instance too.
+	rec = ts.doRequest(http.MethodPut, "/api/admin/settings",
+		`{"settings":[{"key":"geocoding.provider","value":""},{"key":"geocoding.precision","value":"exact"}]}`,
+		adminToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("remove geocoding provider: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	data = suggestProbe(t, ts, vault.ID, adminToken)
+	if data.Enabled || len(data.Attribution) != 0 {
+		t.Fatalf("removed provider is still active: %+v", data)
+	}
+}
+
 func TestAddressSuggestDisabledForPublicNominatim(t *testing.T) {
 	ts := setupTestServerWithConfig(t, func(cfg *config.Config) {
 		cfg.Geocoding = config.GeocodingConfig{Provider: "nominatim", Precision: "exact"}
@@ -82,8 +122,12 @@ func TestAddressSuggestDisabledForPublicNominatim(t *testing.T) {
 	token, _ := ts.registerTestUser(t, "suggest-nominatim@example.com")
 	vault := ts.createTestVault(t, token, "Nominatim Vault")
 
-	if data := suggestProbe(t, ts, vault.ID, token); data.Enabled {
+	data := suggestProbe(t, ts, vault.ID, token)
+	if data.Enabled {
 		t.Fatal("the public Nominatim instance forbids autocomplete; the route must report lookup unavailable")
+	}
+	if len(data.Attribution) != 1 || data.Attribution[0].URL != "https://www.openstreetmap.org/copyright" {
+		t.Fatalf("Nominatim forward-geocoded coordinates still require OSM attribution, got %v", data.Attribution)
 	}
 }
 
