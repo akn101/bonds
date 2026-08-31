@@ -199,6 +199,10 @@
   "err.failed_to_get_address_report": "获取地址报表失败",
   "err.failed_to_get_important_dates_report": "获取重要日期报表失败",
   "err.failed_to_get_mood_report": "获取心情报表失败",
+  "err.failed_to_get_report_overview": "获取报表概览失败",
+  "err.failed_to_get_demographics_report": "获取人口统计报表失败",
+  "err.failed_to_get_map_report": "获取地图报表失败",
+  "err.failed_to_get_interactions_report": "获取互动报表失败",
 
   "err.failed_to_get_feed": "获取动态失败",
 

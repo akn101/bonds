@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  formatCalendarDate,
   formatDateTime,
   formatDate,
   type DateFormatVariants,
@@ -53,5 +54,20 @@ describe("formatDateTime respects user timezone", () => {
       tz: "Pacific/Honolulu",
     });
     expect(honolulu).toBe("2026-03-11");
+  });
+});
+
+describe("formatCalendarDate", () => {
+  it("never moves a calendar date into the previous day for readers behind UTC", () => {
+    // last_at and friends are pure dates stored at UTC midnight. A New York
+    // reader viewing "2026-08-19T00:00:00Z" spoke to that person on the 19th,
+    // not the 18th — the date has no instant to convert.
+    const formats = { full: "YYYY-MM-DD", tz: "America/New_York" };
+    expect(formatCalendarDate("2026-08-19T00:00:00Z", formats as never)).toBe("2026-08-19");
+  });
+
+  it("is equally indifferent to timezones ahead of UTC", () => {
+    const formats = { full: "YYYY-MM-DD", tz: "Pacific/Kiritimati" };
+    expect(formatCalendarDate("2026-08-19T00:00:00Z", formats as never)).toBe("2026-08-19");
   });
 });

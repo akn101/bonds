@@ -300,7 +300,66 @@
       "col_date": "Fecha",
       "col_calendar": "Calendario",
       "col_mood": "Ánimo",
-      "contacts_in": "Contactos en {{location}}"
+      "contacts_in": "Contactos en {{location}}",
+      "map": {
+        "title": "Dónde están",
+        "no_data": "Aún no hay direcciones registradas",
+        "hint": "Desplázate para acercar, arrastra para mover. Haz clic en un punto para abrir el contacto.",
+        "aria_label": "Mapa de direcciones de contactos",
+        "address_count": "{{count}} direcciones",
+        "address_count_one": "{{count}} dirección",
+        "contact_count": "{{count}} contactos",
+        "contact_count_one": "{{count}} contacto",
+        "geocoded_summary": "{{geocoded}} de {{total}} direcciones tienen coordenadas y aparecen como puntos; el resto se cuenta por país."
+      },
+      "demographics": {
+        "title": "Quiénes son",
+        "no_data": "Aún no hay nada que resumir",
+        "dimension_label": "Atributo",
+        "dimension_empty": "Nadie tiene esto registrado todavía",
+        "coverage": "{{known}} de {{total}} registrados",
+        "not_set": "{{count}} sin definir",
+        "unnamed": "Sin nombre",
+        "dimension": {
+          "gender": "Género",
+          "pronoun": "Pronombres",
+          "religion": "Religión",
+          "age": "Edad",
+          "label": "Etiquetas",
+          "group": "Grupos"
+        },
+        "age": {
+          "0_17": "Menores de 18",
+          "18_24": "18–24",
+          "25_34": "25–34",
+          "35_44": "35–44",
+          "45_54": "45–54",
+          "55_64": "55–64",
+          "65_plus": "65 o más"
+        }
+      },
+      "interactions": {
+        "title": "Mantener el contacto",
+        "chart_aria": "Interacciones por mes y canal",
+        "most_frequent": "Con quien más hablas",
+        "gone_quiet": "Se han quedado en silencio",
+        "gone_quiet_hint": "Personas con las que hablabas con regularidad y con quienes llevas mucho más tiempo del habitual sin hablar.",
+        "nobody_quiet": "Nadie se ha quedado en silencio",
+        "no_data": "Aún no hay interacciones registradas",
+        "none_in_window": "No hay interacciones en este período; elige un rango más largo para ver conversaciones anteriores.",
+        "not_flagged_title": "Ningún tipo de actividad cuenta como interacción",
+        "not_flagged_body": "Esta bóveda tiene {{count}} actividades, pero ninguno de sus tipos está marcado como interacción. Actívalo en los ajustes de la bóveda para ver tu ritmo aquí.",
+        "col_occasions": "Ocasiones",
+        "col_rhythm": "Ritmo habitual",
+        "col_last": "Última",
+        "col_silent_for": "En silencio",
+        "days_ago": "{{count}} días",
+        "days_ago_one": "{{count}} día",
+        "every_n_days": "Cada {{count}} días",
+        "every_n_days_one": "A diario",
+        "window_label": "Periodo",
+        "window_months": "{{count}} meses"
+      }
     },
     "graph": {
       "title": "Gráfico de relaciones",
