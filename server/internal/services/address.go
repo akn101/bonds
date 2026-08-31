@@ -2,6 +2,10 @@ package services
 
 import (
 	"errors"
+	"fmt"
+	"log"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/naiba/bonds/internal/dto"
@@ -107,7 +111,12 @@ func (s *AddressService) Create(contactID, vaultID string, req dto.CreateAddress
 		return nil, err
 	}
 
-	s.tryGeocode(&address)
+	// Coordinates the caller already knows are kept as given — spending a
+	// provider request to second-guess them would make POST and PUT disagree
+	// about whose coordinates win.
+	if address.Latitude == nil || address.Longitude == nil {
+		s.tryGeocode(&address)
+	}
 
 	if s.feedRecorder != nil {
 		entityType := "Address"
@@ -135,6 +144,13 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 		return nil, ErrAddressNotFound
 	}
 
+	// Remember where the address was before it is overwritten, so an edit that
+	// does not move it keeps its coordinates. The address form does not send
+	// latitude or longitude, so assigning them straight from the request would
+	// erase the geocode on every save and nothing would ever recompute it.
+	previousQuery := geocodeQuery(&address)
+	previousLatitude, previousLongitude := address.Latitude, address.Longitude
+
 	address.Line1 = strPtrOrNil(req.Line1)
 	address.Line2 = strPtrOrNil(req.Line2)
 	address.City = strPtrOrNil(req.City)
@@ -142,8 +158,38 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	address.PostalCode = strPtrOrNil(req.PostalCode)
 	address.Country = strPtrOrNil(req.Country)
 	address.AddressTypeID = req.AddressTypeID
-	address.Latitude = req.Latitude
-	address.Longitude = req.Longitude
+
+	// A cosmetic edit is not a move: trailing whitespace or a change of case
+	// would be asked of the geocoder as the same question, so it must not cost
+	// the stored coordinates (nor a provider request to recompute them).
+	movedElsewhere := !sameGeocodeQuery(geocodeQuery(&address), previousQuery)
+
+	// Coordinates in the request only count as caller-supplied when they say
+	// something the server did not already say. PUT is full-replace, so a
+	// read-modify-write client echoes the whole object back — including the
+	// coordinates it was handed. If the address text moved but the coordinates
+	// are the old pair verbatim, that is a stale echo, not an instruction to
+	// pin a Vienna address at London forever.
+	echoedCoordinates := req.Latitude != nil && req.Longitude != nil &&
+		previousLatitude != nil && previousLongitude != nil &&
+		*req.Latitude == *previousLatitude && *req.Longitude == *previousLongitude
+	coordinatesGiven := req.Latitude != nil && req.Longitude != nil &&
+		!(movedElsewhere && echoedCoordinates)
+	switch {
+	case coordinatesGiven:
+		address.Latitude = req.Latitude
+		address.Longitude = req.Longitude
+	case movedElsewhere:
+		// The address now describes somewhere else, so the old coordinates are
+		// simply wrong. Drop them before re-geocoding: keeping them until a
+		// replacement arrives would leave the address pinned to its previous
+		// location whenever the provider errors or finds nothing, which is a
+		// worse answer than having no pin at all.
+		address.Latitude, address.Longitude = nil, nil
+	default:
+		address.Latitude = previousLatitude
+		address.Longitude = previousLongitude
+	}
 
 	isPast := req.IsPastAddress || req.DateTo != nil
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -157,6 +203,15 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// Re-geocode when the address actually moved — and also when it has no
+	// coordinates at all, because "arrive back at the coordinates already
+	// stored" is no reason to skip when nothing is stored: an address created
+	// while the provider was down would otherwise never get a pin without the
+	// user mangling its text and changing it back.
+	if !coordinatesGiven && (movedElsewhere || address.Latitude == nil || address.Longitude == nil) {
+		s.tryGeocode(&address)
 	}
 
 	resp := toAddressResponse(&address, isPast, req.DateFrom, req.DateTo)
@@ -179,33 +234,81 @@ func (s *AddressService) Delete(id uint, contactID, vaultID string) error {
 	})
 }
 
-func (s *AddressService) tryGeocode(address *models.Address) {
-	if s.geocoder == nil {
-		return
-	}
+// geocodeQuery renders the address as the single line a geocoder is asked
+// about. Line 2 is left out deliberately: flat and building numbers are noise
+// to a geocoder and routinely cost it the match.
+func geocodeQuery(address *models.Address) string {
 	parts := []string{}
 	for _, p := range []*string{address.Line1, address.City, address.Province, address.PostalCode, address.Country} {
 		if p != nil && *p != "" {
 			parts = append(parts, *p)
 		}
 	}
-	if len(parts) == 0 {
+	return strings.Join(parts, ", ")
+}
+
+// sameGeocodeQuery reports whether two geocoding queries would ask the
+// provider the same question: case and whitespace do not change the answer,
+// so they do not count as a move. Whitespace is removed entirely rather than
+// collapsed, because a trimmed field otherwise leaves a stranded separator
+// ("London ," versus "London,") that a word-level comparison still sees.
+func sameGeocodeQuery(a, b string) bool {
+	return strings.EqualFold(strings.Join(strings.Fields(a), ""), strings.Join(strings.Fields(b), ""))
+}
+
+func (s *AddressService) tryGeocode(address *models.Address) {
+	if s.geocoder == nil {
 		return
 	}
-	query := ""
-	for i, p := range parts {
-		if i > 0 {
-			query += ", "
-		}
-		query += p
+	query := geocodeQuery(address)
+	if query == "" {
+		return
 	}
 	result, err := s.geocoder.Geocode(query)
-	if err != nil || result == nil {
+	if err != nil {
+		// Worth a line in the log: a misconfigured provider or a blocked IP is
+		// otherwise completely invisible, and the only symptom is addresses
+		// quietly never getting coordinates. The query itself stays out of the
+		// log, though — in exact mode it is a contact's complete home address,
+		// and the address ID identifies the row just as well.
+		log.Printf("geocoding address %d via %T failed: %v", address.ID, s.geocoder, redactGeocodeError(err))
+		return
+	}
+	if result == nil {
+		return
+	}
+	// The provider can take seconds to answer, and this runs after the edit's
+	// transaction committed — the row may already have been edited again. Make
+	// the address version we geocoded part of the UPDATE itself so a newer edit
+	// cannot land between a separate check and this write.
+	stored := s.db.Model(&models.Address{}).
+		Where("id = ? AND updated_at = ?", address.ID, address.UpdatedAt).
+		Select("latitude", "longitude").
+		Updates(map[string]any{
+			"latitude":  result.Latitude,
+			"longitude": result.Longitude,
+		})
+	if stored.Error != nil {
+		log.Printf("storing geocode for address %d failed: %v", address.ID, stored.Error)
+		return
+	}
+	if stored.RowsAffected == 0 {
 		return
 	}
 	address.Latitude = &result.Latitude
 	address.Longitude = &result.Longitude
-	s.db.Model(address).Select("latitude", "longitude").Updates(address)
+}
+
+// redactGeocodeError strips the request URL from a geocoding failure before
+// it reaches the log. A transport error carries the full URL it was for, and
+// that URL embeds the geocoding query — the same address the log line above
+// deliberately leaves out.
+func redactGeocodeError(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return fmt.Errorf("%s request failed: %w", urlErr.Op, urlErr.Err)
+	}
+	return err
 }
 
 func toAddressResponse(a *models.Address, isPastAddress bool, dateFrom, dateTo *time.Time) dto.AddressResponse {
