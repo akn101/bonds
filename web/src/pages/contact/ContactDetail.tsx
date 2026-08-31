@@ -238,12 +238,14 @@ const COMPACT_SECTION_ANCHOR_MARGIN = 188;
 // placeholder height as the viewport passes them, moving the target. Once the
 // animation goes quiet, re-assert the destination if it drifted; give up after
 // a few seconds rather than fight a reader who has scrolled on.
-function settleIntoView(node: HTMLElement) {
+function settleIntoView(node: HTMLElement, isCurrent: () => boolean) {
+  if (!isCurrent()) return;
   node.scrollIntoView({ behavior: "smooth", block: "start" });
   let lastY = Number.NaN;
   let quietFrames = 0;
   let frames = 0;
   const watch = () => {
+    if (!isCurrent()) return;
     if (frames++ > 240) return;
     const y = window.scrollY;
     quietFrames = y === lastY ? quietFrames + 1 : 0;
@@ -365,6 +367,10 @@ function ContactSectionLayout({
   const screens = Grid.useBreakpoint();
   const containerRef = useRef<HTMLDivElement>(null);
   const scrolledTargetRef = useRef<string | null>(null);
+  // Every navigation supersedes the previous one. This token stops an older
+  // lazy-module wait or scroll-settling watcher from snapping the page back
+  // after the reader has already selected a different destination.
+  const navigationRequestRef = useRef(0);
   const [activeSectionKey, setActiveSectionKey] = useState<string | null>(null);
   const [loadedSectionKeys, setLoadedSectionKeys] = useState<
     ReadonlySet<string>
@@ -412,25 +418,30 @@ function ContactSectionLayout({
   };
 
   const jumpToSection = (key: string) => {
+    const requestID = ++navigationRequestRef.current;
     openSection(key);
     const section = getSectionNodes().find(
       (node) => node.dataset.contactSectionKey === key,
     );
-    if (section) settleIntoView(section);
+    if (section) {
+      settleIntoView(section, () => navigationRequestRef.current === requestID);
+    }
   };
 
   // Scrolls to one card within a section. Sections below the fold are not
   // rendered until they are needed, so the card may not exist yet — hence the
   // few frames of grace before giving up.
   const jumpToModule = (sectionKey: string, moduleKey: string) => {
+    const requestID = ++navigationRequestRef.current;
     openSection(sectionKey);
     let attempts = 0;
     const scrollWhenReady = () => {
+      if (navigationRequestRef.current !== requestID) return;
       const node = containerRef.current?.querySelector<HTMLElement>(
         `[data-contact-module-key="${moduleKey}"]`,
       );
       if (node) {
-        settleIntoView(node);
+        settleIntoView(node, () => navigationRequestRef.current === requestID);
         return;
       }
       if (attempts++ < 10) requestAnimationFrame(scrollWhenReady);
@@ -505,6 +516,7 @@ function ContactSectionLayout({
       (node) => node.dataset.contactSectionKey === targetSectionKey,
     );
     if (!section) return;
+    navigationRequestRef.current += 1;
     scrolledTargetRef.current = targetContext;
     section.scrollIntoView({ behavior: "auto", block: "start" });
   }, [getSectionNodes, sectionIdentity, targetContext, targetSectionKey]);
