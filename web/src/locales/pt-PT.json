@@ -885,7 +885,13 @@
       "is_past_address": "Morada anterior",
       "is_past_address_tooltip": "Marcar esta morada como residência anterior.",
       "past_tag": "Anterior",
-      "present": "Atual"
+      "present": "Atual",
+      "lookup_label": "Procurar uma morada",
+      "lookup_placeholder": "Comece a escrever uma morada…",
+      "lookup_hint": "Escolha um resultado para preencher os campos abaixo.",
+      "lookup_searching": "A procurar…",
+      "lookup_no_results": "Nenhuma morada correspondente",
+      "lookup_attribution": "Dados de moradas © colaboradores do OpenStreetMap."
     },
     "contact_info": {
       "title": "Informação de Contacto",
@@ -1723,7 +1729,10 @@
         "api_key": "Chave de API",
         "none": "Nenhum",
         "nominatim": "Nominatim",
-        "locationiq": "LocationIQ"
+        "locationiq": "LocationIQ",
+        "precision": "Precisão da morada",
+        "precision_exact": "Morada exata",
+        "precision_locality": "Apenas o distrito"
       },
       "storage": {
         "max_size_mb": "Tamanho Máximo de Carregamento (MB)",

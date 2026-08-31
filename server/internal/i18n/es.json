@@ -171,6 +171,8 @@
   "err.failed_to_get_address_report": "Error al obtener informe de direcciones",
   "err.failed_to_get_important_dates_report": "Error al obtener informe de fechas importantes",
   "err.failed_to_get_mood_report": "Error al obtener informe de ánimo",
+  "err.failed_to_suggest_addresses": "No se pudieron buscar direcciones",
+  "err.address_lookup_busy": "La búsqueda de direcciones está ocupada, inténtalo de nuevo en breve",
   "err.failed_to_get_feed": "Error al obtener el feed",
   "err.failed_to_get_preferences": "Error al obtener las preferencias",
   "err.failed_to_update_name_order": "Error al actualizar el orden de los nombres",

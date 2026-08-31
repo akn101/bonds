@@ -50,3 +50,24 @@ type AddressResponse struct {
 	CreatedAt     time.Time  `json:"created_at" example:"2026-01-15T10:30:00Z"`
 	UpdatedAt     time.Time  `json:"updated_at" example:"2026-01-15T10:30:00Z"`
 }
+
+// AddressSuggestionItem is one autocomplete candidate, already split into the
+// fields the address form asks for.
+type AddressSuggestionItem struct {
+	Label      string   `json:"label" example:"10 Downing Street, London, SW1A 2AA, United Kingdom"`
+	Line1      string   `json:"line_1" example:"10 Downing Street"`
+	City       string   `json:"city" example:"London"`
+	Province   string   `json:"province" example:"England"`
+	PostalCode string   `json:"postal_code" example:"SW1A 2AA"`
+	Country    string   `json:"country" example:"United Kingdom"`
+	Latitude   *float64 `json:"latitude" example:"51.5034"`
+	Longitude  *float64 `json:"longitude" example:"-0.1276"`
+}
+
+// AddressSuggestionsResponse carries the candidates plus whether address lookup
+// is configured at all, so the form can hide the control on an instance with no
+// geocoding provider instead of showing one that never returns anything.
+type AddressSuggestionsResponse struct {
+	Enabled     bool                    `json:"enabled" example:"true"`
+	Suggestions []AddressSuggestionItem `json:"suggestions"`
+}

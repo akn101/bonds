@@ -626,6 +626,10 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	)
 	icsCalendar.GET("", calendarHandler.GetICS)
 
+	// Address lookup is vault-scoped rather than per-contact: it reads nothing
+	// from a contact, and anyone who may view the vault may use it.
+	vaultScoped.GET("/addresses/suggest", addressHandler.Suggest)
+
 	vaultScoped.GET("/reports", reportHandler.Index)
 	vaultScoped.GET("/reports/overview", reportHandler.Overview)
 	vaultScoped.GET("/reports/addresses", reportHandler.Addresses)

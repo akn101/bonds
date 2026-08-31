@@ -885,7 +885,13 @@
       "is_past_address": "Adresse passée",
       "is_past_address_tooltip": "Marquez cette adresse comme ancienne résidence.",
       "past_tag": "Passé",
-      "present": "Présent"
+      "present": "Présent",
+      "lookup_label": "Rechercher une adresse",
+      "lookup_placeholder": "Commencez à saisir une adresse…",
+      "lookup_hint": "Choisissez un résultat pour remplir les champs ci-dessous.",
+      "lookup_searching": "Recherche…",
+      "lookup_no_results": "Aucune adresse correspondante",
+      "lookup_attribution": "Données d'adresses © les contributeurs d'OpenStreetMap."
     },
     "contact_info": {
       "title": "Coordonnées",
@@ -1723,7 +1729,10 @@
         "api_key": "API Clé",
         "none": "Aucun",
         "nominatim": "Nominatim",
-        "locationiq": "LocationIQ"
+        "locationiq": "LocationIQ",
+        "precision": "Précision d'adresse",
+        "precision_exact": "Adresse exacte",
+        "precision_locality": "District uniquement"
       },
       "storage": {
         "max_size_mb": "Taille maximale de téléchargement (Mo)",
