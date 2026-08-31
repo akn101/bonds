@@ -300,7 +300,65 @@
       "col_date": "Datum",
       "col_calendar": "Kalender",
       "col_mood": "Stimmung",
-      "contacts_in": "Kontakte in {{location}}"
+      "contacts_in": "Kontakte in {{location}}",
+      "map": {
+        "title": "Wo sie leben",
+        "no_data": "Noch keine Adressen erfasst",
+        "hint": "Scrollen zum Zoomen, ziehen zum Verschieben. Auf eine Markierung klicken, um den Kontakt zu öffnen.",
+        "aria_label": "Karte der Kontaktadressen",
+        "address_count": "{{count}} Adressen",
+        "address_count_one": "{{count}} Adresse",
+        "contact_count": "{{count}} Kontakte",
+        "contact_count_one": "{{count}} Kontakt",
+        "geocoded_summary": "{{geocoded}} von {{total}} Adressen haben Koordinaten und erscheinen als Markierung; der Rest wird nach Land gezählt."
+      },
+      "demographics": {
+        "title": "Wer sie sind",
+        "no_data": "Noch nichts auszuwerten",
+        "dimension_label": "Merkmal",
+        "dimension_empty": "Dafür ist noch nichts erfasst",
+        "coverage": "{{known}} von {{total}} erfasst",
+        "not_set": "{{count}} ohne Angabe",
+        "unnamed": "Ohne Namen",
+        "dimension": {
+          "gender": "Geschlecht",
+          "pronoun": "Pronomen",
+          "religion": "Religion",
+          "age": "Alter",
+          "label": "Labels",
+          "group": "Gruppen"
+        },
+        "age": {
+          "0_17": "Unter 18",
+          "18_24": "18–24",
+          "25_34": "25–34",
+          "35_44": "35–44",
+          "45_54": "45–54",
+          "55_64": "55–64",
+          "65_plus": "65 und älter"
+        }
+      },
+      "interactions": {
+        "title": "In Kontakt bleiben",
+        "chart_aria": "Interaktionen pro Monat nach Kanal",
+        "most_frequent": "Häufigster Kontakt",
+        "gone_quiet": "Still geworden",
+        "gone_quiet_hint": "Personen, mit denen du regelmäßig Kontakt hattest und schon viel länger als sonst nicht gesprochen hast.",
+        "nobody_quiet": "Niemand ist still geworden",
+        "no_data": "Noch keine Interaktionen erfasst",
+        "not_flagged_title": "Kein Aktivitätstyp zählt als Interaktion",
+        "not_flagged_body": "Dieser Tresor enthält {{count}} Aktivitäten, aber kein Typ ist als Interaktion markiert. Aktiviere das in den Tresor-Einstellungen, um hier deinen Rhythmus zu sehen.",
+        "col_occasions": "Gelegenheiten",
+        "col_rhythm": "Üblicher Rhythmus",
+        "col_last": "Zuletzt",
+        "col_silent_for": "Still seit",
+        "days_ago": "{{count}} Tagen",
+        "days_ago_one": "{{count}} Tag",
+        "every_n_days": "Alle {{count}} Tage",
+        "every_n_days_one": "Täglich",
+        "window_label": "Zeitraum",
+        "window_months": "{{count}} Monate"
+      }
     },
     "graph": {
       "title": "Beziehungsgraph",

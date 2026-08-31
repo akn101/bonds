@@ -1,3 +1,4 @@
+import { lazy, Suspense, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { formatContactName, useNameOrder } from "@/utils/nameFormat";
 import {
@@ -11,6 +12,8 @@ import {
   theme,
   Table,
   Tag,
+  Segmented,
+  Skeleton,
 } from "antd";
 import {
   ArrowLeftOutlined,
@@ -19,6 +22,9 @@ import {
   CalendarOutlined,
   SmileOutlined,
   BarChartOutlined,
+  GlobalOutlined,
+  MessageOutlined,
+  PieChartOutlined,
 } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -29,6 +35,15 @@ import type {
   MoodReportItem,
   AddressContactItem 
 } from "@/api";
+
+// The map pulls in d3 and a world outline; both stay out of the initial bundle
+// and load when the reports page is actually opened.
+const ContactMap = lazy(() => import("@/components/ContactMap"));
+const InteractionCadence = lazy(() => import("@/components/InteractionCadence"));
+const DemographicsPanel = lazy(() => import("@/components/DemographicsPanel"));
+
+/** How much history the cadence chart covers, in months. */
+const CADENCE_WINDOWS = [12, 24, 60];
 
 const { Title, Text } = Typography;
 
@@ -99,6 +114,37 @@ export default function VaultReports() {
       return (res.data ?? []) as MoodReportItem[];
     },
   });
+
+  const [cadenceMonths, setCadenceMonths] = useState(24);
+
+  const { data: mapReport } = useQuery({
+    queryKey: ["vault", vaultId, "reports", "map"],
+    queryFn: async () => {
+      const res = await api.reports.reportsMapList(vaultId);
+      return res.data;
+    },
+    enabled: !!vaultId,
+  });
+
+  const { data: demographics } = useQuery({
+    queryKey: ["vault", vaultId, "reports", "demographics"],
+    queryFn: async () => {
+      const res = await api.reports.reportsDemographicsList(vaultId);
+      return res.data;
+    },
+    enabled: !!vaultId,
+  });
+
+  const { data: interactions } = useQuery({
+    queryKey: ["vault", vaultId, "reports", "interactions", cadenceMonths],
+    queryFn: async () => {
+      const res = await api.reports.reportsInteractionsList(vaultId, { months: cadenceMonths });
+      return res.data;
+    },
+    enabled: !!vaultId,
+  });
+
+  const openContact = (contactId: string) => navigate(`/vaults/${vaultId}/contacts/${contactId}`);
 
   const totalMoodEntries = moodEntries.reduce((acc, curr) => acc + (curr.count || 0), 0);
 
@@ -210,8 +256,76 @@ export default function VaultReports() {
       </Row>
 
       <Card
-        title={t("vault.reports.address_distribution")}
+        title={
+          <span>
+            <GlobalOutlined style={{ marginRight: 8 }} />
+            {t("vault.reports.map.title")}
+          </span>
+        }
         style={{ marginTop: 24, boxShadow: token.boxShadowTertiary, borderRadius: token.borderRadiusLG }}
+      >
+        <Suspense fallback={<Skeleton active />}>
+          <ContactMap
+            points={mapReport?.points ?? []}
+            countries={mapReport?.countries ?? []}
+            onSelectContact={openContact}
+          />
+        </Suspense>
+        {/* Coordinates only exist where geocoding was configured when the
+            address was saved, so say how many are actually plotted. */}
+        {(mapReport?.total_addresses ?? 0) > 0 && (
+          <Text type="secondary" style={{ fontSize: 12, display: "block", marginTop: 4 }}>
+            {t("vault.reports.map.geocoded_summary", {
+              geocoded: mapReport?.geocoded_count ?? 0,
+              total: mapReport?.total_addresses ?? 0,
+            })}
+          </Text>
+        )}
+      </Card>
+
+      <Card
+        title={
+          <span>
+            <MessageOutlined style={{ marginRight: 8 }} />
+            {t("vault.reports.interactions.title")}
+          </span>
+        }
+        extra={
+          <Segmented
+            size="small"
+            aria-label={t("vault.reports.interactions.window_label")}
+            value={cadenceMonths}
+            onChange={(value) => setCadenceMonths(Number(value))}
+            options={CADENCE_WINDOWS.map((months) => ({
+              label: t("vault.reports.interactions.window_months", { count: months }),
+              value: months,
+            }))}
+          />
+        }
+        style={{ marginTop: 16, boxShadow: token.boxShadowTertiary, borderRadius: token.borderRadiusLG }}
+      >
+        <Suspense fallback={<Skeleton active />}>
+          <InteractionCadence report={interactions} onSelectContact={openContact} />
+        </Suspense>
+      </Card>
+
+      <Card
+        title={
+          <span>
+            <PieChartOutlined style={{ marginRight: 8 }} />
+            {t("vault.reports.demographics.title")}
+          </span>
+        }
+        style={{ marginTop: 16, boxShadow: token.boxShadowTertiary, borderRadius: token.borderRadiusLG }}
+      >
+        <Suspense fallback={<Skeleton active />}>
+          <DemographicsPanel report={demographics} />
+        </Suspense>
+      </Card>
+
+      <Card
+        title={t("vault.reports.address_distribution")}
+        style={{ marginTop: 16, boxShadow: token.boxShadowTertiary, borderRadius: token.borderRadiusLG }}
       >
         {addresses.length > 0 ? (
           <Table

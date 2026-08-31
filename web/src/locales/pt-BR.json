@@ -300,7 +300,65 @@
       "col_date": "Data",
       "col_calendar": "Calendário",
       "col_mood": "Humor",
-      "contacts_in": "Contatos em {{location}}"
+      "contacts_in": "Contatos em {{location}}",
+      "map": {
+        "title": "Onde eles estão",
+        "no_data": "Nenhum endereço registrado ainda",
+        "hint": "Role para aproximar, arraste para mover. Clique em um ponto para abrir o contato.",
+        "aria_label": "Mapa dos endereços dos contatos",
+        "address_count": "{{count}} endereços",
+        "address_count_one": "{{count}} endereço",
+        "contact_count": "{{count}} contatos",
+        "contact_count_one": "{{count}} contato",
+        "geocoded_summary": "{{geocoded}} de {{total}} endereços têm coordenadas e aparecem como pontos; o restante é contado por país."
+      },
+      "demographics": {
+        "title": "Quem eles são",
+        "no_data": "Nada para resumir ainda",
+        "dimension_label": "Atributo",
+        "dimension_empty": "Ninguém tem isso registrado ainda",
+        "coverage": "{{known}} de {{total}} registrados",
+        "not_set": "{{count}} sem definição",
+        "unnamed": "Sem nome",
+        "dimension": {
+          "gender": "Gênero",
+          "pronoun": "Pronomes",
+          "religion": "Religião",
+          "age": "Idade",
+          "label": "Etiquetas",
+          "group": "Grupos"
+        },
+        "age": {
+          "0_17": "Menores de 18",
+          "18_24": "18–24",
+          "25_34": "25–34",
+          "35_44": "35–44",
+          "45_54": "45–54",
+          "55_64": "55–64",
+          "65_plus": "65 ou mais"
+        }
+      },
+      "interactions": {
+        "title": "Mantendo contato",
+        "chart_aria": "Interações por mês e canal",
+        "most_frequent": "Com quem você mais fala",
+        "gone_quiet": "Ficaram em silêncio",
+        "gone_quiet_hint": "Pessoas com quem você falava regularmente e não fala há muito mais tempo do que o normal.",
+        "nobody_quiet": "Ninguém ficou em silêncio",
+        "no_data": "Nenhuma interação registrada ainda",
+        "not_flagged_title": "Nenhum tipo de atividade conta como interação",
+        "not_flagged_body": "Este cofre tem {{count}} atividades, mas nenhum dos seus tipos está marcado como interação. Ative isso nas configurações do cofre para ver seu ritmo aqui.",
+        "col_occasions": "Ocasiões",
+        "col_rhythm": "Ritmo habitual",
+        "col_last": "Última",
+        "col_silent_for": "Em silêncio há",
+        "days_ago": "{{count}} dias",
+        "days_ago_one": "{{count}} dia",
+        "every_n_days": "A cada {{count}} dias",
+        "every_n_days_one": "Todo dia",
+        "window_label": "Período",
+        "window_months": "{{count}} meses"
+      }
     },
     "graph": {
       "title": "Gráfico de relações",
