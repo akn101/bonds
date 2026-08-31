@@ -13,6 +13,7 @@ import (
 	"github.com/naiba/bonds/internal/models"
 	robfigcron "github.com/robfig/cron/v3"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const minRunInterval = 55 * time.Second
@@ -156,11 +157,15 @@ func (s *Scheduler) acquireLockPostgres(name string) (bool, error) {
 		}
 
 		now := time.Now()
-		if err := tx.Create(&models.Cron{Command: name, LastRunAt: &now}).Error; err != nil {
-			if isUniqueConstraintErr(err) {
-				return nil
-			}
-			return err
+		create := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "command"}},
+			DoNothing: true,
+		}).Create(&models.Cron{Command: name, LastRunAt: &now})
+		if create.Error != nil {
+			return create.Error
+		}
+		if create.RowsAffected == 0 {
+			return nil
 		}
 		acquired = true
 		return nil

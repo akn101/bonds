@@ -40,13 +40,9 @@ func (s *ActivityService) ListForUser(vaultID, userID, contactID string, page, p
 			return nil, response.Meta{}, err
 		}
 	}
-	query := s.db.Model(&models.Activity{}).Where("activities.vault_id = ?", vaultID)
-	if contactID != "" {
-		query = query.Joins("JOIN activity_participants ON activity_participants.activity_id = activities.id").
-			Where("activity_participants.contact_id = ?", contactID)
-	}
+	query := activityListQuery(s.db, vaultID, contactID)
 	var total int64
-	if err := query.Distinct("activities.id").Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, response.Meta{}, err
 	}
 	if page < 1 {
@@ -56,7 +52,7 @@ func (s *ActivityService) ListForUser(vaultID, userID, contactID string, page, p
 		perPage = 15
 	}
 	var events []models.Activity
-	if err := query.Distinct("activities.*").Preload("Participants").Preload("ActivityType.ActivityCategory").
+	if err := query.Preload("Participants").Preload("ActivityType.ActivityCategory").
 		Order("start_date IS NULL, start_date DESC, activities.id DESC").
 		Offset((page - 1) * perPage).Limit(perPage).Find(&events).Error; err != nil {
 		return nil, response.Meta{}, err
@@ -70,6 +66,17 @@ func (s *ActivityService) ListForUser(vaultID, userID, contactID string, page, p
 		items[i] = item
 	}
 	return items, response.Meta{Page: page, PerPage: perPage, Total: total, TotalPages: int(math.Ceil(float64(total) / float64(perPage)))}, nil
+}
+
+func activityListQuery(db *gorm.DB, vaultID, contactID string) *gorm.DB {
+	query := db.Model(&models.Activity{}).Where("activities.vault_id = ?", vaultID)
+	if contactID == "" {
+		return query
+	}
+	return query.Where(
+		"EXISTS (SELECT 1 FROM activity_participants WHERE activity_participants.activity_id = activities.id AND activity_participants.contact_id = ?)",
+		contactID,
+	)
 }
 
 // Get returns one activity scoped to its vault. Authorization is enforced by

@@ -13,6 +13,9 @@ import (
 
 func setupBackupTest(t *testing.T) (*BackupService, string) {
 	t.Helper()
+	// These tests exercise SQLite's VACUUM INTO backup implementation. The
+	// PostgreSQL backup path shells out to pg_dump and is covered separately.
+	t.Setenv(testutil.PostgresDSNEnv, "")
 	db := testutil.SetupTestDB(t)
 	backupDir := t.TempDir()
 	uploadDir := t.TempDir()

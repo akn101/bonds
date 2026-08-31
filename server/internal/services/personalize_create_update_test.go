@@ -6,7 +6,7 @@ import (
 	"github.com/naiba/bonds/internal/dto"
 )
 
-func TestPersonalizeCreate_WorksOnSQLite(t *testing.T) {
+func TestPersonalizeCreate_WorksAcrossDatabases(t *testing.T) {
 	svc, accountID := setupPersonalizeTest(t)
 
 	resp, err := svc.Create(accountID, "genders", dto.PersonalizeEntityRequest{Name: "Custom"})
@@ -48,7 +48,7 @@ func TestPersonalizeCreate_LabelOnlyPositionEntities(t *testing.T) {
 	}
 }
 
-func TestPersonalizeUpdate_WorksOnSQLite(t *testing.T) {
+func TestPersonalizeUpdate_WorksAcrossDatabases(t *testing.T) {
 	svc, accountID := setupPersonalizeTest(t)
 
 	created, err := svc.Create(accountID, "genders", dto.PersonalizeEntityRequest{Name: "Before"})
