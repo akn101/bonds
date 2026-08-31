@@ -649,6 +649,9 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	vaultScoped.GET("/reports/addresses/country/:country", reportHandler.AddressesByCountry)
 	vaultScoped.GET("/reports/importantDates", reportHandler.ImportantDates)
 	vaultScoped.GET("/reports/moodTrackingEvents", reportHandler.MoodTrackingEvents)
+	vaultScoped.GET("/reports/demographics", reportHandler.Demographics)
+	vaultScoped.GET("/reports/map", reportHandler.Map)
+	vaultScoped.GET("/reports/interactions", reportHandler.Interactions)
 	vaultScoped.POST("/moodTrackingEvents", moodTrackingHandler.Create)
 	vaultScoped.GET("/moodTrackingEvents", moodTrackingHandler.List)
 

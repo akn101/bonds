@@ -300,7 +300,66 @@
       "col_date": "Date",
       "col_calendar": "Calendar",
       "col_mood": "Mood",
-      "contacts_in": "Contacts in {{location}}"
+      "contacts_in": "Contacts in {{location}}",
+      "map": {
+        "title": "Where they are",
+        "no_data": "No addresses recorded yet",
+        "hint": "Scroll to zoom, drag to pan. Click a pin to open the contact.",
+        "aria_label": "Map of contact addresses",
+        "address_count": "{{count}} addresses",
+        "address_count_one": "{{count}} address",
+        "contact_count": "{{count}} contacts",
+        "contact_count_one": "{{count}} contact",
+        "geocoded_summary": "{{geocoded}} of {{total}} addresses have coordinates and appear as pins; the rest are counted by country."
+      },
+      "demographics": {
+        "title": "Who they are",
+        "no_data": "Nothing to summarise yet",
+        "dimension_label": "Attribute",
+        "dimension_empty": "Nobody has this recorded yet",
+        "coverage": "{{known}} of {{total}} recorded",
+        "not_set": "{{count}} not set",
+        "unnamed": "Unnamed",
+        "dimension": {
+          "gender": "Gender",
+          "pronoun": "Pronouns",
+          "religion": "Religion",
+          "age": "Age",
+          "label": "Labels",
+          "group": "Groups"
+        },
+        "age": {
+          "0_17": "Under 18",
+          "18_24": "18–24",
+          "25_34": "25–34",
+          "35_44": "35–44",
+          "45_54": "45–54",
+          "55_64": "55–64",
+          "65_plus": "65 and over"
+        }
+      },
+      "interactions": {
+        "title": "Staying in touch",
+        "chart_aria": "Interactions per month by channel",
+        "most_frequent": "Most in touch",
+        "gone_quiet": "Gone quiet",
+        "gone_quiet_hint": "People you were regularly in touch with, and have not spoken to for much longer than usual.",
+        "nobody_quiet": "Nobody has gone quiet",
+        "no_data": "No interactions recorded yet",
+        "none_in_window": "No interactions in this window — pick a longer range to see older conversations.",
+        "not_flagged_title": "No activity type counts as an interaction",
+        "not_flagged_body": "This vault holds {{count}} activities, but none of their types are marked as counting as an interaction. Turn that on in vault settings to see your cadence here.",
+        "col_occasions": "Occasions",
+        "col_rhythm": "Usual rhythm",
+        "col_last": "Last",
+        "col_silent_for": "Silent for",
+        "days_ago": "{{count}} days",
+        "days_ago_one": "{{count}} day",
+        "every_n_days": "Every {{count}} days",
+        "every_n_days_one": "Every day",
+        "window_label": "History window",
+        "window_months": "{{count}} months"
+      }
     },
     "graph": {
       "title": "Relationship Graph",

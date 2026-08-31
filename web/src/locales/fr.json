@@ -300,7 +300,66 @@
       "col_date": "Date",
       "col_calendar": "Calendrier",
       "col_mood": "Humeur",
-      "contacts_in": "Contacts aux {{location}}"
+      "contacts_in": "Contacts aux {{location}}",
+      "map": {
+        "title": "Où ils vivent",
+        "no_data": "Aucune adresse enregistrée pour l'instant",
+        "hint": "Faites défiler pour zoomer, glissez pour déplacer. Cliquez sur un point pour ouvrir le contact.",
+        "aria_label": "Carte des adresses des contacts",
+        "address_count": "{{count}} adresses",
+        "address_count_one": "{{count}} adresse",
+        "contact_count": "{{count}} contacts",
+        "contact_count_one": "{{count}} contact",
+        "geocoded_summary": "{{geocoded}} adresses sur {{total}} ont des coordonnées et apparaissent en points ; les autres sont comptées par pays."
+      },
+      "demographics": {
+        "title": "Qui ils sont",
+        "no_data": "Rien à résumer pour l'instant",
+        "dimension_label": "Attribut",
+        "dimension_empty": "Personne n'a encore cette information",
+        "coverage": "{{known}} sur {{total}} renseignés",
+        "not_set": "{{count}} non renseignés",
+        "unnamed": "Sans nom",
+        "dimension": {
+          "gender": "Genre",
+          "pronoun": "Pronoms",
+          "religion": "Religion",
+          "age": "Âge",
+          "label": "Étiquettes",
+          "group": "Groupes"
+        },
+        "age": {
+          "0_17": "Moins de 18 ans",
+          "18_24": "18–24",
+          "25_34": "25–34",
+          "35_44": "35–44",
+          "45_54": "45–54",
+          "55_64": "55–64",
+          "65_plus": "65 et plus"
+        }
+      },
+      "interactions": {
+        "title": "Garder le contact",
+        "chart_aria": "Interactions par mois et par canal",
+        "most_frequent": "Les plus contactés",
+        "gone_quiet": "Devenus silencieux",
+        "gone_quiet_hint": "Des personnes que vous contactiez régulièrement et à qui vous n'avez pas parlé depuis bien plus longtemps que d'habitude.",
+        "nobody_quiet": "Personne n'est devenu silencieux",
+        "no_data": "Aucune interaction enregistrée pour l'instant",
+        "none_in_window": "Aucune interaction sur cette période — choisissez une plage plus longue pour voir les conversations plus anciennes.",
+        "not_flagged_title": "Aucun type d'activité ne compte comme une interaction",
+        "not_flagged_body": "Ce coffre contient {{count}} activités, mais aucun de leurs types n'est marqué comme comptant pour une interaction. Activez-le dans les paramètres du coffre pour voir votre rythme ici.",
+        "col_occasions": "Occasions",
+        "col_rhythm": "Rythme habituel",
+        "col_last": "Dernière",
+        "col_silent_for": "Silence depuis",
+        "days_ago": "{{count}} jours",
+        "days_ago_one": "{{count}} jour",
+        "every_n_days": "Tous les {{count}} jours",
+        "every_n_days_one": "Chaque jour",
+        "window_label": "Période",
+        "window_months": "{{count}} mois"
+      }
     },
     "graph": {
       "title": "Graphe des relations",

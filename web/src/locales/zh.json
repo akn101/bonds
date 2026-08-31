@@ -300,7 +300,66 @@
       "col_date": "日期",
       "col_calendar": "历法",
       "col_mood": "情绪",
-      "contacts_in": "{{location}} 的联系人"
+      "contacts_in": "{{location}} 的联系人",
+      "map": {
+        "title": "他们在哪里",
+        "no_data": "尚未记录任何地址",
+        "hint": "滚动缩放，拖动平移。点击标记可打开联系人。",
+        "aria_label": "联系人地址地图",
+        "address_count": "{{count}} 个地址",
+        "address_count_one": "{{count}} 个地址",
+        "contact_count": "{{count}} 位联系人",
+        "contact_count_one": "{{count}} 位联系人",
+        "geocoded_summary": "{{total}} 个地址中有 {{geocoded}} 个带坐标并显示为标记，其余按国家统计。"
+      },
+      "demographics": {
+        "title": "他们是谁",
+        "no_data": "暂无可统计的内容",
+        "dimension_label": "属性",
+        "dimension_empty": "尚无人填写该项",
+        "coverage": "{{total}} 人中已记录 {{known}} 人",
+        "not_set": "{{count}} 人未填写",
+        "unnamed": "未命名",
+        "dimension": {
+          "gender": "性别",
+          "pronoun": "人称代词",
+          "religion": "宗教",
+          "age": "年龄",
+          "label": "标签",
+          "group": "群组"
+        },
+        "age": {
+          "0_17": "18 岁以下",
+          "18_24": "18–24",
+          "25_34": "25–34",
+          "35_44": "35–44",
+          "45_54": "45–54",
+          "55_64": "55–64",
+          "65_plus": "65 岁及以上"
+        }
+      },
+      "interactions": {
+        "title": "保持联系",
+        "chart_aria": "按渠道统计的每月互动",
+        "most_frequent": "联系最频繁",
+        "gone_quiet": "已许久未联系",
+        "gone_quiet_hint": "你过去经常联系、但已远超平常间隔未再交谈的人。",
+        "nobody_quiet": "没有人失联",
+        "no_data": "尚未记录任何互动",
+        "none_in_window": "此时间段内没有互动——选择更长的范围以查看更早的对话。",
+        "not_flagged_title": "没有任何活动类型算作互动",
+        "not_flagged_body": "该保险库有 {{count}} 条活动，但没有任何类型被标记为算作互动。请在保险库设置中开启，以便在此查看联系节奏。",
+        "col_occasions": "次数",
+        "col_rhythm": "通常间隔",
+        "col_last": "最近",
+        "col_silent_for": "已沉默",
+        "days_ago": "{{count}} 天",
+        "days_ago_one": "{{count}} 天",
+        "every_n_days": "每 {{count}} 天",
+        "every_n_days_one": "每天",
+        "window_label": "时间范围",
+        "window_months": "{{count}} 个月"
+      }
     },
     "graph": {
       "title": "关系图谱",
