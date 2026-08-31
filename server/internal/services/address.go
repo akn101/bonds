@@ -278,24 +278,25 @@ func (s *AddressService) tryGeocode(address *models.Address) {
 		return
 	}
 	// The provider can take seconds to answer, and this runs after the edit's
-	// transaction committed — the row may already describe somewhere else. A
-	// late answer for the old text must not overwrite the newer edit's
-	// coordinates, so re-read and only store if the row still asks the same
-	// question that was geocoded. (A concurrent edit landing in the microseconds
-	// between this check and the write can still lose, but that window is the
-	// provider round-trip no longer.)
-	var current models.Address
-	if err := s.db.First(&current, address.ID).Error; err != nil {
+	// transaction committed — the row may already have been edited again. Make
+	// the address version we geocoded part of the UPDATE itself so a newer edit
+	// cannot land between a separate check and this write.
+	stored := s.db.Model(&models.Address{}).
+		Where("id = ? AND updated_at = ?", address.ID, address.UpdatedAt).
+		Select("latitude", "longitude").
+		Updates(map[string]any{
+			"latitude":  result.Latitude,
+			"longitude": result.Longitude,
+		})
+	if stored.Error != nil {
+		log.Printf("storing geocode for address %d failed: %v", address.ID, stored.Error)
 		return
 	}
-	if !sameGeocodeQuery(geocodeQuery(&current), query) {
+	if stored.RowsAffected == 0 {
 		return
 	}
 	address.Latitude = &result.Latitude
 	address.Longitude = &result.Longitude
-	if err := s.db.Model(address).Select("latitude", "longitude").Updates(address).Error; err != nil {
-		log.Printf("storing geocode for address %d failed: %v", address.ID, err)
-	}
 }
 
 // redactGeocodeError strips the request URL from a geocoding failure before

@@ -9,9 +9,11 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
+	"gorm.io/gorm"
 )
 
 // stubGeocoder answers with fixed coordinates, and can be made to fail or to
@@ -385,6 +387,62 @@ func TestLateGeocodeAnswerDoesNotClobberANewerEdit(t *testing.T) {
 	latitude, longitude := storedCoordinates(t, svc, created.ID)
 	if latitude == nil || *latitude != 52.52 || longitude == nil || *longitude != 13.405 {
 		t.Fatalf("Vienna's late answer clobbered Berlin's coordinates: %v, %v", latitude, longitude)
+	}
+}
+
+// Even a newer edit that lands after the provider answer has been accepted
+// but immediately before its coordinates are written must win. This stages
+// that edit in GORM's update callback: the optimistic updated_at predicate is
+// already built, then the row version changes before the SQL executes.
+func TestGeocodeCoordinateWriteIsAtomicWithAddressVersion(t *testing.T) {
+	svc, contactID, vaultID := setupAddressTest(t)
+	geocoder := &stubGeocoder{latitude: 51.5072, longitude: -0.1276}
+	svc.SetGeocoder(geocoder)
+
+	created, err := svc.Create(contactID, vaultID, dto.CreateAddressRequest{
+		Line1: "10 Downing Street", City: "London", Country: "United Kingdom",
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	const callbackName = "test:edit_before_geocode_coordinate_write"
+	fired := false
+	if err := svc.db.Callback().Update().Before("gorm:update").Register(callbackName, func(tx *gorm.DB) {
+		if fired || len(tx.Statement.Selects) != 2 ||
+			tx.Statement.Selects[0] != "latitude" || tx.Statement.Selects[1] != "longitude" {
+			return
+		}
+		fired = true
+		newerVersion := time.Now().UTC().Add(time.Hour)
+		if err := tx.Session(&gorm.Session{SkipHooks: true}).Exec(
+			"UPDATE addresses SET city = ?, country = ?, latitude = ?, longitude = ?, updated_at = ? WHERE id = ?",
+			"Berlin", "Germany", 52.52, 13.405, newerVersion, created.ID,
+		).Error; err != nil {
+			t.Fatalf("staging edit immediately before coordinate write: %v", err)
+		}
+	}); err != nil {
+		t.Fatalf("registering update callback: %v", err)
+	}
+	defer func() {
+		if err := svc.db.Callback().Update().Remove(callbackName); err != nil {
+			t.Fatalf("removing update callback: %v", err)
+		}
+	}()
+
+	geocoder.latitude, geocoder.longitude = 48.2082, 16.3738
+	if _, err := svc.Update(created.ID, contactID, vaultID, dto.UpdateAddressRequest{
+		Line1: "Stephansplatz 1", City: "Vienna", Country: "Austria",
+	}); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+	if !fired {
+		t.Fatal("the concurrent-edit callback did not intercept the coordinate write")
+	}
+
+	latitude, longitude := storedCoordinates(t, svc, created.ID)
+	if latitude == nil || *latitude != 52.52 || longitude == nil || *longitude != 13.405 {
+		t.Fatalf("Vienna's coordinate write clobbered the newer Berlin edit: %v, %v", latitude, longitude)
 	}
 }
 
