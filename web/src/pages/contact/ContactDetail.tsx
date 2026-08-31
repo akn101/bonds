@@ -227,10 +227,11 @@ function contactLabelAssignmentsQueryKey(vaultId: string, contactId: string) {
 // How far a jumped-to anchor must stay below the viewport top: past the app
 // header and vault nav (116px) plus breathing room. In compact mode the sticky
 // section Select (8px padding + 32px control + 12px padding, from 116) also
-// stands over the content, so anchors must clear its bottom edge at 168px too
-// — an anchor at 132 would put the heading underneath it.
+// stands over the content, so anchors must clear its measured bottom edge
+// (~179px — the Select renders taller than its nominal 32px) with room to
+// spare; an anchor at 132 would put the heading underneath it.
 const SECTION_ANCHOR_MARGIN = 132;
-const COMPACT_SECTION_ANCHOR_MARGIN = 176;
+const COMPACT_SECTION_ANCHOR_MARGIN = 188;
 
 // Smooth scrolling aims at where the target was when the animation started,
 // but lazily-mounted sections between here and there inflate from their
