@@ -22,10 +22,16 @@ type stubGeocoder struct {
 	longitude float64
 	fail      bool
 	noMatch   bool
+	// onGeocode runs while the provider is "on the wire", so tests can stage
+	// what happens between an edit's commit and the geocode answer landing.
+	onGeocode func()
 }
 
 func (g *stubGeocoder) Geocode(address string) (*GeocodingResult, error) {
 	g.queries = append(g.queries, address)
+	if g.onGeocode != nil {
+		g.onGeocode()
+	}
 	if g.fail {
 		return nil, errors.New("provider unavailable")
 	}
@@ -196,7 +202,7 @@ type urlErrorGeocoder struct{}
 func (g *urlErrorGeocoder) Geocode(address string) (*GeocodingResult, error) {
 	return nil, &url.Error{
 		Op:  "Get",
-		URL: "https://nominatim.openstreetmap.org/search?q=" + url.QueryEscape(address),
+		URL: "https://us1.locationiq.com/v1/search?key=super-secret-api-key&q=" + url.QueryEscape(address),
 		Err: errors.New("connection refused"),
 	}
 }
@@ -222,7 +228,8 @@ func TestGeocodeFailureLogLeavesTheAddressOut(t *testing.T) {
 	}
 	// Neither the query nor the request URL may appear: in exact mode both are
 	// a contact's complete home address.
-	for _, fragment := range []string{"Downing", "London", "United Kingdom", "q="} {
+	// The API key rides in the same URL, so it must go down with it.
+	for _, fragment := range []string{"Downing", "London", "United Kingdom", "q=", "super-secret-api-key"} {
 		if strings.Contains(logged, fragment) {
 			t.Fatalf("log line leaks the address (%q): %s", fragment, logged)
 		}
@@ -232,5 +239,176 @@ func TestGeocodeFailureLogLeavesTheAddressOut(t *testing.T) {
 	}
 	if !strings.Contains(logged, "connection refused") {
 		t.Fatalf("log line should keep the underlying cause: %s", logged)
+	}
+}
+
+// PUT is full-replace, so a read-modify-write API client echoes the whole
+// object back — coordinates included. Echoed coordinates on a moved address
+// are a stale copy of what the server said, not an instruction to keep the
+// old pin, and treating them as authoritative would pin the moved address to
+// its old location permanently (every subsequent echo re-supplies them).
+func TestUpdateAddressTreatsEchoedCoordinatesAsStale(t *testing.T) {
+	svc, contactID, vaultID := setupAddressTest(t)
+	geocoder := &stubGeocoder{latitude: 51.5072, longitude: -0.1276}
+	svc.SetGeocoder(geocoder)
+
+	created, err := svc.Create(contactID, vaultID, dto.CreateAddressRequest{
+		Line1: "10 Downing Street", City: "London", Country: "United Kingdom",
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// The provider now answers for the new city.
+	geocoder.latitude, geocoder.longitude = 48.2082, 16.3738
+	london := 51.5072
+	londonLongitude := -0.1276
+	if _, err := svc.Update(created.ID, contactID, vaultID, dto.UpdateAddressRequest{
+		Line1: "10 Downing Street", City: "Vienna", Country: "Austria",
+		Latitude: &london, Longitude: &londonLongitude,
+	}); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	latitude, longitude := storedCoordinates(t, svc, created.ID)
+	if latitude == nil || *latitude != 48.2082 || longitude == nil || *longitude != 16.3738 {
+		t.Fatalf("a moved address with echoed coordinates must be re-geocoded, got %v, %v", latitude, longitude)
+	}
+
+	// Coordinates that DIFFER from what the server handed out are a deliberate
+	// override and still win.
+	custom, customLongitude := 40.0, -70.0
+	if _, err := svc.Update(created.ID, contactID, vaultID, dto.UpdateAddressRequest{
+		Line1: "10 Downing Street", City: "Berlin", Country: "Germany",
+		Latitude: &custom, Longitude: &customLongitude,
+	}); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+	latitude, longitude = storedCoordinates(t, svc, created.ID)
+	if latitude == nil || *latitude != 40.0 {
+		t.Fatalf("caller-chosen coordinates must win, got %v", latitude)
+	}
+}
+
+// Trailing whitespace or a change of case would be asked of the geocoder as
+// the same question — it is not a move, and must not cost the pin (nor spend
+// a provider request), even when the provider is down.
+func TestUpdateAddressKeepsCoordinatesOnCosmeticEdit(t *testing.T) {
+	svc, contactID, vaultID := setupAddressTest(t)
+	geocoder := &stubGeocoder{latitude: 51.5072, longitude: -0.1276}
+	svc.SetGeocoder(geocoder)
+
+	created, err := svc.Create(contactID, vaultID, dto.CreateAddressRequest{
+		Line1: "10 Downing Street", City: "London ", Country: "UNITED KINGDOM",
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// The provider goes down; the cosmetic edit must not need it.
+	geocoder.fail = true
+	if _, err := svc.Update(created.ID, contactID, vaultID, dto.UpdateAddressRequest{
+		Line1: "10 Downing Street", City: "London", Country: "United Kingdom",
+	}); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	latitude, longitude := storedCoordinates(t, svc, created.ID)
+	if latitude == nil || longitude == nil {
+		t.Fatal("a cosmetic edit erased the coordinates")
+	}
+	if len(geocoder.queries) != 1 {
+		t.Fatalf("a cosmetic edit must not spend a provider request, got %d calls", len(geocoder.queries))
+	}
+}
+
+// An address created while the provider was down has no pin, and "the stored
+// coordinates are already right" is no reason to skip re-geocoding when
+// nothing is stored: a plain save must be able to heal it.
+func TestUpdateAddressRetriesGeocodeWhenPinMissing(t *testing.T) {
+	svc, contactID, vaultID := setupAddressTest(t)
+	geocoder := &stubGeocoder{latitude: 51.5072, longitude: -0.1276, fail: true}
+	svc.SetGeocoder(geocoder)
+
+	created, err := svc.Create(contactID, vaultID, dto.CreateAddressRequest{
+		Line1: "10 Downing Street", City: "London", Country: "United Kingdom",
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	if latitude, _ := storedCoordinates(t, svc, created.ID); latitude != nil {
+		t.Fatal("precondition: the failed create should have stored no coordinates")
+	}
+
+	geocoder.fail = false
+	if _, err := svc.Update(created.ID, contactID, vaultID, dto.UpdateAddressRequest{
+		Line1: "10 Downing Street", City: "London", Country: "United Kingdom",
+	}); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+	latitude, longitude := storedCoordinates(t, svc, created.ID)
+	if latitude == nil || *latitude != 51.5072 || longitude == nil {
+		t.Fatalf("an unchanged save should have healed the missing pin, got %v, %v", latitude, longitude)
+	}
+}
+
+// The geocode answer arrives after the edit's transaction committed, and the
+// row may have been edited again while the provider was thinking. The late
+// answer is for a question the row no longer asks, and must not be stored.
+func TestLateGeocodeAnswerDoesNotClobberANewerEdit(t *testing.T) {
+	svc, contactID, vaultID := setupAddressTest(t)
+	geocoder := &stubGeocoder{latitude: 51.5072, longitude: -0.1276}
+	svc.SetGeocoder(geocoder)
+
+	created, err := svc.Create(contactID, vaultID, dto.CreateAddressRequest{
+		Line1: "10 Downing Street", City: "London", Country: "United Kingdom",
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// While Vienna's geocode is "on the wire", the address moves on to Berlin.
+	geocoder.latitude, geocoder.longitude = 48.2082, 16.3738
+	geocoder.onGeocode = func() {
+		geocoder.onGeocode = nil
+		if err := svc.db.Model(&models.Address{}).Where("id = ?", created.ID).
+			Updates(map[string]any{"city": "Berlin", "country": "Germany", "latitude": 52.52, "longitude": 13.405}).Error; err != nil {
+			t.Fatalf("staging the concurrent edit: %v", err)
+		}
+	}
+	if _, err := svc.Update(created.ID, contactID, vaultID, dto.UpdateAddressRequest{
+		Line1: "10 Downing Street", City: "Vienna", Country: "Austria",
+	}); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	latitude, longitude := storedCoordinates(t, svc, created.ID)
+	if latitude == nil || *latitude != 52.52 || longitude == nil || *longitude != 13.405 {
+		t.Fatalf("Vienna's late answer clobbered Berlin's coordinates: %v, %v", latitude, longitude)
+	}
+}
+
+// POST with coordinates the caller already knows must store them as given —
+// spending a provider request to second-guess them would make Create and
+// Update disagree about whose coordinates win.
+func TestCreateAddressKeepsCallerCoordinates(t *testing.T) {
+	svc, contactID, vaultID := setupAddressTest(t)
+	geocoder := &stubGeocoder{latitude: 51.5072, longitude: -0.1276}
+	svc.SetGeocoder(geocoder)
+
+	latitude, longitude := 48.8566, 2.3522
+	created, err := svc.Create(contactID, vaultID, dto.CreateAddressRequest{
+		Line1: "48 Rue de Rivoli", City: "Paris", Country: "France",
+		Latitude: &latitude, Longitude: &longitude,
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	stored, storedLongitude := storedCoordinates(t, svc, created.ID)
+	if stored == nil || *stored != 48.8566 || storedLongitude == nil || *storedLongitude != 2.3522 {
+		t.Fatalf("caller coordinates must be stored as given, got %v, %v", stored, storedLongitude)
+	}
+	if len(geocoder.queries) != 0 {
+		t.Fatalf("no provider request should be spent on known coordinates, got %d", len(geocoder.queries))
 	}
 }

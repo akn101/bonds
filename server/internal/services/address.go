@@ -111,7 +111,12 @@ func (s *AddressService) Create(contactID, vaultID string, req dto.CreateAddress
 		return nil, err
 	}
 
-	s.tryGeocode(&address)
+	// Coordinates the caller already knows are kept as given — spending a
+	// provider request to second-guess them would make POST and PUT disagree
+	// about whose coordinates win.
+	if address.Latitude == nil || address.Longitude == nil {
+		s.tryGeocode(&address)
+	}
 
 	if s.feedRecorder != nil {
 		entityType := "Address"
@@ -154,8 +159,22 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	address.Country = strPtrOrNil(req.Country)
 	address.AddressTypeID = req.AddressTypeID
 
-	coordinatesGiven := req.Latitude != nil && req.Longitude != nil
-	movedElsewhere := geocodeQuery(&address) != previousQuery
+	// A cosmetic edit is not a move: trailing whitespace or a change of case
+	// would be asked of the geocoder as the same question, so it must not cost
+	// the stored coordinates (nor a provider request to recompute them).
+	movedElsewhere := !sameGeocodeQuery(geocodeQuery(&address), previousQuery)
+
+	// Coordinates in the request only count as caller-supplied when they say
+	// something the server did not already say. PUT is full-replace, so a
+	// read-modify-write client echoes the whole object back — including the
+	// coordinates it was handed. If the address text moved but the coordinates
+	// are the old pair verbatim, that is a stale echo, not an instruction to
+	// pin a Vienna address at London forever.
+	echoedCoordinates := req.Latitude != nil && req.Longitude != nil &&
+		previousLatitude != nil && previousLongitude != nil &&
+		*req.Latitude == *previousLatitude && *req.Longitude == *previousLongitude
+	coordinatesGiven := req.Latitude != nil && req.Longitude != nil &&
+		!(movedElsewhere && echoedCoordinates)
 	switch {
 	case coordinatesGiven:
 		address.Latitude = req.Latitude
@@ -186,10 +205,12 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 		return nil, err
 	}
 
-	// Only re-geocode when the address actually moved; re-running it on every
-	// save would spend a provider request, and a rate-limit slot, to arrive back
-	// at the coordinates already stored.
-	if !coordinatesGiven && movedElsewhere {
+	// Re-geocode when the address actually moved — and also when it has no
+	// coordinates at all, because "arrive back at the coordinates already
+	// stored" is no reason to skip when nothing is stored: an address created
+	// while the provider was down would otherwise never get a pin without the
+	// user mangling its text and changing it back.
+	if !coordinatesGiven && (movedElsewhere || address.Latitude == nil || address.Longitude == nil) {
 		s.tryGeocode(&address)
 	}
 
@@ -226,6 +247,15 @@ func geocodeQuery(address *models.Address) string {
 	return strings.Join(parts, ", ")
 }
 
+// sameGeocodeQuery reports whether two geocoding queries would ask the
+// provider the same question: case and whitespace do not change the answer,
+// so they do not count as a move. Whitespace is removed entirely rather than
+// collapsed, because a trimmed field otherwise leaves a stranded separator
+// ("London ," versus "London,") that a word-level comparison still sees.
+func sameGeocodeQuery(a, b string) bool {
+	return strings.EqualFold(strings.Join(strings.Fields(a), ""), strings.Join(strings.Fields(b), ""))
+}
+
 func (s *AddressService) tryGeocode(address *models.Address) {
 	if s.geocoder == nil {
 		return
@@ -245,6 +275,20 @@ func (s *AddressService) tryGeocode(address *models.Address) {
 		return
 	}
 	if result == nil {
+		return
+	}
+	// The provider can take seconds to answer, and this runs after the edit's
+	// transaction committed — the row may already describe somewhere else. A
+	// late answer for the old text must not overwrite the newer edit's
+	// coordinates, so re-read and only store if the row still asks the same
+	// question that was geocoded. (A concurrent edit landing in the microseconds
+	// between this check and the write can still lose, but that window is the
+	// provider round-trip no longer.)
+	var current models.Address
+	if err := s.db.First(&current, address.ID).Error; err != nil {
+		return
+	}
+	if !sameGeocodeQuery(geocodeQuery(&current), query) {
 		return
 	}
 	address.Latitude = &result.Latitude
