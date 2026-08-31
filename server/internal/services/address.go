@@ -2,7 +2,9 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"log"
+	"net/url"
 	"strings"
 	"time"
 
@@ -236,8 +238,10 @@ func (s *AddressService) tryGeocode(address *models.Address) {
 	if err != nil {
 		// Worth a line in the log: a misconfigured provider or a blocked IP is
 		// otherwise completely invisible, and the only symptom is addresses
-		// quietly never getting coordinates.
-		log.Printf("geocoding %q failed: %v", query, err)
+		// quietly never getting coordinates. The query itself stays out of the
+		// log, though — in exact mode it is a contact's complete home address,
+		// and the address ID identifies the row just as well.
+		log.Printf("geocoding address %d via %T failed: %v", address.ID, s.geocoder, redactGeocodeError(err))
 		return
 	}
 	if result == nil {
@@ -248,6 +252,18 @@ func (s *AddressService) tryGeocode(address *models.Address) {
 	if err := s.db.Model(address).Select("latitude", "longitude").Updates(address).Error; err != nil {
 		log.Printf("storing geocode for address %d failed: %v", address.ID, err)
 	}
+}
+
+// redactGeocodeError strips the request URL from a geocoding failure before
+// it reaches the log. A transport error carries the full URL it was for, and
+// that URL embeds the geocoding query — the same address the log line above
+// deliberately leaves out.
+func redactGeocodeError(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return fmt.Errorf("%s request failed: %w", urlErr.Op, urlErr.Err)
+	}
+	return err
 }
 
 func toAddressResponse(a *models.Address, isPastAddress bool, dateFrom, dateTo *time.Time) dto.AddressResponse {

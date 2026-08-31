@@ -1,7 +1,13 @@
 package services
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"log"
+	"net/url"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/naiba/bonds/internal/dto"
@@ -180,5 +186,51 @@ func TestUpdateAddressDropsCoordinatesWhenProviderFindsNothing(t *testing.T) {
 	}
 	if latitude, _ := storedCoordinates(t, svc, created.ID); latitude != nil {
 		t.Fatalf("expected no coordinates for an unresolvable address, got %v", *latitude)
+	}
+}
+
+// urlErrorGeocoder fails the way a real provider does over HTTP: with a
+// transport error that carries the full request URL, query string and all.
+type urlErrorGeocoder struct{}
+
+func (g *urlErrorGeocoder) Geocode(address string) (*GeocodingResult, error) {
+	return nil, &url.Error{
+		Op:  "Get",
+		URL: "https://nominatim.openstreetmap.org/search?q=" + url.QueryEscape(address),
+		Err: errors.New("connection refused"),
+	}
+}
+
+func TestGeocodeFailureLogLeavesTheAddressOut(t *testing.T) {
+	svc, contactID, vaultID := setupAddressTest(t)
+	svc.SetGeocoder(&urlErrorGeocoder{})
+
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+
+	created, err := svc.Create(contactID, vaultID, dto.CreateAddressRequest{
+		Line1: "10 Downing Street", City: "London", Country: "United Kingdom",
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	logged := buf.String()
+	if logged == "" {
+		t.Fatal("expected the geocoding failure to be logged")
+	}
+	// Neither the query nor the request URL may appear: in exact mode both are
+	// a contact's complete home address.
+	for _, fragment := range []string{"Downing", "London", "United Kingdom", "q="} {
+		if strings.Contains(logged, fragment) {
+			t.Fatalf("log line leaks the address (%q): %s", fragment, logged)
+		}
+	}
+	if !strings.Contains(logged, fmt.Sprintf("address %d", created.ID)) {
+		t.Fatalf("log line should identify the address by ID: %s", logged)
+	}
+	if !strings.Contains(logged, "connection refused") {
+		t.Fatalf("log line should keep the underlying cause: %s", logged)
 	}
 }
