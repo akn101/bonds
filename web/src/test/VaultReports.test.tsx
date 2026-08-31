@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   interactions: vi.fn(),
   preferences: vi.fn(),
 }));
+const route = vi.hoisted(() => ({ vaultId: "vault-1" }));
 
 vi.mock("@/api", () => ({
   api: {
@@ -35,7 +36,7 @@ vi.mock("@/api", () => ({
 
 vi.mock("react-router-dom", async () => ({
   ...(await vi.importActual<typeof import("react-router-dom")>("react-router-dom")),
-  useParams: () => ({ id: "vault-1" }),
+  useParams: () => ({ id: route.vaultId }),
   useNavigate: () => vi.fn(),
 }));
 
@@ -43,18 +44,24 @@ import VaultReports from "@/pages/vault/VaultReports";
 
 function renderPage(ui: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const wrap = (content: ReactNode) => (
     <ConfigProvider>
       <AntApp>
         <QueryClientProvider client={client}>
-          <MemoryRouter>{ui}</MemoryRouter>
+          <MemoryRouter>{content}</MemoryRouter>
         </QueryClientProvider>
       </AntApp>
-    </ConfigProvider>,
+    </ConfigProvider>
   );
+  const result = render(wrap(ui));
+  return {
+    ...result,
+    rerenderPage: (content: ReactNode) => result.rerender(wrap(content)),
+  };
 }
 
 beforeEach(() => {
+  route.vaultId = "vault-1";
   Object.values(mocks).forEach((mock) => mock.mockReset());
   mocks.preferences.mockResolvedValue({ data: { name_order: "%first_name% %last_name%" } });
   mocks.overview.mockResolvedValue({
@@ -90,6 +97,33 @@ describe("VaultReports", () => {
     renderPage(<VaultReports />);
     await screen.findByText("Staying in touch");
     expect(mocks.interactions).toHaveBeenCalledWith("vault-1", { months: 24 });
+  });
+
+  it("does not show the previous vault's interactions while a new vault loads", async () => {
+    mocks.interactions.mockImplementation((vaultId: string) => {
+      if (vaultId === "vault-2") return new Promise(() => undefined);
+      return Promise.resolve({
+        data: {
+          total_activities: 1,
+          total_interactions: 1,
+          interaction_types_configured: true,
+          contact_count: 1,
+          months: [],
+          channels: [{ activity_type_id: 1, label: "Call", count: 1, months: [] }],
+          most_frequent: [{ contact_id: "contact-1", contact_name: "Vault One Contact", count: 1 }],
+          gone_quiet: [],
+        },
+      });
+    });
+
+    const view = renderPage(<VaultReports />);
+    expect(await screen.findByText("Vault One Contact")).toBeInTheDocument();
+
+    route.vaultId = "vault-2";
+    view.rerenderPage(<VaultReports />);
+
+    expect(screen.queryByText("Vault One Contact")).not.toBeInTheDocument();
+    expect(mocks.interactions).toHaveBeenCalledWith("vault-2", { months: 24 });
   });
 
   it("explains an empty cadence chart instead of drawing nothing", async () => {

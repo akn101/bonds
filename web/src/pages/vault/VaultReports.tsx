@@ -26,7 +26,7 @@ import {
   MessageOutlined,
   PieChartOutlined,
 } from "@ant-design/icons";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api";
 import type { 
@@ -142,9 +142,10 @@ export default function VaultReports() {
       return res.data;
     },
     enabled: !!vaultId,
-    // The window selector is part of the key, so without this every switch
-    // unmounts the chart into its empty state for the length of a request.
-    placeholderData: keepPreviousData,
+    // Keep the chart mounted while this vault's window changes, but never
+    // carry contact names or interaction data across a vault switch.
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[1] === vaultId ? previousData : undefined,
   });
 
   const openContact = (contactId: string) => navigate(`/vaults/${vaultId}/contacts/${contactId}`);
