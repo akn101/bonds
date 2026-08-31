@@ -40,6 +40,10 @@ type Geocoder interface {
 	Geocode(address string) (*GeocodingResult, error)
 	// Suggest returns candidate addresses for a partial query, for autocomplete.
 	Suggest(query string, limit int) ([]GeocodingSuggestion, error)
+	// SupportsAutocomplete reports whether this provider's terms allow being
+	// driven as a type-ahead. Rate limiting is not the deciding factor: a
+	// provider can permit one request a second and still forbid autocomplete.
+	SupportsAutocomplete() bool
 }
 
 // suggestionLimit caps how many candidates are ever requested from a provider,
@@ -121,6 +125,13 @@ func (g *NominatimGeocoder) Suggest(query string, limit int) ([]GeocodingSuggest
 	return suggestFromURL(g.client, "https://nominatim.openstreetmap.org/search", query, "", limit, g.limiter)
 }
 
+// SupportsAutocomplete is false for the public OSM instance. Its usage policy
+// forbids autocomplete outright — "do not use for autocomplete search" — and
+// that is a licensing restriction, not a throughput one, so honouring the
+// one-request-per-second limit does not make it permitted.
+// https://operations.osmfoundation.org/policies/nominatim/
+func (g *NominatimGeocoder) SupportsAutocomplete() bool { return false }
+
 type LocationIQGeocoder struct {
 	client  *http.Client
 	apiKey  string
@@ -143,6 +154,10 @@ func (g *LocationIQGeocoder) Geocode(address string) (*GeocodingResult, error) {
 func (g *LocationIQGeocoder) Suggest(query string, limit int) ([]GeocodingSuggestion, error) {
 	return suggestFromURL(g.client, "https://us1.locationiq.com/v1/search", query, g.apiKey, limit, g.limiter)
 }
+
+// SupportsAutocomplete is true: LocationIQ is a keyed commercial service whose
+// plans include type-ahead, so the instance operator's own quota governs it.
+func (g *LocationIQGeocoder) SupportsAutocomplete() bool { return true }
 
 func NewGeocoder(provider, apiKey string) Geocoder {
 	switch provider {

@@ -74,7 +74,8 @@ type InteractionBucket struct {
 }
 
 // InteractionChannel is one activity type that counts as an interaction —
-// "WhatsApp", "Phone call", "In-person meeting" — over the reported window.
+// "WhatsApp", "Phone call", "In-person meeting". Count and Months both cover
+// the reported window only.
 type InteractionChannel struct {
 	ActivityTypeID uint                `json:"activity_type_id" example:"195"`
 	Label          string              `json:"label" example:"Phone call"`
@@ -85,6 +86,11 @@ type InteractionChannel struct {
 }
 
 // InteractionContactItem is one person's cadence.
+//
+// Unlike the report's headline figures, every field here is measured over ALL
+// recorded history rather than the requested window. A rhythm confined to the
+// window could not describe a friendship whose normal gap is longer than it,
+// and "last spoken to" would be a lie if it could only look back two years.
 //
 // MedianGapDays is the median number of days between consecutive interactions,
 // which is a far better description of a relationship's rhythm than a mean —
@@ -99,15 +105,25 @@ type InteractionContactItem struct {
 	MedianGapDays *int       `json:"median_gap_days" example:"9"`
 }
 
+// InteractionsReportResponse describes one window of the activity log.
+//
+// The window contract: TotalActivities, TotalInteractions, Months and every
+// Channel count describe the requested window only, so changing `months`
+// changes all of them together. MostFrequent and GoneQuiet are the deliberate
+// exception and are measured over all history — see InteractionContactItem.
 type InteractionsReportResponse struct {
-	// TotalActivities counts every activity in the window regardless of type, so
-	// a vault whose types are all unflagged can be told why its report is empty
-	// instead of being shown a blank chart.
-	TotalActivities   int                      `json:"total_activities" example:"7643"`
-	TotalInteractions int                      `json:"total_interactions" example:"1204"`
-	ContactCount      int                      `json:"contact_count" example:"88"`
-	Months            []InteractionBucket      `json:"months"`
-	Channels          []InteractionChannel     `json:"channels"`
-	MostFrequent      []InteractionContactItem `json:"most_frequent"`
-	GoneQuiet         []InteractionContactItem `json:"gone_quiet"`
+	// TotalActivities counts every activity in the window regardless of type,
+	// so a vault whose types are all unflagged can be told why its report is
+	// empty instead of being shown a blank chart.
+	TotalActivities int `json:"total_activities" example:"7643"`
+	// TotalInteractions counts only activities whose type counts as an
+	// interaction, within the window.
+	TotalInteractions int `json:"total_interactions" example:"1204"`
+	// ContactCount is how many people appear in the per-contact lists, which
+	// are all-history; it is not a count for the window.
+	ContactCount int                      `json:"contact_count" example:"88"`
+	Months       []InteractionBucket      `json:"months"`
+	Channels     []InteractionChannel     `json:"channels"`
+	MostFrequent []InteractionContactItem `json:"most_frequent"`
+	GoneQuiet    []InteractionContactItem `json:"gone_quiet"`
 }

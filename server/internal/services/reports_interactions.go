@@ -59,8 +59,13 @@ func (s *ReportService) InteractionsReport(vaultID, locale, userID string, month
 		return nil, err
 	}
 
+	now := time.Now().UTC()
+	windowStart := monthStart(now).AddDate(0, -(months - 1), 0)
+
 	var totalActivities int64
-	if err := s.db.Model(&models.Activity{}).Where("vault_id = ?", vaultID).Count(&totalActivities).Error; err != nil {
+	if err := s.db.Model(&models.Activity{}).
+		Where("vault_id = ? AND start_date >= ?", vaultID, windowStart).
+		Count(&totalActivities).Error; err != nil {
 		return nil, err
 	}
 
@@ -88,21 +93,26 @@ func (s *ReportService) InteractionsReport(vaultID, locale, userID string, month
 		GoneQuiet:       []dto.InteractionContactItem{},
 	}
 
-	now := time.Now().UTC()
-	windowStart := monthStart(now).AddDate(0, -(months - 1), 0)
 	response.Months = emptyMonthSeries(windowStart, now)
 
 	if len(activities) == 0 {
 		return response, nil
 	}
-	response.TotalInteractions = len(activities)
 
+	// One window contract for the whole report: every headline figure — totals,
+	// channels and the monthly series — describes the requested window, so
+	// changing it changes all of them together. The per-contact lists below are
+	// the documented exception, because a rhythm measured only inside a
+	// two-year window cannot describe a friendship with a three-year gap.
 	events := make(map[uint]interactionEvent, len(activities))
 	activityIDs := make([]uint, 0, len(activities))
 	for _, activity := range activities {
 		day := activity.StartDate.UTC().Truncate(24 * time.Hour)
 		events[activity.ID] = interactionEvent{ActivityID: activity.ID, TypeID: activity.TypeID, Day: day}
 		activityIDs = append(activityIDs, activity.ID)
+		if !day.Before(windowStart) {
+			response.TotalInteractions++
+		}
 	}
 
 	// Monthly totals and per-channel series. Counting runs over activities, not
@@ -114,11 +124,15 @@ func (s *ReportService) InteractionsReport(vaultID, locale, userID string, month
 	perChannel := make(map[uint]map[string]int)
 	channelTotals := make(map[uint]int)
 	for _, event := range events {
-		channelTotals[event.TypeID]++
 		period := event.Day.Format("2006-01")
-		if i, ok := monthIndex[period]; ok {
-			response.Months[i].Count++
+		i, inWindow := monthIndex[period]
+		if !inWindow {
+			// Outside the reported window: it still counts towards each
+			// person's cadence below, but not towards the headline figures.
+			continue
 		}
+		channelTotals[event.TypeID]++
+		response.Months[i].Count++
 		series, ok := perChannel[event.TypeID]
 		if !ok {
 			series = make(map[string]int)

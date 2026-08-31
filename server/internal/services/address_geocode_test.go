@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -10,15 +11,26 @@ import (
 
 // stubGeocoder records what it was asked and answers with fixed coordinates.
 type stubGeocoder struct {
-	queries   []string
-	latitude  float64
-	longitude float64
+	queries      []string
+	latitude     float64
+	longitude    float64
+	fail         bool
+	noMatch      bool
+	autocomplete bool
 }
 
 func (g *stubGeocoder) Geocode(address string) (*GeocodingResult, error) {
 	g.queries = append(g.queries, address)
+	if g.fail {
+		return nil, errors.New("provider unavailable")
+	}
+	if g.noMatch {
+		return nil, nil
+	}
 	return &GeocodingResult{Latitude: g.latitude, Longitude: g.longitude}, nil
 }
+
+func (g *stubGeocoder) SupportsAutocomplete() bool { return g.autocomplete }
 
 func (g *stubGeocoder) Suggest(query string, limit int) ([]GeocodingSuggestion, error) {
 	return nil, nil
@@ -248,5 +260,110 @@ func TestLocalityPrecisionSkipsRegeocodeWhenOnlyTheStreetChanges(t *testing.T) {
 	}
 	if len(geocoder.queries) != 1 {
 		t.Fatalf("expected no second geocode, got %d", len(geocoder.queries))
+	}
+}
+
+func TestUpdateAddressDropsCoordinatesWhenGeocodingFails(t *testing.T) {
+	svc, contactID, vaultID := setupAddressTest(t)
+	geocoder := &stubGeocoder{latitude: 51.5072, longitude: -0.1276}
+	svc.SetGeocoder(geocoder)
+
+	created, err := svc.Create(contactID, vaultID, dto.CreateAddressRequest{
+		Line1: "10 Downing Street", City: "London", Country: "United Kingdom",
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	if lat, _ := storedCoordinates(t, svc, created.ID); lat == nil {
+		t.Fatal("expected the new address to be geocoded")
+	}
+
+	// The address moves, and the provider cannot answer. Keeping the old
+	// coordinates would leave this address pinned to London on the map.
+	geocoder.fail = true
+	if _, err := svc.Update(created.ID, contactID, vaultID, dto.UpdateAddressRequest{
+		Line1: "Stephansplatz 1", City: "Vienna", Country: "Austria",
+	}); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	latitude, longitude := storedCoordinates(t, svc, created.ID)
+	if latitude != nil || longitude != nil {
+		t.Fatalf("a moved address must not keep its old coordinates when geocoding fails, got %v, %v", latitude, longitude)
+	}
+}
+
+func TestUpdateAddressDropsCoordinatesWhenProviderFindsNothing(t *testing.T) {
+	svc, contactID, vaultID := setupAddressTest(t)
+	geocoder := &stubGeocoder{latitude: 51.5072, longitude: -0.1276}
+	svc.SetGeocoder(geocoder)
+
+	created, err := svc.Create(contactID, vaultID, dto.CreateAddressRequest{
+		Line1: "10 Downing Street", City: "London", Country: "United Kingdom",
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	geocoder.noMatch = true
+	if _, err := svc.Update(created.ID, contactID, vaultID, dto.UpdateAddressRequest{
+		Line1: "Nowhere At All", City: "Nowhereville", Country: "Atlantis",
+	}); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+	if latitude, _ := storedCoordinates(t, svc, created.ID); latitude != nil {
+		t.Fatalf("expected no coordinates for an unresolvable address, got %v", *latitude)
+	}
+}
+
+func TestSuggestRefusedWhenProviderForbidsAutocomplete(t *testing.T) {
+	svc, _, _ := setupAddressTest(t)
+	// The public Nominatim instance forbids autocomplete outright.
+	svc.SetGeocoder(&stubGeocoder{autocomplete: false})
+
+	suggestions, enabled, err := svc.Suggest("10 downing", 5)
+	if err != nil {
+		t.Fatalf("Suggest failed: %v", err)
+	}
+	if enabled {
+		t.Fatal("autocomplete must report itself unavailable when the provider forbids it")
+	}
+	if len(suggestions) != 0 {
+		t.Fatalf("expected no suggestions, got %d", len(suggestions))
+	}
+}
+
+func TestSuggestRefusedAtLocalityPrecision(t *testing.T) {
+	svc, _, _ := setupAddressTest(t)
+	geocoder := &stubGeocoder{autocomplete: true}
+	svc.SetGeocoder(geocoder)
+	svc.SetGeocodingPrecision(GeocodingPrecisionLocality)
+
+	// Locality mode promises no street address leaves the server. Autocomplete
+	// would send the partial street line the reader is typing, so it is
+	// withdrawn rather than quietly weakened.
+	_, enabled, err := svc.Suggest("221b baker street", 5)
+	if err != nil {
+		t.Fatalf("Suggest failed: %v", err)
+	}
+	if enabled {
+		t.Fatal("autocomplete must be unavailable at locality precision")
+	}
+	if len(geocoder.queries) != 0 {
+		t.Fatalf("nothing may reach the provider at locality precision, got %v", geocoder.queries)
+	}
+}
+
+func TestSuggestWorksWhenProviderPermitsAndPrecisionIsExact(t *testing.T) {
+	svc, _, _ := setupAddressTest(t)
+	svc.SetGeocoder(&stubGeocoder{autocomplete: true})
+	svc.SetGeocodingPrecision(GeocodingPrecisionExact)
+
+	_, enabled, err := svc.Suggest("10 downing", 5)
+	if err != nil {
+		t.Fatalf("Suggest failed: %v", err)
+	}
+	if !enabled {
+		t.Fatal("expected autocomplete to be available")
 	}
 }

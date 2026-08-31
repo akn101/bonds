@@ -4,6 +4,7 @@ import { Empty, Skeleton, Typography, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import type { MapCountryItem, MapPoint } from "@/api";
 import { useElementWidth } from "@/hooks/useElementWidth";
+import { fitProjectionToPoints } from "@/components/mapProjection";
 import { matchCountryName } from "@/utils/countryNames";
 
 const { Text } = Typography;
@@ -41,33 +42,6 @@ type Props = {
   height?: number;
   onSelectContact?: (contactId: string) => void;
 };
-
-/**
- * The dots the projection should frame.
- *
- * A single mis-geocoded address — and address books are full of them, a UK
- * postcode that resolved to Brazil — would otherwise drag the view out to a
- * whole-world map with everything else in one corner. Trimming to the middle of
- * the distribution keeps the map on where people actually are; the outlier is
- * still drawn, it just does not get a vote on the framing.
- */
-function fitTargets(dots: MapDot[]): MapDot[] {
-  if (dots.length < 8) return dots;
-  const percentile = (values: number[], p: number) => {
-    const sorted = [...values].sort((a, b) => a - b);
-    return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
-  };
-  const latitudes = dots.map((d) => d.latitude);
-  const longitudes = dots.map((d) => d.longitude);
-  const minLat = percentile(latitudes, 0.05);
-  const maxLat = percentile(latitudes, 0.95);
-  const minLon = percentile(longitudes, 0.05);
-  const maxLon = percentile(longitudes, 0.95);
-  const kept = dots.filter(
-    (d) => d.latitude >= minLat && d.latitude <= maxLat && d.longitude >= minLon && d.longitude <= maxLon,
-  );
-  return kept.length > 0 ? kept : dots;
-}
 
 // The world outline is ~100KB gzipped and only the reports page needs it, so it
 // is fetched on demand rather than bundled into the initial download.
@@ -185,18 +159,7 @@ export default function ContactMap({ points, countries, height = 420, onSelectCo
       [width - padding, height - padding],
     ];
     if (dots.length > 0) {
-      projection.fitExtent(extent, {
-        type: "FeatureCollection",
-        features: fitTargets(dots).map((dot) => ({
-          type: "Feature" as const,
-          properties: {},
-          geometry: { type: "Point" as const, coordinates: [dot.longitude, dot.latitude] },
-        })),
-      } as d3.GeoPermissibleObjects);
-      // A single point projects to a degenerate extent and d3 answers with an
-      // infinite scale, so pull back to something readable around it.
-      const scale = projection.scale();
-      if (!Number.isFinite(scale) || scale > 20000) projection.scale(2000);
+      fitProjectionToPoints(projection, dots, width, height, padding);
     } else if (highlighted.length > 0) {
       projection.fitExtent(extent, {
         type: "FeatureCollection",

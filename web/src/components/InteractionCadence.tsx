@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
 import { Alert, Empty, Table, Tag, Typography, theme } from "antd";
 import { useTranslation } from "react-i18next";
+import { formatDate, useDateFormat } from "@/utils/dateFormat";
 import type { InteractionContactItem, InteractionsReportResponse } from "@/api";
 import { useElementWidth } from "@/hooks/useElementWidth";
 
@@ -24,7 +25,8 @@ type MonthRow = Record<string, string | number>;
 const FALLBACK_COLORS = ["#1677ff", "#722ed1", "#52c41a", "#fa8c16", "#eb2f96", "#13c2c2"];
 
 export default function InteractionCadence({ report, onSelectContact, height = 220 }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const dateFormats = useDateFormat();
   const { token } = theme.useToken();
   const svgRef = useRef<SVGSVGElement>(null);
   const { ref: containerRef, width } = useElementWidth();
@@ -150,8 +152,9 @@ export default function InteractionCadence({ report, onSelectContact, height = 2
       <a onClick={() => item.contact_id && onSelectContact?.(item.contact_id)}>{item.contact_name}</a>
     ),
   };
-  const formatDate = (value?: string) =>
-    value ? new Date(value).toLocaleDateString(i18n.language, { year: "numeric", month: "short", day: "numeric" }) : "—";
+  // Dates go through the shared formatter so they follow the reader's
+  // configured format, like every other date in the app.
+  const formatLastSeen = (value?: string) => (value ? formatDate(value, dateFormats) : "—");
 
   return (
     <div>
@@ -198,7 +201,7 @@ export default function InteractionCadence({ report, onSelectContact, height = 2
           {
             title: t("vault.reports.interactions.col_last"),
             key: "last",
-            render: (_: unknown, item: InteractionContactItem) => formatDate(item.last_at),
+            render: (_: unknown, item: InteractionContactItem) => formatLastSeen(item.last_at),
           },
         ]}
       />
@@ -239,7 +242,7 @@ export default function InteractionCadence({ report, onSelectContact, height = 2
             {
               title: t("vault.reports.interactions.col_last"),
               key: "last",
-              render: (_: unknown, item: InteractionContactItem) => formatDate(item.last_at),
+              render: (_: unknown, item: InteractionContactItem) => formatLastSeen(item.last_at),
             },
           ]}
         />

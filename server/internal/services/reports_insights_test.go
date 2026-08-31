@@ -451,3 +451,74 @@ func TestMedianGapDaysUsesMedianNotMean(t *testing.T) {
 		t.Fatalf("expected 7, got %d", *median)
 	}
 }
+
+func TestInteractionsReportWindowScopesEveryHeadlineFigure(t *testing.T) {
+	f := setupInsightsTest(t, "insights-window-contract@example.com")
+	alice := f.contact(t, "Alice")
+	interaction := f.interactionType(t, "Phone call", true)
+	other := f.interactionType(t, "Watched a movie", false)
+
+	now := time.Now().UTC()
+	// Two inside a 12-month window, two well outside it.
+	f.logActivity(t, interaction, now.AddDate(0, -1, 0), alice)
+	f.logActivity(t, interaction, now.AddDate(0, -2, 0), alice)
+	f.logActivity(t, interaction, now.AddDate(-3, 0, 0), alice)
+	f.logActivity(t, interaction, now.AddDate(-4, 0, 0), alice)
+	f.logActivity(t, other, now.AddDate(0, -1, 0), alice)
+
+	narrow, err := f.service.InteractionsReport(f.vaultID, "en", f.userID, 12)
+	if err != nil {
+		t.Fatalf("InteractionsReport failed: %v", err)
+	}
+	wide, err := f.service.InteractionsReport(f.vaultID, "en", f.userID, 120)
+	if err != nil {
+		t.Fatalf("InteractionsReport failed: %v", err)
+	}
+
+	// Every headline figure must move with the window, together.
+	if narrow.TotalInteractions != 2 {
+		t.Fatalf("12-month window: expected 2 interactions, got %d", narrow.TotalInteractions)
+	}
+	if wide.TotalInteractions != 4 {
+		t.Fatalf("120-month window: expected 4 interactions, got %d", wide.TotalInteractions)
+	}
+	if narrow.TotalActivities != 3 {
+		t.Fatalf("12-month window: expected 3 activities, got %d", narrow.TotalActivities)
+	}
+	if wide.TotalActivities != 5 {
+		t.Fatalf("120-month window: expected 5 activities, got %d", wide.TotalActivities)
+	}
+
+	channelCount := func(r *dto.InteractionsReportResponse) int {
+		total := 0
+		for _, channel := range r.Channels {
+			total += channel.Count
+		}
+		return total
+	}
+	// The bug this guards: channel counts stayed at all-history while the bars
+	// followed the window, so the legend disagreed with the chart beside it.
+	if channelCount(narrow) != narrow.TotalInteractions {
+		t.Fatalf("channel counts must sum to the window total, got %d vs %d",
+			channelCount(narrow), narrow.TotalInteractions)
+	}
+	if channelCount(wide) != wide.TotalInteractions {
+		t.Fatalf("channel counts must sum to the window total, got %d vs %d",
+			channelCount(wide), wide.TotalInteractions)
+	}
+
+	monthSum := 0
+	for _, bucket := range narrow.Months {
+		monthSum += bucket.Count
+	}
+	if monthSum != narrow.TotalInteractions {
+		t.Fatalf("month buckets must sum to the window total, got %d vs %d", monthSum, narrow.TotalInteractions)
+	}
+
+	// Per-contact cadence is the documented exception: all history, either way.
+	for _, r := range []*dto.InteractionsReportResponse{narrow, wide} {
+		if len(r.MostFrequent) != 1 || r.MostFrequent[0].Count != 4 {
+			t.Fatalf("per-contact figures must cover all history, got %+v", r.MostFrequent)
+		}
+	}
+}

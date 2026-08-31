@@ -161,10 +161,19 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	address.AddressTypeID = req.AddressTypeID
 
 	coordinatesGiven := req.Latitude != nil && req.Longitude != nil
-	if coordinatesGiven {
+	movedElsewhere := geocodeQuery(&address, s.geocodingPrecision) != previousQuery
+	switch {
+	case coordinatesGiven:
 		address.Latitude = req.Latitude
 		address.Longitude = req.Longitude
-	} else {
+	case movedElsewhere:
+		// The address now describes somewhere else, so the old coordinates are
+		// simply wrong. Drop them before re-geocoding: keeping them until a
+		// replacement arrives would leave the address pinned to its previous
+		// location whenever the provider errors or finds nothing, which is a
+		// worse answer than having no pin at all.
+		address.Latitude, address.Longitude = nil, nil
+	default:
 		address.Latitude = previousLatitude
 		address.Longitude = previousLongitude
 	}
@@ -186,7 +195,7 @@ func (s *AddressService) Update(id uint, contactID, vaultID string, req dto.Upda
 	// Only re-geocode when the address actually moved; re-running it on every
 	// save would spend a provider request, and a rate-limit slot, to arrive back
 	// at the coordinates already stored.
-	if !coordinatesGiven && geocodeQuery(&address, s.geocodingPrecision) != previousQuery {
+	if !coordinatesGiven && movedElsewhere {
 		s.tryGeocode(&address)
 	}
 
@@ -321,6 +330,28 @@ func toAddressResponse(a *models.Address, isPastAddress bool, dateFrom, dateTo *
 	}
 }
 
+// autocompleteAvailable reports whether address lookup may be offered at all.
+//
+// Two things can withdraw it, and both are about what may leave the server
+// rather than about whether it would work:
+//
+//   - The provider's terms. The public Nominatim instance forbids autocomplete,
+//     so it is never driven as a type-ahead however slowly requests are paced.
+//   - Locality precision. That mode exists so a contact's street address is
+//     never sent to a geocoder, and autocomplete would send exactly that: the
+//     partial line the reader is typing. There is no way to answer a street
+//     query at district precision, so the feature is withdrawn rather than
+//     quietly weakened.
+func (s *AddressService) autocompleteAvailable() bool {
+	if s.geocoder == nil {
+		return false
+	}
+	if s.geocodingPrecision == GeocodingPrecisionLocality {
+		return false
+	}
+	return s.geocoder.SupportsAutocomplete()
+}
+
 // Suggest returns candidate addresses for a partial query, for the address
 // form's autocomplete.
 //
@@ -329,7 +360,7 @@ func toAddressResponse(a *models.Address, isPastAddress bool, dateFrom, dateTo *
 // no suggestions to offer, and the caller should hide the control rather than
 // show an empty one.
 func (s *AddressService) Suggest(query string, limit int) ([]dto.AddressSuggestionItem, bool, error) {
-	if s.geocoder == nil {
+	if !s.autocompleteAvailable() {
 		return []dto.AddressSuggestionItem{}, false, nil
 	}
 	if strings.TrimSpace(query) == "" {

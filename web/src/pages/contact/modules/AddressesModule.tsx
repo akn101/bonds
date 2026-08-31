@@ -409,6 +409,25 @@ export default function AddressesModule({
         <Form
           form={form}
           layout="vertical"
+          // Coordinates arrive hidden, from a picked lookup result, and describe
+          // that exact suggestion. The moment any address field is typed over,
+          // they describe somewhere else — so they are dropped and the server
+          // geocodes the address the reader actually entered. antd does not
+          // fire this for setFieldsValue, so choosing a suggestion does not
+          // immediately discard its own coordinates.
+          onValuesChange={(changed: Partial<AddressFormValues>) => {
+            const addressFields = [
+              "line_1",
+              "line_2",
+              "city",
+              "province",
+              "postal_code",
+              "country",
+            ] as const;
+            if (addressFields.some((field) => field in changed)) {
+              form.setFieldsValue({ latitude: undefined, longitude: undefined });
+            }
+          }}
           onFinish={(values) =>
             saveMutation.mutate({
               ...createContactSaveMutationOperation(editingId, values),
