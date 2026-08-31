@@ -34,5 +34,9 @@ func (h *AddressHandler) Suggest(c *echo.Context) error {
 		}
 		return response.InternalError(c, "err.failed_to_suggest_addresses")
 	}
-	return response.OK(c, dto.AddressSuggestionsResponse{Enabled: enabled, Suggestions: suggestions})
+	return response.OK(c, dto.AddressSuggestionsResponse{
+		Enabled:     enabled,
+		Suggestions: suggestions,
+		Attribution: h.addressService.Attribution(),
+	})
 }

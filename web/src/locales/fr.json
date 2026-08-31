@@ -890,8 +890,7 @@
       "lookup_placeholder": "Commencez à saisir une adresse…",
       "lookup_hint": "Choisissez un résultat pour remplir les champs ci-dessous.",
       "lookup_searching": "Recherche…",
-      "lookup_no_results": "Aucune adresse correspondante",
-      "lookup_attribution": "Données d'adresses © les contributeurs d'OpenStreetMap."
+      "lookup_no_results": "Aucune adresse correspondante"
     },
     "contact_info": {
       "title": "Coordonnées",
@@ -1732,7 +1731,8 @@
         "locationiq": "LocationIQ",
         "precision": "Précision d'adresse",
         "precision_exact": "Adresse exacte",
-        "precision_locality": "District uniquement"
+        "precision_locality": "District uniquement",
+        "provider_hint": "Le serveur public OpenStreetMap n'autorise qu'une requête par seconde pour toute l'application et interdit l'autocomplétion. Bonds ne respecte cette cadence qu'au sein d'une seule instance : les déploiements multi-instances doivent héberger leur propre Nominatim ou utiliser LocationIQ."
       },
       "storage": {
         "max_size_mb": "Taille maximale de téléchargement (Mo)",

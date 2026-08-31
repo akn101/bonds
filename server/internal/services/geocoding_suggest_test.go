@@ -3,8 +3,10 @@ package services
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 const suggestPayload = `[
@@ -73,9 +75,13 @@ func TestSuggestSplitsAddressIntoFormFields(t *testing.T) {
 		t.Fatalf("expected no street line for a city-level result, got %q", suggestions[1].Line1)
 	}
 
-	// addressdetails is what makes the provider return the breakdown at all.
-	if !contains(gotQuery, "addressdetails=1") {
-		t.Fatalf("expected addressdetails in the request, got %q", gotQuery)
+	// The autocomplete product always includes the address breakdown and always
+	// answers JSON, so the search product's format/addressdetails parameters
+	// must not be sent.
+	for _, banned := range []string{"addressdetails", "format"} {
+		if contains(gotQuery, banned) {
+			t.Fatalf("search-product parameter %q sent to the autocomplete endpoint: %q", banned, gotQuery)
+		}
 	}
 }
 
@@ -147,4 +153,94 @@ func contains(haystack, needle string) bool {
 		}
 	}
 	return false
+}
+
+// trippingTransport fails the test if any request is ever made through it.
+type trippingTransport struct{ tripped *bool }
+
+func (t *trippingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	*t.tripped = true
+	return nil, http.ErrHandlerTimeout
+}
+
+func TestNominatimSuggestRefusesWithoutTouchingTheNetwork(t *testing.T) {
+	tripped := false
+	g := NewNominatimGeocoder()
+	g.client = &http.Client{Transport: &trippingTransport{tripped: &tripped}}
+
+	_, err := g.Suggest("10 downing", 5)
+	if err != ErrAutocompleteUnsupported {
+		t.Fatalf("expected ErrAutocompleteUnsupported, got %v", err)
+	}
+	if tripped {
+		t.Fatal("the public Nominatim instance must never receive an autocomplete request")
+	}
+}
+
+func TestLocationIQSuggestUsesTheAutocompleteProduct(t *testing.T) {
+	// The documented type-ahead product, not the forward-geocoding /search API.
+	if locationIQAutocompleteURL != "https://api.locationiq.com/v1/autocomplete" {
+		t.Fatalf("unexpected autocomplete endpoint: %q", locationIQAutocompleteURL)
+	}
+
+	var gotQuery string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(suggestPayload))
+	}))
+	defer server.Close()
+
+	g := NewLocationIQGeocoder("secret-key")
+	g.client = server.Client()
+	g.limiter = nil
+	g.autocompleteURL = server.URL
+
+	suggestions, err := g.Suggest("10 downing", 5)
+	if err != nil {
+		t.Fatalf("Suggest failed: %v", err)
+	}
+	if len(suggestions) != 2 {
+		t.Fatalf("expected 2 suggestions, got %d", len(suggestions))
+	}
+	for _, expected := range []string{"key=secret-key", "q=10+downing", "limit=5"} {
+		if !contains(gotQuery, expected) {
+			t.Fatalf("expected %q in the autocomplete request, got %q", expected, gotQuery)
+		}
+	}
+}
+
+func TestSuggestQueryCutAtTheDocumentedLimit(t *testing.T) {
+	// LocationIQ documents a 200-character ceiling on q. The cut must land on
+	// a rune boundary: "é" is two bytes, and slicing through it would send an
+	// invalid byte sequence.
+	long := strings.Repeat("é", 150) // 300 bytes
+	cut := truncateQuery(long, suggestQueryMaxLength)
+	if len(cut) > suggestQueryMaxLength {
+		t.Fatalf("query still %d bytes after the cut", len(cut))
+	}
+	if !utf8.ValidString(cut) {
+		t.Fatal("the cut split a rune")
+	}
+	if short := truncateQuery("10 downing", suggestQueryMaxLength); short != "10 downing" {
+		t.Fatalf("short query must pass through unchanged, got %q", short)
+	}
+}
+
+func TestProviderAttributionCredits(t *testing.T) {
+	nominatim := NewNominatimGeocoder().Attribution()
+	if len(nominatim) != 1 || nominatim[0].URL != "https://www.openstreetmap.org/copyright" {
+		t.Fatalf("Nominatim must credit OpenStreetMap with its copyright page, got %v", nominatim)
+	}
+
+	locationIQ := NewLocationIQGeocoder("k").Attribution()
+	if len(locationIQ) != 2 {
+		t.Fatalf("LocationIQ must credit both OpenStreetMap and itself, got %v", locationIQ)
+	}
+	if locationIQ[0].URL != "https://www.openstreetmap.org/copyright" {
+		t.Fatalf("LocationIQ results are OSM-derived and must say so, got %v", locationIQ[0])
+	}
+	if locationIQ[1].Label != "Search by LocationIQ.com" || locationIQ[1].URL != "https://locationiq.com/attribution" {
+		t.Fatalf("unexpected LocationIQ credit: %v", locationIQ[1])
+	}
 }

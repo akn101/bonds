@@ -67,7 +67,16 @@ type AddressSuggestionItem struct {
 // AddressSuggestionsResponse carries the candidates plus whether address lookup
 // is configured at all, so the form can hide the control on an instance with no
 // geocoding provider instead of showing one that never returns anything.
+// AddressAttribution is one data credit the provider's licence requires
+// wherever suggestions are shown: the text to display and the licence or
+// acknowledgement page it links to.
+type AddressAttribution struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
+}
+
 type AddressSuggestionsResponse struct {
 	Enabled     bool                    `json:"enabled" example:"true"`
 	Suggestions []AddressSuggestionItem `json:"suggestions"`
+	Attribution []AddressAttribution    `json:"attribution"`
 }

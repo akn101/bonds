@@ -890,8 +890,7 @@
       "lookup_placeholder": "Comece a escrever uma morada…",
       "lookup_hint": "Escolha um resultado para preencher os campos abaixo.",
       "lookup_searching": "A procurar…",
-      "lookup_no_results": "Nenhuma morada correspondente",
-      "lookup_attribution": "Dados de moradas © colaboradores do OpenStreetMap."
+      "lookup_no_results": "Nenhuma morada correspondente"
     },
     "contact_info": {
       "title": "Informação de Contacto",
@@ -1732,7 +1731,8 @@
         "locationiq": "LocationIQ",
         "precision": "Precisão da morada",
         "precision_exact": "Morada exata",
-        "precision_locality": "Apenas o distrito"
+        "precision_locality": "Apenas o distrito",
+        "provider_hint": "O servidor público do OpenStreetMap permite um pedido por segundo para toda a aplicação e proíbe o preenchimento automático. O Bonds respeita esse ritmo apenas dentro de uma única instância; implementações com várias instâncias devem alojar o seu próprio Nominatim ou usar o LocationIQ."
       },
       "storage": {
         "max_size_mb": "Tamanho Máximo de Carregamento (MB)",

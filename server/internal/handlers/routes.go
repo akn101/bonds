@@ -124,6 +124,10 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 		geocoder := services.NewGeocoder(geocodingProvider, geocodingAPIKey)
 		addressService.SetGeocoder(geocoder)
 	}
+	// Precision governs how much of an address may leave the server, so it is
+	// applied whether or not a provider is configured today: a geocoder added
+	// later must not default to sending more than the admin chose.
+	addressService.SetGeocodingPrecision(systemSettingService.GetWithDefault("geocoding.precision", cfg.Geocoding.Precision))
 
 	oauthProviderService := services.NewOAuthProviderServiceWithCipher(db, cfg.Security.SettingsEncKey)
 	oauthProviderService.SetSystemSettings(systemSettingService)
@@ -627,8 +631,10 @@ func RegisterRoutes(e *echo.Echo, db *gorm.DB, cfg *config.Config, version strin
 	icsCalendar.GET("", calendarHandler.GetICS)
 
 	// Address lookup is vault-scoped rather than per-contact: it reads nothing
-	// from a contact, and anyone who may view the vault may use it.
-	vaultScoped.GET("/addresses/suggest", addressHandler.Suggest)
+	// from a contact. It is gated on Editor even though it reads nothing,
+	// because every lookup spends a request against the instance's geocoding
+	// quota — a viewer who cannot save an address has no use for it.
+	vaultScoped.GET("/addresses/suggest", addressHandler.Suggest, requireEditor)
 
 	vaultScoped.GET("/reports", reportHandler.Index)
 	vaultScoped.GET("/reports/overview", reportHandler.Overview)

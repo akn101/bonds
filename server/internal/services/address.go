@@ -352,6 +352,22 @@ func (s *AddressService) autocompleteAvailable() bool {
 	return s.geocoder.SupportsAutocomplete()
 }
 
+// Attribution lists the data credits that must be shown wherever this
+// instance's address suggestions are, as required by the configured
+// provider's licence. Empty when lookup is unavailable, because then nothing
+// is shown that would need crediting.
+func (s *AddressService) Attribution() []dto.AddressAttribution {
+	if !s.autocompleteAvailable() {
+		return []dto.AddressAttribution{}
+	}
+	credits := s.geocoder.Attribution()
+	attribution := make([]dto.AddressAttribution, 0, len(credits))
+	for _, credit := range credits {
+		attribution = append(attribution, dto.AddressAttribution{Label: credit.Label, URL: credit.URL})
+	}
+	return attribution
+}
+
 // Suggest returns candidate addresses for a partial query, for the address
 // form's autocomplete.
 //

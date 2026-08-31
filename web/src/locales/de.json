@@ -890,8 +890,7 @@
       "lookup_placeholder": "Adresse eingeben …",
       "lookup_hint": "Ein Ergebnis auswählen, um die Felder unten zu füllen.",
       "lookup_searching": "Suche läuft …",
-      "lookup_no_results": "Keine passende Adresse",
-      "lookup_attribution": "Adressdaten © OpenStreetMap-Mitwirkende."
+      "lookup_no_results": "Keine passende Adresse"
     },
     "contact_info": {
       "title": "Kontaktinformationen",
@@ -1732,7 +1731,8 @@
         "locationiq": "LocationIQ",
         "precision": "Adressgenauigkeit",
         "precision_exact": "Genaue Adresse",
-        "precision_locality": "Nur Bezirk"
+        "precision_locality": "Nur Bezirk",
+        "provider_hint": "Der öffentliche OpenStreetMap-Server erlaubt der gesamten Anwendung eine Anfrage pro Sekunde und verbietet Autovervollständigung. Bonds hält dieses Tempo nur innerhalb einer einzelnen Instanz ein – Deployments mit mehreren Instanzen sollten Nominatim selbst hosten oder LocationIQ verwenden."
       },
       "storage": {
         "max_size_mb": "Maximale Upload-Größe (MB)",

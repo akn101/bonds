@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 type GeocodingResult struct {
@@ -36,6 +37,12 @@ type GeocodingSuggestion struct {
 // failure of the query.
 var ErrGeocoderBusy = errors.New("geocoder busy")
 
+// ErrAutocompleteUnsupported is returned by providers whose terms forbid being
+// driven as a type-ahead. It is returned locally, before any request is built,
+// so no forbidden call can be made even by a caller that skips the
+// SupportsAutocomplete check.
+var ErrAutocompleteUnsupported = errors.New("provider does not support autocomplete")
+
 type Geocoder interface {
 	Geocode(address string) (*GeocodingResult, error)
 	// Suggest returns candidate addresses for a partial query, for autocomplete.
@@ -44,6 +51,24 @@ type Geocoder interface {
 	// driven as a type-ahead. Rate limiting is not the deciding factor: a
 	// provider can permit one request a second and still forbid autocomplete.
 	SupportsAutocomplete() bool
+	// Attribution lists the credits this provider's data licence requires
+	// wherever its results are shown, each with somewhere to read the terms.
+	Attribution() []ProviderAttribution
+}
+
+// ProviderAttribution is one required data credit: the text to display and the
+// licence or acknowledgement page it must lead to.
+type ProviderAttribution struct {
+	Label string
+	URL   string
+}
+
+// osmAttribution is the credit ODbL requires wherever OpenStreetMap-derived
+// results are shown. The label links to the copyright page, which is the
+// OSMF-documented way of making the licence itself reachable.
+var osmAttribution = ProviderAttribution{
+	Label: "© OpenStreetMap contributors",
+	URL:   "https://www.openstreetmap.org/copyright",
 }
 
 // suggestionLimit caps how many candidates are ever requested from a provider,
@@ -58,6 +83,15 @@ const suggestWait = 2 * time.Second
 
 // rateLimiter enforces a minimum interval between outbound requests to one
 // provider.
+//
+// It is process-local. Nominatim's limit applies to the application as a
+// whole — the policy sums traffic across all of an application's users — so
+// running several Bonds replicas against the public instance would multiply
+// the configured rate by the replica count. Coordinating the limit across
+// replicas would need shared state this deliberately simple server does not
+// have, so multi-replica deployments must self-host Nominatim or use a keyed
+// provider instead; the admin settings screen says so next to the provider
+// choice.
 //
 // Nominatim's usage policy allows at most one request per second and blocks
 // deployments that ignore it; nothing else in the server rate-limits anything,
@@ -121,8 +155,12 @@ func (g *NominatimGeocoder) Geocode(address string) (*GeocodingResult, error) {
 	return geocodeFromURL(g.client, "https://nominatim.openstreetmap.org/search", address, "", g.limiter)
 }
 
+// Suggest never reaches the network. The public instance's usage policy lists
+// autocomplete under "strictly forbidden and will get you banned", so there
+// must be no callable path that performs the request — refusing here makes the
+// prohibition structural rather than a check a future caller could forget.
 func (g *NominatimGeocoder) Suggest(query string, limit int) ([]GeocodingSuggestion, error) {
-	return suggestFromURL(g.client, "https://nominatim.openstreetmap.org/search", query, "", limit, g.limiter)
+	return nil, ErrAutocompleteUnsupported
 }
 
 // SupportsAutocomplete is false for the public OSM instance. Its usage policy
@@ -132,10 +170,24 @@ func (g *NominatimGeocoder) Suggest(query string, limit int) ([]GeocodingSuggest
 // https://operations.osmfoundation.org/policies/nominatim/
 func (g *NominatimGeocoder) SupportsAutocomplete() bool { return false }
 
+func (g *NominatimGeocoder) Attribution() []ProviderAttribution {
+	return []ProviderAttribution{osmAttribution}
+}
+
+// locationIQAutocompleteURL is LocationIQ's documented type-ahead product.
+// It is a different product from forward geocoding: /v1/search answers one
+// complete address, /v1/autocomplete answers partial input, and only the
+// latter is served from the api.locationiq.com anycast host.
+// https://docs.locationiq.com/docs/autocomplete
+const locationIQAutocompleteURL = "https://api.locationiq.com/v1/autocomplete"
+
 type LocationIQGeocoder struct {
 	client  *http.Client
 	apiKey  string
 	limiter *rateLimiter
+	// autocompleteURL is a field rather than a constant reference so tests can
+	// point Suggest at a local server and assert the request it makes.
+	autocompleteURL string
 }
 
 func NewLocationIQGeocoder(apiKey string) *LocationIQGeocoder {
@@ -143,7 +195,8 @@ func NewLocationIQGeocoder(apiKey string) *LocationIQGeocoder {
 		client: &http.Client{Timeout: 10 * time.Second},
 		apiKey: apiKey,
 		// LocationIQ's free tier is two requests per second.
-		limiter: &rateLimiter{interval: 500 * time.Millisecond},
+		limiter:         &rateLimiter{interval: 500 * time.Millisecond},
+		autocompleteURL: locationIQAutocompleteURL,
 	}
 }
 
@@ -152,12 +205,23 @@ func (g *LocationIQGeocoder) Geocode(address string) (*GeocodingResult, error) {
 }
 
 func (g *LocationIQGeocoder) Suggest(query string, limit int) ([]GeocodingSuggestion, error) {
-	return suggestFromURL(g.client, "https://us1.locationiq.com/v1/search", query, g.apiKey, limit, g.limiter)
+	return suggestFromURL(g.client, g.autocompleteURL, query, g.apiKey, limit, g.limiter)
 }
 
 // SupportsAutocomplete is true: LocationIQ is a keyed commercial service whose
 // plans include type-ahead, so the instance operator's own quota governs it.
 func (g *LocationIQGeocoder) SupportsAutocomplete() bool { return true }
+
+// Attribution credits both layers of the data: the results are OpenStreetMap-
+// derived, and LocationIQ's free plan asks for a "Search by LocationIQ.com"
+// credit — its attribution page is also the licence URL the provider itself
+// returns with every response.
+func (g *LocationIQGeocoder) Attribution() []ProviderAttribution {
+	return []ProviderAttribution{
+		osmAttribution,
+		{Label: "Search by LocationIQ.com", URL: "https://locationiq.com/attribution"},
+	}
+}
 
 func NewGeocoder(provider, apiKey string) Geocoder {
 	switch provider {
@@ -292,8 +356,37 @@ func geocodeFromURL(client *http.Client, baseURL, address, apiKey string, limite
 	return &GeocodingResult{Latitude: lat, Longitude: lon}, nil
 }
 
+// suggestQueryMaxLength is the documented ceiling on LocationIQ's autocomplete
+// q parameter. Anything longer is cut at a rune boundary rather than rejected:
+// the head of an over-long paste is still a usable query.
+const suggestQueryMaxLength = 200
+
+// suggestParams is the autocomplete request. Unlike the search product, the
+// autocomplete endpoint always includes the structured address breakdown and
+// always answers JSON, so it takes no format or addressdetails parameters.
+func suggestParams(query, apiKey string, limit int) url.Values {
+	params := url.Values{}
+	params.Set("q", query)
+	params.Set("limit", strconv.Itoa(limit))
+	if apiKey != "" {
+		params.Set("key", apiKey)
+	}
+	return params
+}
+
+func truncateQuery(query string, maxBytes int) string {
+	if len(query) <= maxBytes {
+		return query
+	}
+	cut := maxBytes
+	for cut > 0 && !utf8.RuneStart(query[cut]) {
+		cut--
+	}
+	return query[:cut]
+}
+
 func suggestFromURL(client *http.Client, baseURL, query, apiKey string, limit int, limiter *rateLimiter) ([]GeocodingSuggestion, error) {
-	query = strings.TrimSpace(query)
+	query = truncateQuery(strings.TrimSpace(query), suggestQueryMaxLength)
 	if query == "" {
 		return []GeocodingSuggestion{}, nil
 	}
@@ -301,7 +394,7 @@ func suggestFromURL(client *http.Client, baseURL, query, apiKey string, limit in
 		limit = suggestionLimit
 	}
 
-	results, err := fetchGeocoding(client, baseURL, geocodeParams(query, apiKey, limit, true), limiter, suggestWait)
+	results, err := fetchGeocoding(client, baseURL, suggestParams(query, apiKey, limit), limiter, suggestWait)
 	if err != nil {
 		return nil, err
 	}

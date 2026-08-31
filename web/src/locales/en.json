@@ -890,8 +890,7 @@
       "lookup_placeholder": "Start typing an address…",
       "lookup_hint": "Pick a result to fill in the fields below.",
       "lookup_searching": "Searching…",
-      "lookup_no_results": "No matching address",
-      "lookup_attribution": "Address data © OpenStreetMap contributors."
+      "lookup_no_results": "No matching address"
     },
     "contact_info": {
       "title": "Contact Information",
@@ -1732,7 +1731,8 @@
         "locationiq": "LocationIQ",
         "precision": "Address precision",
         "precision_exact": "Exact address",
-        "precision_locality": "District only"
+        "precision_locality": "District only",
+        "provider_hint": "The public OpenStreetMap server allows one request per second for the whole application and forbids autocomplete. Bonds paces its requests within a single instance only, so multi-instance deployments should self-host Nominatim or use LocationIQ."
       },
       "storage": {
         "max_size_mb": "Max Upload Size (MB)",

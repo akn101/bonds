@@ -32,6 +32,10 @@ func (g *stubGeocoder) Geocode(address string) (*GeocodingResult, error) {
 
 func (g *stubGeocoder) SupportsAutocomplete() bool { return g.autocomplete }
 
+func (g *stubGeocoder) Attribution() []ProviderAttribution {
+	return []ProviderAttribution{{Label: "Test data", URL: "https://example.com/licence"}}
+}
+
 func (g *stubGeocoder) Suggest(query string, limit int) ([]GeocodingSuggestion, error) {
 	return nil, nil
 }
@@ -365,5 +369,26 @@ func TestSuggestWorksWhenProviderPermitsAndPrecisionIsExact(t *testing.T) {
 	}
 	if !enabled {
 		t.Fatal("expected autocomplete to be available")
+	}
+}
+
+func TestAttributionFollowsAvailability(t *testing.T) {
+	svc, _, _ := setupAddressTest(t)
+
+	// No provider: nothing is shown, so nothing needs crediting.
+	if credits := svc.Attribution(); len(credits) != 0 {
+		t.Fatalf("expected no attribution without a geocoder, got %v", credits)
+	}
+
+	svc.SetGeocoder(&stubGeocoder{autocomplete: true})
+	credits := svc.Attribution()
+	if len(credits) != 1 || credits[0].Label != "Test data" || credits[0].URL != "https://example.com/licence" {
+		t.Fatalf("expected the provider's credit passed through, got %v", credits)
+	}
+
+	// Locality precision withdraws lookup, and the credit goes with it.
+	svc.SetGeocodingPrecision(GeocodingPrecisionLocality)
+	if credits := svc.Attribution(); len(credits) != 0 {
+		t.Fatalf("expected no attribution at locality precision, got %v", credits)
 	}
 }

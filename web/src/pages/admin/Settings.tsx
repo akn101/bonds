@@ -15,6 +15,8 @@ interface SettingDef {
   section: string;
   /** Explicit placeholder shown in the input; falls back to the label if omitted. */
   placeholder?: string;
+  /** i18n key for help text rendered under the field. */
+  hint?: string;
 }
 
 const KNOWN_SETTINGS: SettingDef[] = [
@@ -50,6 +52,7 @@ const KNOWN_SETTINGS: SettingDef[] = [
     key: "geocoding.provider",
     type: "select",
     section: "geocoding",
+    hint: "admin.settings.geocoding.provider_hint",
     options: [
       { value: "", label: "admin.settings.geocoding.none" },
       { value: "nominatim", label: "admin.settings.geocoding.nominatim" },
@@ -186,7 +189,12 @@ export default function AdminSettings() {
         );
       case "select":
         return (
-          <Form.Item key={def.key} name={def.key} label={label}>
+          <Form.Item
+            key={def.key}
+            name={def.key}
+            label={label}
+            extra={def.hint ? <Text type="secondary" style={{ display: "block", marginTop: 4 }}>{t(def.hint)}</Text> : undefined}
+          >
             <Select>
               {def.options?.map((opt) => (
                 <Select.Option key={opt.value} value={opt.value}>
