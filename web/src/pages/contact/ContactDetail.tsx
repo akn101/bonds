@@ -17,6 +17,7 @@ import {
   timestampToDateInput,
 } from "@/utils/dateOnlyInput";
 import CalendarDatePicker from "@/components/CalendarDatePicker";
+import { sectionNavCards } from "@/pages/contact/sectionNavCards";
 import type { CalendarDatePickerValue } from "@/components/CalendarDatePicker";
 import {
   buildContactFirstMetRequest,
@@ -224,6 +225,44 @@ function contactLabelAssignmentsQueryKey(vaultId: string, contactId: string) {
   return ["vaults", vaultId, "contacts", contactId, "labels"] as const;
 }
 
+// How far a jumped-to anchor must stay below the viewport top: past the app
+// header and vault nav (116px) plus breathing room. In compact mode the sticky
+// section Select (8px padding + 32px control + 12px padding, from 116) also
+// stands over the content, so anchors must clear its measured bottom edge
+// (~179px — the Select renders taller than its nominal 32px) with room to
+// spare; an anchor at 132 would put the heading underneath it.
+const SECTION_ANCHOR_MARGIN = 132;
+const COMPACT_SECTION_ANCHOR_MARGIN = 188;
+
+// Smooth scrolling aims at where the target was when the animation started,
+// but lazily-mounted sections between here and there inflate from their
+// placeholder height as the viewport passes them, moving the target. Once the
+// animation goes quiet, re-assert the destination if it drifted; give up after
+// a few seconds rather than fight a reader who has scrolled on.
+function settleIntoView(node: HTMLElement, isCurrent: () => boolean) {
+  if (!isCurrent()) return;
+  node.scrollIntoView({ behavior: "smooth", block: "start" });
+  let lastY = Number.NaN;
+  let quietFrames = 0;
+  let frames = 0;
+  const watch = () => {
+    if (!isCurrent()) return;
+    if (frames++ > 240) return;
+    const y = window.scrollY;
+    quietFrames = y === lastY ? quietFrames + 1 : 0;
+    lastY = y;
+    if (quietFrames < 3) {
+      requestAnimationFrame(watch);
+      return;
+    }
+    const margin = parseFloat(getComputedStyle(node).scrollMarginTop) || 0;
+    if (Math.abs(node.getBoundingClientRect().top - margin) > 4) {
+      node.scrollIntoView({ behavior: "auto", block: "start" });
+    }
+  };
+  requestAnimationFrame(watch);
+}
+
 function vaultLabelsQueryKey(vaultId: string) {
   return ["vaults", vaultId, "labels"] as const;
 }
@@ -333,6 +372,10 @@ function ContactSectionLayout({
   const screens = Grid.useBreakpoint();
   const containerRef = useRef<HTMLDivElement>(null);
   const scrolledTargetRef = useRef<string | null>(null);
+  // Every navigation supersedes the previous one. This token stops an older
+  // lazy-module wait or scroll-settling watcher from snapping the page back
+  // after the reader has already selected a different destination.
+  const navigationRequestRef = useRef(0);
   const [activeSectionKey, setActiveSectionKey] = useState<string | null>(null);
   const [loadedSectionKeys, setLoadedSectionKeys] = useState<
     ReadonlySet<string>
@@ -366,7 +409,10 @@ function ContactSectionLayout({
     [],
   );
 
-  const jumpToSection = (key: string) => {
+  // Marks a section current and makes sure it is mounted, without moving the
+  // page. Kept separate from scrolling so that jumping to a card does not also
+  // start a competing smooth scroll to the top of its section.
+  const openSection = (key: string) => {
     setActiveSectionKey(key);
     setLoadedSectionKeys((current) => {
       if (current.has(key)) return current;
@@ -374,10 +420,38 @@ function ContactSectionLayout({
       next.add(key);
       return next;
     });
+  };
+
+  const jumpToSection = (key: string) => {
+    const requestID = ++navigationRequestRef.current;
+    openSection(key);
     const section = getSectionNodes().find(
       (node) => node.dataset.contactSectionKey === key,
     );
-    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (section) {
+      settleIntoView(section, () => navigationRequestRef.current === requestID);
+    }
+  };
+
+  // Scrolls to one card within a section. Sections below the fold are not
+  // rendered until they are needed, so the card may not exist yet — hence the
+  // few frames of grace before giving up.
+  const jumpToModule = (sectionKey: string, moduleKey: string) => {
+    const requestID = ++navigationRequestRef.current;
+    openSection(sectionKey);
+    let attempts = 0;
+    const scrollWhenReady = () => {
+      if (navigationRequestRef.current !== requestID) return;
+      const node = containerRef.current?.querySelector<HTMLElement>(
+        `[data-contact-module-key="${moduleKey}"]`,
+      );
+      if (node) {
+        settleIntoView(node, () => navigationRequestRef.current === requestID);
+        return;
+      }
+      if (attempts++ < 10) requestAnimationFrame(scrollWhenReady);
+    };
+    requestAnimationFrame(scrollWhenReady);
   };
 
   useEffect(() => {
@@ -447,6 +521,7 @@ function ContactSectionLayout({
       (node) => node.dataset.contactSectionKey === targetSectionKey,
     );
     if (!section) return;
+    navigationRequestRef.current += 1;
     scrolledTargetRef.current = targetContext;
     section.scrollIntoView({ behavior: "auto", block: "start" });
   }, [getSectionNodes, sectionIdentity, targetContext, targetSectionKey]);
@@ -500,28 +575,73 @@ function ContactSectionLayout({
       <Space orientation="vertical" size={2} style={{ width: "100%" }}>
         {pageEntries.map((entry) => {
           const active = entry.key === currentSectionKey;
+          // Only the section being read is expanded into its cards: showing
+          // every card of every section would be a wall of forty links, and the
+          // point of this nav is to be scannable.
+          //
+          // A lone card that just restates its section's name is dropped —
+          // "Activities > Activities" tells the reader nothing, and repeating
+          // the name puts two identically labelled buttons in one navigation,
+          // which is ambiguous to a screen reader and to anything selecting by
+          // accessible name. Sections whose single card is named differently
+          // ("Summary" holding "Contact summary") still expand: suppressing
+          // every single-card section made the control look broken, because in
+          // a default layout five of the eight sections hold one card.
+          const cards = active ? sectionNavCards(entry.page) : [];
           return (
-            <Button
-              key={entry.key}
-              type="text"
-              block
-              aria-current={active ? "location" : undefined}
-              onClick={() => jumpToSection(entry.key)}
-              style={{
-                height: "auto",
-                minHeight: 34,
-                padding: "7px 10px",
-                textAlign: "left",
-                justifyContent: "flex-start",
-                whiteSpace: "normal",
-                lineHeight: 1.35,
-                color: active ? token.colorPrimary : token.colorTextSecondary,
-                background: active ? token.colorPrimaryBg : undefined,
-                fontWeight: active ? 600 : 400,
-              }}
-            >
-              {entry.page.name ?? entry.page.slug ?? ""}
-            </Button>
+            <div key={entry.key} style={{ width: "100%" }}>
+              <Button
+                type="text"
+                block
+                aria-current={active ? "location" : undefined}
+                onClick={() => jumpToSection(entry.key)}
+                style={{
+                  height: "auto",
+                  minHeight: 34,
+                  padding: "7px 10px",
+                  textAlign: "left",
+                  justifyContent: "flex-start",
+                  whiteSpace: "normal",
+                  lineHeight: 1.35,
+                  color: active ? token.colorPrimary : token.colorTextSecondary,
+                  background: active ? token.colorPrimaryBg : undefined,
+                  fontWeight: active ? 600 : 400,
+                }}
+              >
+                {entry.page.name ?? entry.page.slug ?? ""}
+              </Button>
+              {cards.length > 0 && (
+                <div
+                  style={{
+                    marginLeft: 10,
+                    paddingLeft: 8,
+                    borderLeft: `1px solid ${token.colorSplit}`,
+                  }}
+                >
+                  {cards.map((card) => (
+                    <Button
+                      key={card.id}
+                      type="text"
+                      block
+                      onClick={() => jumpToModule(entry.key, `mod-${card.id}`)}
+                      style={{
+                        height: "auto",
+                        minHeight: 26,
+                        padding: "4px 8px",
+                        textAlign: "left",
+                        justifyContent: "flex-start",
+                        whiteSpace: "normal",
+                        lineHeight: 1.3,
+                        fontSize: 12,
+                        color: token.colorTextTertiary,
+                      }}
+                    >
+                      {card.name ?? card.type ?? ""}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </Space>
@@ -555,7 +675,9 @@ function ContactSectionLayout({
               aria-labelledby={headingID}
               aria-busy={!shouldRender}
               style={{
-                scrollMarginTop: 132,
+                scrollMarginTop: compactNavigation
+                  ? COMPACT_SECTION_ANCHOR_MARGIN
+                  : SECTION_ANCHOR_MARGIN,
                 marginBottom: index === pageEntries.length - 1 ? 0 : 40,
                 minWidth: 0,
               }}
@@ -1412,12 +1534,37 @@ export default function ContactDetail() {
     if (children.length === 0) {
       return null;
     }
-    if (children.length === 1) {
-      return children[0];
+
+    // Each card is wrapped in an anchor carrying the key it was pushed with, so
+    // the section navigation can scroll straight to one card rather than only
+    // to the top of the page it lives on.
+    const anchored = children.map((child, index) => {
+      const key =
+        React.isValidElement(child) && child.key != null
+          ? String(child.key)
+          : `child-${index}`;
+      return (
+        <div
+          key={key}
+          data-contact-module-key={key}
+          style={{
+            scrollMarginTop: detailScreens.lg
+              ? SECTION_ANCHOR_MARGIN
+              : COMPACT_SECTION_ANCHOR_MARGIN,
+            minWidth: 0,
+          }}
+        >
+          {child}
+        </div>
+      );
+    });
+
+    if (anchored.length === 1) {
+      return anchored[0];
     }
     return (
       <Space direction="vertical" style={{ width: "100%" }} size={16}>
-        {children}
+        {anchored}
       </Space>
     );
   }

@@ -420,6 +420,7 @@ export type { GithubComNaibaBondsInternalDtoUpdateContactReligionRequest as Upda
 export type { GithubComNaibaBondsInternalDtoContactLabelResponse as ContactLabel } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabsResponse as ContactTabsResponse } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactTabPage as ContactTabPage } from "./generated/data-contracts";
+export type { GithubComNaibaBondsInternalDtoContactTabModule as ContactTabModule } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactLayoutResponse as ContactLayout } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactLayoutPage as ContactLayoutPage } from "./generated/data-contracts";
 export type { GithubComNaibaBondsInternalDtoContactLayoutModuleDefinition as ContactLayoutModuleDefinition } from "./generated/data-contracts";
