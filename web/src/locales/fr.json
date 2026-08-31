@@ -346,6 +346,7 @@
         "gone_quiet_hint": "Des personnes que vous contactiez régulièrement et à qui vous n'avez pas parlé depuis bien plus longtemps que d'habitude.",
         "nobody_quiet": "Personne n'est devenu silencieux",
         "no_data": "Aucune interaction enregistrée pour l'instant",
+        "none_in_window": "Aucune interaction sur cette période — choisissez une plage plus longue pour voir les conversations plus anciennes.",
         "not_flagged_title": "Aucun type d'activité ne compte comme une interaction",
         "not_flagged_body": "Ce coffre contient {{count}} activités, mais aucun de leurs types n'est marqué comme comptant pour une interaction. Activez-le dans les paramètres du coffre pour voir votre rythme ici.",
         "col_occasions": "Occasions",

@@ -41,6 +41,8 @@ type Props = {
   countries: MapCountryItem[];
   height?: number;
   onSelectContact?: (contactId: string) => void;
+  /** True while the report is being fetched, so absent data is not mistaken for an empty vault. */
+  loading?: boolean;
 };
 
 // The world outline is ~100KB gzipped and only the reports page needs it, so it
@@ -55,7 +57,7 @@ function loadWorld(): Promise<WorldData> {
   return worldPromise;
 }
 
-export default function ContactMap({ points, countries, height = 420, onSelectContact }: Props) {
+export default function ContactMap({ points, countries, height = 420, onSelectContact , loading = false }: Props) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const svgRef = useRef<SVGSVGElement>(null);
@@ -76,22 +78,26 @@ export default function ContactMap({ points, countries, height = 420, onSelectCo
   // Countries are matched to map features by name, which is why this is keyed on
   // a normalised form rather than the raw string a user typed into an address.
   const countsByFeature = useMemo(() => {
-    const counts = new Map<string, MapCountryItem>();
+    const counts = new Map<string, MapCountryItem & { contactIds: Set<string> }>();
     for (const country of countries) {
       const key = matchCountryName(country.country ?? "");
       if (!key) continue;
       const existing = counts.get(key);
       if (existing) {
         // Two spellings of one country ("USA" and "United States") land on the
-        // same feature and must be added together, not overwrite each other.
+        // same feature. Addresses add up, but people must be UNIONED — someone
+        // with an address recorded under each spelling is still one person.
+        for (const id of country.contact_ids ?? []) existing.contactIds.add(id);
         counts.set(key, {
-          country: existing.country,
+          ...existing,
           address_count: (existing.address_count ?? 0) + (country.address_count ?? 0),
-          contact_count: (existing.contact_count ?? 0) + (country.contact_count ?? 0),
+          contact_count: existing.contactIds.size > 0
+            ? existing.contactIds.size
+            : (existing.contact_count ?? 0) + (country.contact_count ?? 0),
           geocoded: (existing.geocoded ?? 0) + (country.geocoded ?? 0),
         });
       } else {
-        counts.set(key, country);
+        counts.set(key, { ...country, contactIds: new Set(country.contact_ids ?? []) });
       }
     }
     return counts;
@@ -291,7 +297,11 @@ export default function ContactMap({ points, countries, height = 420, onSelectCo
   ]);
 
   if (countries.length === 0) {
-    return <Empty description={t("vault.reports.map.no_data")} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    return loading ? (
+      <Skeleton.Node active style={{ width: "100%", height }} />
+    ) : (
+      <Empty description={t("vault.reports.map.no_data")} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+    );
   }
 
   return (

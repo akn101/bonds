@@ -600,3 +600,152 @@ func TestInteractionsReportKeepsTodaysActivities(t *testing.T) {
 		t.Fatalf("today's interaction must be counted, got %d", report.TotalInteractions)
 	}
 }
+
+// The reader's calendar, not the server's, decides what "today" is. Activity
+// dates are stored as the picked calendar date at UTC midnight, so someone in
+// UTC+14 logs this morning's call under a date UTC has not reached yet for
+// most of their day — and the report must still count it.
+func TestInteractionsReportUsesTheReadersCalendar(t *testing.T) {
+	f := setupInsightsTest(t, "insights-calendar@example.com")
+	if err := f.db.Model(&models.User{}).Where("id = ?", f.userID).
+		Update("timezone", "Pacific/Kiritimati").Error; err != nil {
+		t.Fatalf("setting timezone: %v", err)
+	}
+	location, err := time.LoadLocation("Pacific/Kiritimati")
+	if err != nil {
+		t.Fatalf("loading location: %v", err)
+	}
+	userNow := time.Now().In(location)
+	userToday := time.Date(userNow.Year(), userNow.Month(), userNow.Day(), 0, 0, 0, 0, time.UTC)
+
+	alice := f.contact(t, "Alice")
+	phoneCall := f.interactionType(t, "Phone call", true)
+	f.logActivity(t, phoneCall, userToday, alice)
+
+	report, err := f.service.InteractionsReport(f.vaultID, "en", f.userID, 12)
+	if err != nil {
+		t.Fatalf("InteractionsReport failed: %v", err)
+	}
+	if report.TotalInteractions != 1 {
+		t.Fatalf("an activity dated the reader's own today must be counted, got %d", report.TotalInteractions)
+	}
+	// The invariant the window contract promises: whatever is in the total has
+	// a bucket to live in.
+	bucketSum := 0
+	for _, bucket := range report.Months {
+		bucketSum += bucket.Count
+	}
+	if bucketSum != report.TotalInteractions {
+		t.Fatalf("month buckets sum to %d but total is %d", bucketSum, report.TotalInteractions)
+	}
+	if len(report.MostFrequent) != 1 || report.MostFrequent[0].DaysSinceLast == nil || *report.MostFrequent[0].DaysSinceLast != 0 {
+		t.Fatalf("the reader's today must read as zero days ago: %+v", report.MostFrequent)
+	}
+}
+
+// ContactCount documents itself as "how many people appear in the per-contact
+// lists" — so a contact archived or deleted since their last conversation must
+// not be counted, exactly as they are excluded from the lists themselves.
+func TestInteractionsReportContactCountExcludesUnlistedContacts(t *testing.T) {
+	f := setupInsightsTest(t, "insights-contactcount@example.com")
+	alice := f.contact(t, "Alice")
+	archived := f.contact(t, "Archived")
+	phoneCall := f.interactionType(t, "Phone call", true)
+	day := time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)
+	f.logActivity(t, phoneCall, day, alice)
+	f.logActivity(t, phoneCall, day.AddDate(0, 0, 3), archived)
+	if err := f.db.Model(&models.Contact{}).Where("id = ?", archived).Update("listed", false).Error; err != nil {
+		t.Fatalf("archiving: %v", err)
+	}
+
+	report, err := f.service.InteractionsReport(f.vaultID, "en", f.userID, 12)
+	if err != nil {
+		t.Fatalf("InteractionsReport failed: %v", err)
+	}
+	if report.ContactCount != 1 {
+		t.Fatalf("expected the archived contact excluded from ContactCount, got %d", report.ContactCount)
+	}
+	if len(report.MostFrequent) != 1 {
+		t.Fatalf("expected 1 listed contact in the lists, got %d", len(report.MostFrequent))
+	}
+}
+
+// A report can be empty for two very different reasons, and the page gives
+// different advice for each: no type is flagged (fix the settings), or types
+// are flagged but the flagged events are older than the window. The flag must
+// tell them apart — the old heuristic (any unflagged activity in the window)
+// gave settings advice to vaults whose settings were fine.
+func TestInteractionsReportSaysWhetherAnyTypeCounts(t *testing.T) {
+	f := setupInsightsTest(t, "insights-configured@example.com")
+	// A new vault seeds flagged types; unflag them all so this starts from the
+	// state the flag exists to describe.
+	if err := f.db.Model(&models.ActivityType{}).
+		Where("activity_category_id IN (?)", f.db.Model(&models.ActivityCategory{}).Select("id").Where("vault_id = ?", f.vaultID)).
+		Update("counts_as_interaction", false).Error; err != nil {
+		t.Fatalf("unflagging seeded types: %v", err)
+	}
+	alice := f.contact(t, "Alice")
+	unflagged := f.interactionType(t, "Errand", false)
+	inWindow := time.Now().UTC().AddDate(0, -1, 0)
+	f.logActivity(t, unflagged, inWindow, alice)
+
+	report, err := f.service.InteractionsReport(f.vaultID, "en", f.userID, 12)
+	if err != nil {
+		t.Fatalf("InteractionsReport failed: %v", err)
+	}
+	if report.InteractionTypesConfigured {
+		t.Fatal("no flagged type exists, so InteractionTypesConfigured must be false")
+	}
+
+	// Now a flagged type exists, but its only event is older than the window:
+	// the settings are fine, and the response must say so.
+	phoneCall := f.interactionType(t, "Phone call", true)
+	f.logActivity(t, phoneCall, time.Now().UTC().AddDate(-2, 0, 0), alice)
+
+	report, err = f.service.InteractionsReport(f.vaultID, "en", f.userID, 12)
+	if err != nil {
+		t.Fatalf("InteractionsReport failed: %v", err)
+	}
+	if !report.InteractionTypesConfigured {
+		t.Fatal("a flagged type exists; InteractionTypesConfigured must be true")
+	}
+	if report.TotalInteractions != 0 {
+		t.Fatalf("the flagged event is outside the window, got %d interactions", report.TotalInteractions)
+	}
+	if report.TotalActivities != 1 {
+		t.Fatalf("the unflagged activity is inside the window, got %d activities", report.TotalActivities)
+	}
+}
+
+// Birthdays are routinely recorded with only a year, or a year and month —
+// precisions the date model supports explicitly. A ~decade band does not need
+// the day, so those contacts must land in a band, not in Unset.
+func TestDemographicsReportAgeBandsAcceptPartialBirthdates(t *testing.T) {
+	f := setupInsightsTest(t, "insights-partial-age@example.com")
+	birthdateTypeID := f.lookupID(t, "contact_important_date_types", "internal_type", "birthdate")
+
+	yearOnly := f.contact(t, "YearOnly")
+	yearMonth := f.contact(t, "YearMonth")
+
+	now := time.Now().UTC()
+	thirty := now.Year() - 30
+	fifty := now.Year() - 50
+	january := 1
+	for _, row := range []models.ContactImportantDate{
+		{ContactID: yearOnly, ContactImportantDateTypeID: &birthdateTypeID, Label: "Birthdate", Year: &thirty},
+		{ContactID: yearMonth, ContactImportantDateTypeID: &birthdateTypeID, Label: "Birthdate", Year: &fifty, Month: &january},
+	} {
+		if err := f.db.Create(&row).Error; err != nil {
+			t.Fatalf("creating birthdate: %v", err)
+		}
+	}
+
+	report, err := f.service.DemographicsReport(f.vaultID, "en")
+	if err != nil {
+		t.Fatalf("DemographicsReport failed: %v", err)
+	}
+	age := f.dimension(t, report, demographicAge)
+	if age.Known != 2 {
+		t.Fatalf("year-only and year-month birthdays both yield an age, got known=%d unset=%d", age.Known, age.Unset)
+	}
+}

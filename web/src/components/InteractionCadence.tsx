@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
-import { Alert, Empty, Table, Tag, Typography, theme } from "antd";
+import { Alert, Empty, Skeleton, Table, Tag, Typography, theme } from "antd";
 import { useTranslation } from "react-i18next";
-import { formatDate, useDateFormat } from "@/utils/dateFormat";
+import { formatCalendarDate, useDateFormat } from "@/utils/dateFormat";
 import type { InteractionContactItem, InteractionsReportResponse } from "@/api";
 import { useElementWidth } from "@/hooks/useElementWidth";
 
@@ -12,6 +12,8 @@ type Props = {
   report?: InteractionsReportResponse;
   onSelectContact?: (contactId: string) => void;
   height?: number;
+  /** True while the report is being fetched, so absent data is not mistaken for an empty vault. */
+  loading?: boolean;
 };
 
 /**
@@ -24,7 +26,7 @@ type MonthRow = Record<string, string | number>;
 /** Fallback series colours for activity types that have none set. */
 const FALLBACK_COLORS = ["#1677ff", "#722ed1", "#52c41a", "#fa8c16", "#eb2f96", "#13c2c2"];
 
-export default function InteractionCadence({ report, onSelectContact, height = 220 }: Props) {
+export default function InteractionCadence({ report, onSelectContact, height = 220, loading = false }: Props) {
   const { t } = useTranslation();
   const dateFormats = useDateFormat();
   const { token } = theme.useToken();
@@ -123,26 +125,33 @@ export default function InteractionCadence({ report, onSelectContact, height = 2
   ]);
 
   if (!report) {
-    return <Empty description={t("vault.reports.interactions.no_data")} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    // Loading and empty must not look alike: this renders once on first visit
+    // and again whenever the window selector changes the query.
+    return loading ? <Skeleton active /> : <Empty description={t("vault.reports.interactions.no_data")} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
   }
 
   const totalInteractions = report.total_interactions ?? 0;
   const totalActivities = report.total_activities ?? 0;
 
-  // A vault can be full of activities and still have no interactions, because
-  // whether a type counts is a per-type setting. Saying so is far more useful
-  // than an empty chart.
+  // An empty report has two very different causes, and the response says
+  // which one applies. Settings advice is only given when the settings are
+  // actually the problem — no type is flagged at all. When flagged types
+  // exist, the flagged conversations are simply older than the window, and
+  // telling the reader to change their settings would be wrong advice.
   if (totalInteractions === 0) {
-    return totalActivities > 0 ? (
-      <Alert
-        type="info"
-        showIcon
-        message={t("vault.reports.interactions.not_flagged_title")}
-        description={t("vault.reports.interactions.not_flagged_body", { count: totalActivities })}
-      />
-    ) : (
-      <Empty description={t("vault.reports.interactions.no_data")} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-    );
+    if (!report.interaction_types_configured) {
+      return totalActivities > 0 ? (
+        <Alert
+          type="info"
+          showIcon
+          message={t("vault.reports.interactions.not_flagged_title")}
+          description={t("vault.reports.interactions.not_flagged_body", { count: totalActivities })}
+        />
+      ) : (
+        <Empty description={t("vault.reports.interactions.no_data")} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      );
+    }
+    return <Empty description={t("vault.reports.interactions.none_in_window")} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
   }
 
   const nameColumn = {
@@ -153,8 +162,10 @@ export default function InteractionCadence({ report, onSelectContact, height = 2
     ),
   };
   // Dates go through the shared formatter so they follow the reader's
-  // configured format, like every other date in the app.
-  const formatLastSeen = (value?: string) => (value ? formatDate(value, dateFormats) : "—");
+  // configured format — but not their timezone: these are calendar dates
+  // stored at UTC midnight, and shifting them would show everyone west of
+  // UTC a "last spoken" one day before it happened.
+  const formatLastSeen = (value?: string) => (value ? formatCalendarDate(value, dateFormats) : "—");
 
   return (
     <div>

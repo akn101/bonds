@@ -3,6 +3,7 @@ package services
 import (
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
@@ -193,7 +194,9 @@ func (s *ReportService) religionLabels(contacts []models.Contact, locale string)
 // 'birthdate'; matching on the label would break in every locale but English.
 // Contacts whose birthday has no year — common, and modelled explicitly by
 // is_year_unknown — have no age and land in Unset alongside those with no
-// birthday at all.
+// birthday at all. A year alone, though, is enough: ages here only need to
+// land in a ~decade band, so the "year" and "month" precisions the date model
+// explicitly supports must not be discarded for lacking a day.
 func (s *ReportService) ageDimension(contactIDs []string, total int) (*dto.DemographicDimension, error) {
 	var dates []models.ContactImportantDate
 	if err := s.db.
@@ -213,7 +216,7 @@ func (s *ReportService) ageDimension(contactIDs []string, total int) (*dto.Demog
 		if _, done := seen[date.ContactID]; done {
 			continue
 		}
-		age := calculateAgeFromDate(&date)
+		age := ageFromPartialBirthdate(&date, time.Now())
 		if age == nil {
 			continue
 		}
@@ -240,6 +243,34 @@ func (s *ReportService) ageDimension(contactIDs []string, total int) (*dto.Demog
 		})
 	}
 	return &dimension, nil
+}
+
+// ageFromPartialBirthdate computes an age from whatever precision the
+// birthday was recorded at. Only a missing year makes the age unknowable;
+// when the month (and day) are known they decide whether this year's birthday
+// has passed, and when they are not, the year difference alone is at worst
+// one off — invisible at the band widths this report draws.
+//
+// calculateAgeFromDate is deliberately not reused: it answers "how old is
+// this person, exactly", which needs the full date, while this answers
+// "which decade of life are they in".
+func ageFromPartialBirthdate(date *models.ContactImportantDate, now time.Time) *int {
+	if date.Year == nil {
+		return nil
+	}
+	age := now.Year() - *date.Year
+	if date.Month != nil {
+		beforeBirthdayMonth := int(now.Month()) < *date.Month
+		inBirthdayMonth := int(now.Month()) == *date.Month
+		beforeBirthday := date.Day != nil && now.Day() < *date.Day
+		if beforeBirthdayMonth || (inBirthdayMonth && beforeBirthday) {
+			age--
+		}
+	}
+	if age < 0 {
+		return nil
+	}
+	return &age
 }
 
 func ageBandKey(age int) string {

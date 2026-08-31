@@ -63,8 +63,24 @@ describe("matchCountryName against the bundled map", () => {
       "United Kingdom", "United States", "USA", "GB", "US", "France", "Germany",
       "China", "Austria", "Thailand", "Netherlands", "Czech Republic", "Singapore",
       "Malta", "Luxembourg", "Cyprus", "South Korea", "Vietnam", "Ivory Coast",
+      // The country field is free text in an app shipped in seven languages:
+      // names written in the reader's own script must shade the map too.
+      "中国", "美国", "英国", "日本", "韩国", "Россия", "Украина", "한국", "Ελλάδα",
     ]) {
       expect(drawn.has(matchCountryName(country)), `${country} is not on the map`).toBe(true);
     }
+  });
+});
+
+describe("matchCountryName with non-Latin scripts", () => {
+  it("keeps letters of every script instead of reducing them to nothing", () => {
+    // Before this was fixed, normalising stripped everything outside [a-z0-9],
+    // so 中国 became "" and the contact silently vanished from the choropleth.
+    expect(matchCountryName("中国")).toBe("china");
+    expect(matchCountryName("Россия")).toBe("russia");
+    expect(matchCountryName("대한민국")).toBe("southkorea");
+    // An unknown non-Latin name still yields a non-empty key, so it keeps
+    // counting in the country list even though no feature matches it.
+    expect(matchCountryName("몽골")).not.toBe("");
   });
 });

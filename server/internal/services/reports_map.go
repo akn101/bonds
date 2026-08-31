@@ -126,10 +126,16 @@ func (s *ReportService) MapReport(vaultID, userID string) (*dto.MapReportRespons
 	}
 
 	for country, agg := range countries {
+		contactIDs := make([]string, 0, len(agg.contacts))
+		for contactID := range agg.contacts {
+			contactIDs = append(contactIDs, contactID)
+		}
+		sort.Strings(contactIDs)
 		response.Countries = append(response.Countries, dto.MapCountryItem{
 			Country:      country,
 			AddressCount: agg.addresses,
 			ContactCount: len(agg.contacts),
+			ContactIDs:   contactIDs,
 			Geocoded:     agg.geocoded,
 		})
 	}

@@ -346,6 +346,7 @@
         "gone_quiet_hint": "People you were regularly in touch with, and have not spoken to for much longer than usual.",
         "nobody_quiet": "Nobody has gone quiet",
         "no_data": "No interactions recorded yet",
+        "none_in_window": "No interactions in this window — pick a longer range to see older conversations.",
         "not_flagged_title": "No activity type counts as an interaction",
         "not_flagged_body": "This vault holds {{count}} activities, but none of their types are marked as counting as an interaction. Turn that on in vault settings to see your cadence here.",
         "col_occasions": "Occasions",

@@ -346,6 +346,7 @@
         "gone_quiet_hint": "Personen, mit denen du regelmäßig Kontakt hattest und schon viel länger als sonst nicht gesprochen hast.",
         "nobody_quiet": "Niemand ist still geworden",
         "no_data": "Noch keine Interaktionen erfasst",
+        "none_in_window": "Keine Interaktionen in diesem Zeitraum – wähle einen längeren Zeitraum, um ältere Gespräche zu sehen.",
         "not_flagged_title": "Kein Aktivitätstyp zählt als Interaktion",
         "not_flagged_body": "Dieser Tresor enthält {{count}} Aktivitäten, aber kein Typ ist als Interaktion markiert. Aktiviere das in den Tresor-Einstellungen, um hier deinen Rhythmus zu sehen.",
         "col_occasions": "Gelegenheiten",

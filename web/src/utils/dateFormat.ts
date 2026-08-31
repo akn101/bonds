@@ -129,6 +129,17 @@ function applyTz(d: dayjs.Dayjs, tz?: string): dayjs.Dayjs {
   }
 }
 
+/**
+ * Format a value that is a pure calendar date — stored as its date at UTC
+ * midnight, with no instant attached. Converting one into the reader's
+ * timezone would move everyone west of UTC to the previous day, so unlike
+ * formatDate this applies the reader's format but never their timezone.
+ */
+export function formatCalendarDate(date: DateInput, variants: DateFormatVariants): string {
+  if (!date) return "";
+  return dayjs(date).utc().format(variants.full);
+}
+
 /** Format a date using the full date format (e.g. "Mar 12, 2026" or "2026-03-12"). */
 export function formatDate(date: DateInput, variants: DateFormatVariants): string {
   if (!date) return "";

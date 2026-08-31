@@ -346,6 +346,7 @@
         "gone_quiet_hint": "Personas con las que hablabas con regularidad y con quienes llevas mucho más tiempo del habitual sin hablar.",
         "nobody_quiet": "Nadie se ha quedado en silencio",
         "no_data": "Aún no hay interacciones registradas",
+        "none_in_window": "No hay interacciones en este período; elige un rango más largo para ver conversaciones anteriores.",
         "not_flagged_title": "Ningún tipo de actividad cuenta como interacción",
         "not_flagged_body": "Esta bóveda tiene {{count}} actividades, pero ninguno de sus tipos está marcado como interacción. Actívalo en los ajustes de la bóveda para ver tu ritmo aquí.",
         "col_occasions": "Ocasiones",

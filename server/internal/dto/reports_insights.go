@@ -49,11 +49,18 @@ type MapPoint struct {
 
 // MapCountryItem lets the map draw a choropleth even when nothing is geocoded,
 // which is the normal state of a vault imported from a phone address book.
+//
+// ContactIDs carries who is behind ContactCount, because the client merges
+// spellings of one country ("USA", "United States") onto a single map feature
+// — and a person with an address under each spelling must still count once
+// after the merge, which bare counts cannot express. The IDs reveal nothing
+// the report's points do not already carry.
 type MapCountryItem struct {
-	Country      string `json:"country" example:"United Kingdom"`
-	AddressCount int    `json:"address_count" example:"227"`
-	ContactCount int    `json:"contact_count" example:"180"`
-	Geocoded     int    `json:"geocoded" example:"40"`
+	Country      string   `json:"country" example:"United Kingdom"`
+	AddressCount int      `json:"address_count" example:"227"`
+	ContactCount int      `json:"contact_count" example:"180"`
+	ContactIDs   []string `json:"contact_ids"`
+	Geocoded     int      `json:"geocoded" example:"40"`
 }
 
 type MapReportResponse struct {
@@ -119,8 +126,15 @@ type InteractionsReportResponse struct {
 	// TotalInteractions counts only activities whose type counts as an
 	// interaction, within the window.
 	TotalInteractions int `json:"total_interactions" example:"1204"`
+	// InteractionTypesConfigured reports whether any activity type in this
+	// vault is flagged to count as an interaction at all. It separates the two
+	// reasons a report can be empty: nothing is flagged (fix the type
+	// settings), or types are flagged but nothing happened in the window.
+	InteractionTypesConfigured bool `json:"interaction_types_configured" example:"true"`
 	// ContactCount is how many people appear in the per-contact lists, which
-	// are all-history; it is not a count for the window.
+	// are all-history; it is not a count for the window. Contacts that are
+	// archived, deleted, or otherwise no longer listed are excluded, the same
+	// as they are from the lists themselves.
 	ContactCount int                      `json:"contact_count" example:"88"`
 	Months       []InteractionBucket      `json:"months"`
 	Channels     []InteractionChannel     `json:"channels"`

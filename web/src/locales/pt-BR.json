@@ -346,6 +346,7 @@
         "gone_quiet_hint": "Pessoas com quem você falava regularmente e não fala há muito mais tempo do que o normal.",
         "nobody_quiet": "Ninguém ficou em silêncio",
         "no_data": "Nenhuma interação registrada ainda",
+        "none_in_window": "Nenhuma interação neste período — escolha um intervalo maior para ver conversas mais antigas.",
         "not_flagged_title": "Nenhum tipo de atividade conta como interação",
         "not_flagged_body": "Este cofre tem {{count}} atividades, mas nenhum dos seus tipos está marcado como interação. Ative isso nas configurações do cofre para ver seu ritmo aqui.",
         "col_occasions": "Ocasiões",

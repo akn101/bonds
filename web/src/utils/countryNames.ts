@@ -8,13 +8,21 @@
  * amount of normalising will reconcile.
  */
 
-/** Strip case, accents and punctuation so "Côte d'Ivoire" and "cote divoire" meet. */
+/**
+ * Strip case, accents and punctuation so "Côte d'Ivoire" and "cote divoire"
+ * meet. Letters of every script survive — the country field is free text in an
+ * app shipped in seven languages, and reducing 中国 or Россия to an empty
+ * string would silently drop those contacts from the map.
+ */
 function normalise(value: string): string {
   return value
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
+    // Recompose what decomposition took apart: Hangul splits into jamo under
+    // NFD and must be reassembled into syllables to match the alias table.
+    .normalize("NFC")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
+    .replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
 /**
@@ -68,6 +76,59 @@ const ALIASES: Record<string, string> = {
   unitedrepublicoftanzania: "tanzania",
   republicofmoldova: "moldova",
   bolivarianrepublicofvenezuela: "venezuela",
+
+  // Names in the app's own non-Latin locales, and neighbours a zh or ru
+  // speaker's address book realistically holds. Normalising cannot bridge a
+  // script, so these are plain lookups. The list is common names, not a
+  // gazetteer — anything missing still counts in the country list, it just
+  // does not shade the map.
+  中国: "china",
+  中华人民共和国: "china",
+  台湾: "taiwan",
+  美国: "unitedstatesofamerica",
+  英国: "unitedkingdom",
+  法国: "france",
+  德国: "germany",
+  西班牙: "spain",
+  葡萄牙: "portugal",
+  意大利: "italy",
+  荷兰: "netherlands",
+  瑞士: "switzerland",
+  瑞典: "sweden",
+  爱尔兰: "ireland",
+  波兰: "poland",
+  希腊: "greece",
+  土耳其: "turkey",
+  日本: "japan",
+  韩国: "southkorea",
+  朝鲜: "northkorea",
+  新加坡: "singapore",
+  马来西亚: "malaysia",
+  印度尼西亚: "indonesia",
+  菲律宾: "philippines",
+  泰国: "thailand",
+  越南: "vietnam",
+  印度: "india",
+  俄罗斯: "russia",
+  澳大利亚: "australia",
+  新西兰: "newzealand",
+  加拿大: "canada",
+  墨西哥: "mexico",
+  巴西: "brazil",
+  阿根廷: "argentina",
+  南非: "southafrica",
+  埃及: "egypt",
+  россия: "russia",
+  российскаяфедерация: "russia",
+  украина: "ukraine",
+  беларусь: "belarus",
+  казахстан: "kazakhstan",
+  대한민국: "southkorea",
+  한국: "southkorea",
+  미국: "unitedstatesofamerica",
+  일본: "japan",
+  중국: "china",
+  ελλαδα: "greece",
 };
 
 let regionNames: Intl.DisplayNames | null | undefined;

@@ -59,13 +59,20 @@ func (s *ReportService) InteractionsReport(vaultID, locale, userID string, month
 		return nil, err
 	}
 
-	now := time.Now().UTC()
-	windowStart := monthStart(now).AddDate(0, -(months - 1), 0)
+	// "Today" is the reader's calendar day, not the server's. Activity dates
+	// are stored as the picked calendar date at UTC midnight, so a reader east
+	// of UTC logs this morning's call under a date the server has not reached
+	// yet — bounding by server time would hide it from them until UTC caught
+	// up. The report therefore draws all of its boundaries on the reader's
+	// calendar, re-expressed at UTC midnight to match how the dates are stored.
+	userNow := time.Now().In(s.userLocation(userID))
+	today := time.Date(userNow.Year(), userNow.Month(), userNow.Day(), 0, 0, 0, 0, time.UTC)
+	windowStart := monthStart(today).AddDate(0, -(months - 1), 0)
 	// Activities can be dated in the future — a planned dinner, a booked call.
 	// They are not history and must not be counted as it: the month series ends
 	// at the current month, so a future event would be added to the totals while
 	// having no bucket to appear in, and the report would not add up.
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	//
 	// The cut-off is the END of today. Activities are dated, but the stored
 	// value can carry a time, so bounding at midnight would drop everything
 	// logged earlier the same day.
@@ -94,15 +101,28 @@ func (s *ReportService) InteractionsReport(vaultID, locale, userID string, month
 		return nil, err
 	}
 
-	response := &dto.InteractionsReportResponse{
-		TotalActivities: int(totalActivities),
-		Months:          []dto.InteractionBucket{},
-		Channels:        []dto.InteractionChannel{},
-		MostFrequent:    []dto.InteractionContactItem{},
-		GoneQuiet:       []dto.InteractionContactItem{},
+	// Whether ANY type is flagged decides which empty-state the page shows:
+	// "nothing counts as an interaction" is advice to fix the type settings,
+	// and it would be wrong advice when types are flagged but the flagged
+	// events are simply older than the window.
+	var flaggedTypes int64
+	if err := s.db.Model(&models.ActivityType{}).
+		Joins("JOIN activity_categories ON activity_categories.id = activity_types.activity_category_id").
+		Where("activity_categories.vault_id = ? AND activity_types.counts_as_interaction = ?", vaultID, true).
+		Count(&flaggedTypes).Error; err != nil {
+		return nil, err
 	}
 
-	response.Months = emptyMonthSeries(windowStart, now)
+	response := &dto.InteractionsReportResponse{
+		TotalActivities:            int(totalActivities),
+		InteractionTypesConfigured: flaggedTypes > 0,
+		Months:                     []dto.InteractionBucket{},
+		Channels:                   []dto.InteractionChannel{},
+		MostFrequent:               []dto.InteractionContactItem{},
+		GoneQuiet:                  []dto.InteractionContactItem{},
+	}
+
+	response.Months = emptyMonthSeries(windowStart, today)
 
 	if len(activities) == 0 {
 		return response, nil
@@ -194,8 +214,6 @@ func (s *ReportService) InteractionsReport(vaultID, locale, userID string, month
 		}
 		days[event.Day] = struct{}{}
 	}
-	response.ContactCount = len(daysByContact)
-
 	contactIDs := make([]string, 0, len(daysByContact))
 	for contactID := range daysByContact {
 		contactIDs = append(contactIDs, contactID)
@@ -213,8 +231,13 @@ func (s *ReportService) InteractionsReport(vaultID, locale, userID string, month
 			// outlive the contact list it was drawn from.
 			continue
 		}
-		items = append(items, buildInteractionItem(contactID, name, days, now))
+		items = append(items, buildInteractionItem(contactID, name, days, today))
 	}
+
+	// Counted here, after the name lookup, so the figure matches who can
+	// actually appear in the lists: an archived or deleted contact's history
+	// is excluded from both.
+	response.ContactCount = len(items)
 
 	response.MostFrequent = topByCount(items)
 	response.GoneQuiet = topQuiet(items, windowStart)
@@ -285,6 +308,22 @@ func (s *ReportService) contactDisplayNames(vaultID string, contactIDs []string,
 		names[contacts[i].ID] = name
 	}
 	return names, nil
+}
+
+// userLocation resolves the reader's IANA timezone, falling back to UTC when
+// it is unset or unknown. The report's calendar boundaries are drawn in it.
+func (s *ReportService) userLocation(userID string) *time.Location {
+	var user models.User
+	if err := s.db.Select("timezone").First(&user, "id = ?", userID).Error; err != nil {
+		return time.UTC
+	}
+	if user.Timezone == nil || *user.Timezone == "" {
+		return time.UTC
+	}
+	if location, err := time.LoadLocation(*user.Timezone); err == nil {
+		return location
+	}
+	return time.UTC
 }
 
 // buildInteractionItem derives one person's cadence from the distinct days they

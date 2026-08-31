@@ -346,6 +346,7 @@
         "gone_quiet_hint": "你过去经常联系、但已远超平常间隔未再交谈的人。",
         "nobody_quiet": "没有人失联",
         "no_data": "尚未记录任何互动",
+        "none_in_window": "此时间段内没有互动——选择更长的范围以查看更早的对话。",
         "not_flagged_title": "没有任何活动类型算作互动",
         "not_flagged_body": "该保险库有 {{count}} 条活动，但没有任何类型被标记为算作互动。请在保险库设置中开启，以便在此查看联系节奏。",
         "col_occasions": "次数",

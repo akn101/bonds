@@ -26,7 +26,7 @@ import {
   MessageOutlined,
   PieChartOutlined,
 } from "@ant-design/icons";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api";
 import type { 
@@ -117,7 +117,7 @@ export default function VaultReports() {
 
   const [cadenceMonths, setCadenceMonths] = useState(24);
 
-  const { data: mapReport } = useQuery({
+  const { data: mapReport, isPending: mapPending } = useQuery({
     queryKey: ["vault", vaultId, "reports", "map"],
     queryFn: async () => {
       const res = await api.reports.reportsMapList(vaultId);
@@ -126,7 +126,7 @@ export default function VaultReports() {
     enabled: !!vaultId,
   });
 
-  const { data: demographics } = useQuery({
+  const { data: demographics, isPending: demographicsPending } = useQuery({
     queryKey: ["vault", vaultId, "reports", "demographics"],
     queryFn: async () => {
       const res = await api.reports.reportsDemographicsList(vaultId);
@@ -135,13 +135,16 @@ export default function VaultReports() {
     enabled: !!vaultId,
   });
 
-  const { data: interactions } = useQuery({
+  const { data: interactions, isPending: interactionsPending } = useQuery({
     queryKey: ["vault", vaultId, "reports", "interactions", cadenceMonths],
     queryFn: async () => {
       const res = await api.reports.reportsInteractionsList(vaultId, { months: cadenceMonths });
       return res.data;
     },
     enabled: !!vaultId,
+    // The window selector is part of the key, so without this every switch
+    // unmounts the chart into its empty state for the length of a request.
+    placeholderData: keepPreviousData,
   });
 
   const openContact = (contactId: string) => navigate(`/vaults/${vaultId}/contacts/${contactId}`);
@@ -269,6 +272,7 @@ export default function VaultReports() {
             points={mapReport?.points ?? []}
             countries={mapReport?.countries ?? []}
             onSelectContact={openContact}
+            loading={mapPending}
           />
         </Suspense>
         {/* Coordinates only exist where geocoding was configured when the
@@ -305,7 +309,7 @@ export default function VaultReports() {
         style={{ marginTop: 16, boxShadow: token.boxShadowTertiary, borderRadius: token.borderRadiusLG }}
       >
         <Suspense fallback={<Skeleton active />}>
-          <InteractionCadence report={interactions} onSelectContact={openContact} />
+          <InteractionCadence report={interactions} onSelectContact={openContact} loading={interactionsPending} />
         </Suspense>
       </Card>
 
@@ -319,7 +323,7 @@ export default function VaultReports() {
         style={{ marginTop: 16, boxShadow: token.boxShadowTertiary, borderRadius: token.borderRadiusLG }}
       >
         <Suspense fallback={<Skeleton active />}>
-          <DemographicsPanel report={demographics} />
+          <DemographicsPanel report={demographics} loading={demographicsPending} />
         </Suspense>
       </Card>
 

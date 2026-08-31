@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Empty, Progress, Segmented, Typography, theme } from "antd";
+import { Empty, Progress, Segmented, Skeleton, Typography, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import type { DemographicDimension, DemographicsReportResponse } from "@/api";
@@ -12,9 +12,11 @@ const AGE_BAND_KEYS = ["0_17", "18_24", "25_34", "35_44", "45_54", "55_64", "65_
 
 type Props = {
   report?: DemographicsReportResponse;
+  /** True while the report is being fetched, so absent data is not mistaken for an empty vault. */
+  loading?: boolean;
 };
 
-export default function DemographicsPanel({ report }: Props) {
+export default function DemographicsPanel({ report, loading = false }: Props) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
 
@@ -25,7 +27,7 @@ export default function DemographicsPanel({ report }: Props) {
   const [selected, setSelected] = useState<string | undefined>(undefined);
 
   if (!report || dimensions.length === 0) {
-    return <Empty description={t("vault.reports.demographics.no_data")} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    return loading ? <Skeleton active /> : <Empty description={t("vault.reports.demographics.no_data")} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
   }
 
   // Open on a dimension that has data. Gender comes first in the list and is
