@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { App as AntApp, ConfigProvider } from "antd";
 import VaultTasks from "@/pages/vault/VaultTasks";
+import { api } from "@/api";
 import type { VaultTask } from "@/api";
 
 vi.mock("@/pages/vault/TasksKanban", () => ({
@@ -31,18 +33,31 @@ vi.mock("@/api", () => ({
   api: {
     vaultTasks: {
       tasksList: vi.fn(),
+      tasksStatusPartialUpdate: vi.fn(),
     },
     preferences: {
       preferencesList: vi.fn(),
+      preferencesUpdate: vi.fn(),
     },
   },
 }));
 
 const mockUseQuery = vi.fn();
+type MutationTestOptions = {
+  readonly mutationFn: (variables: unknown) => unknown;
+  readonly onSuccess?: (data: unknown, variables: unknown) => unknown;
+};
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
-  useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useMutation: (options: MutationTestOptions) => ({
+    mutate: (variables: unknown) => {
+      void Promise.resolve(options.mutationFn(variables)).then((data) =>
+        options.onSuccess?.(data, variables),
+      );
+    },
+    isPending: false,
+  }),
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
@@ -84,6 +99,8 @@ describe("VaultTasks", () => {
     localStorage.clear();
     mockUseQuery.mockReset();
     navigateMock.mockReset();
+    vi.mocked(api.vaultTasks.tasksStatusPartialUpdate).mockReset();
+    vi.mocked(api.preferences.preferencesUpdate).mockReset();
   });
 
   it("keeps custom list order by default and can switch to due date order", () => {
@@ -157,5 +174,32 @@ describe("VaultTasks", () => {
     expect(screen.getByText("Done with due date")).toBeInTheDocument();
     expect(screen.getByText("Done without due date")).toBeInTheDocument();
     expect(screen.queryByText("No pending tasks")).not.toBeInTheDocument();
+  });
+
+  it("marks a pending task done from the list checkbox", async () => {
+    const user = userEvent.setup();
+    const task = createTask({ id: 21, label: "Complete from list" });
+    mockUseQuery.mockImplementation(({ queryKey }: { queryKey: unknown[] }) => {
+      if (JSON.stringify(queryKey) === JSON.stringify(["vaults", "vault-1", "all-tasks"])) {
+        return { data: [task], isLoading: false };
+      }
+      if (JSON.stringify(queryKey) === JSON.stringify(["settings", "preferences"])) {
+        return { data: {}, isLoading: false };
+      }
+      throw new Error(`Unexpected query key: ${JSON.stringify(queryKey)}`);
+    });
+    renderVaultTasks();
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Complete from list" }),
+    );
+
+    await waitFor(() =>
+      expect(api.vaultTasks.tasksStatusPartialUpdate).toHaveBeenCalledWith(
+        "vault-1",
+        21,
+        { status: "done" },
+      ),
+    );
   });
 });

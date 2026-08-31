@@ -448,8 +448,9 @@ func TestSyncAllTranslations_VaultEntities(t *testing.T) {
 	}
 
 	var phoneCall models.ActivityType
-	if err := db.Joins("ActivityCategory").
-		Where("ActivityCategory.vault_id = ? AND activity_types.system_kind = ?", vault.ID, "phone_call").
+	if err := db.Preload("ActivityCategory").
+		Joins("JOIN activity_categories ON activity_categories.id = activity_types.activity_category_id").
+		Where("activity_categories.vault_id = ? AND activity_types.system_kind = ?", vault.ID, "phone_call").
 		First(&phoneCall).Error; err != nil {
 		t.Fatalf("query phone-call activity type after sync: %v", err)
 	}

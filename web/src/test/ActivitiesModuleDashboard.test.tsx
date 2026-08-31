@@ -67,19 +67,16 @@ describe("ActivitiesModule on the vault dashboard", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },
     });
-    queryClient.setQueryData(
-      ["vaults", "vault-1", "activities", "contact-1"],
-      {
-        pages: [
-          {
-            items: [{ id: 7, title: "Cached dinner", participants: [] }],
-            meta: { page: 1, total_pages: 1 },
-            page: 1,
-          },
-        ],
-        pageParams: [1],
-      },
-    );
+    queryClient.setQueryData(["vaults", "vault-1", "activities", "contact-1"], {
+      pages: [
+        {
+          items: [{ id: 7, title: "Cached dinner", participants: [] }],
+          meta: { page: 1, total_pages: 1 },
+          page: 1,
+        },
+      ],
+      pageParams: [1],
+    });
 
     renderModule(false, queryClient, "contact-1");
 
@@ -147,6 +144,32 @@ describe("ActivitiesModule on the vault dashboard", () => {
     );
     expect(screen.getByText("A quiet evening")).toBeInTheDocument();
     expect(screen.queryByText(/Alice Participant/)).not.toBeInTheDocument();
+  });
+
+  it("displays activity dates without shifting them into the user timezone", async () => {
+    mockActivitiesList.mockResolvedValue({
+      data: [
+        {
+          id: 42,
+          title: "Dinner",
+          start_date: "2025-04-22T00:00:00Z",
+          start_precision: "day",
+          end_status: "none",
+          participants: [],
+        },
+      ],
+      meta: { page: 1, total_pages: 1 },
+    });
+    mockPreferencesList.mockResolvedValueOnce({
+      data: {
+        date_format: "YYYY-MM-DD",
+        timezone: "America/New_York",
+      },
+    });
+
+    renderModule();
+
+    expect(await screen.findByText("2025-04-22")).toBeInTheDocument();
   });
 
   it("keeps edit and delete controls from opening activity details", async () => {

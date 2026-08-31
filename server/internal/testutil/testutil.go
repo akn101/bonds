@@ -46,7 +46,8 @@ func setupPostgresTestDB(t *testing.T, dsn string) *gorm.DB {
 		t.Fatalf("Failed to create test schema %s: %v", schema, err)
 	}
 	db, err := gorm.Open(postgres.Open(withSearchPath(dsn, schema)), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
+		Logger:                                   logger.Default.LogMode(logger.Silent),
+		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		t.Fatalf("Failed to connect to test schema %s: %v", schema, err)

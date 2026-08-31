@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { VaultTask } from "@/api";
 import {
   createDeleteVaultTaskRequest,
+  createVaultTaskCompletionOperation,
   createVaultTaskOperation,
   resolveDeleteVaultTaskOperation,
   updateVaultTaskOperation,
@@ -11,6 +12,7 @@ import {
 import {
   invalidateCreatedVaultTask,
   invalidateDeletedVaultTask,
+  invalidateSetVaultTaskCompletion,
   invalidateUpdatedVaultTask,
 } from "@/pages/vault/vaultTaskMutationInvalidation";
 
@@ -105,6 +107,32 @@ describe("vault task mutation invalidation", () => {
     expect(invalidatedFilters(queryClient)).not.toContainEqual({
       queryKey: ["vaults", "vault-1", "contacts", "202", "tasks"],
     });
+  });
+
+  it("invalidates all-tasks and assigned contact projections after setting completion", async () => {
+    // Given
+    const queryClient = new QueryClient();
+    vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue(undefined);
+    const operation = createVaultTaskCompletionOperation({
+      vaultId: "vault-1",
+      task: task(11, ["101", "202"]),
+    });
+
+    // When
+    await invalidateSetVaultTaskCompletion(queryClient, operation);
+
+    // Then
+    expect(invalidatedFilters(queryClient)).toEqual([
+      { queryKey: ["vaults", "vault-1", "all-tasks"], exact: true },
+      { queryKey: ["vaults", "vault-1", "contacts", "101", "tasks"] },
+      {
+        queryKey: ["vaults", "vault-1", "contacts", "101", "tasks-completed"],
+      },
+      { queryKey: ["vaults", "vault-1", "contacts", "202", "tasks"] },
+      {
+        queryKey: ["vaults", "vault-1", "contacts", "202", "tasks-completed"],
+      },
+    ]);
   });
 
   it("preserves exact all-task, impacted contact task, vault feed, and contact feed invalidations", async () => {

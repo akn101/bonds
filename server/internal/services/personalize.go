@@ -168,9 +168,16 @@ func (s *PersonalizeService) Update(accountID, entity string, id uint, req dto.P
 		return nil, ErrCurrenciesNotEditable
 	}
 
+	assignments := labelCol + " = ?"
+	args := []interface{}{val}
+	if labelCol != nameCol {
+		assignments += ", " + nameCol + " = ?"
+		args = append(args, val)
+	}
+	args = append(args, time.Now(), id, accountID)
 	result := s.db.Exec(
-		fmt.Sprintf("UPDATE %s SET %s = ?, %s = ?, updated_at = ? WHERE id = ? AND account_id = ?", cfg.table, labelCol, nameCol),
-		val, val, time.Now(), id, accountID,
+		fmt.Sprintf("UPDATE %s SET %s, updated_at = ? WHERE id = ? AND account_id = ?", cfg.table, assignments),
+		args...,
 	)
 	if result.Error != nil {
 		return nil, result.Error

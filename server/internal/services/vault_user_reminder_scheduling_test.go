@@ -6,6 +6,7 @@ import (
 
 	"github.com/naiba/bonds/internal/dto"
 	"github.com/naiba/bonds/internal/models"
+	"gorm.io/gorm"
 )
 
 type vaultUserReminderSchedulingContext struct {
@@ -169,9 +170,7 @@ func TestVaultUsersService_Add_rollsBackMembershipWhenReminderSchedulingFails(t 
 	ctx.createReminder(t, dto.CreateReminderRequest{
 		Label: "Future all-vault-users", Day: &day, Month: &month, Year: &nextYear, Type: "one_time", Audience: models.ReminderAudienceAllVaultUsers,
 	})
-	if err := ctx.service.db.Exec(`CREATE TRIGGER fail_new_member_reminder_schedule BEFORE INSERT ON contact_reminder_scheduled BEGIN SELECT RAISE(ABORT, 'forced reminder scheduling failure'); END`).Error; err != nil {
-		t.Fatalf("create schedule failure trigger: %v", err)
-	}
+	createReminderScheduleFailureTrigger(t, ctx.service.db)
 
 	// When
 	_, err := ctx.service.Add(ctx.vaultID, dto.AddVaultUserRequest{Email: ctx.userEmail, Permission: models.PermissionEditor})
@@ -188,5 +187,27 @@ func TestVaultUsersService_Add_rollsBackMembershipWhenReminderSchedulingFails(t 
 	}
 	if membershipCount != 0 {
 		t.Fatalf("memberships = %d, want rollback to 0 after scheduling error: %v", membershipCount, err)
+	}
+}
+
+func createReminderScheduleFailureTrigger(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	if db.Dialector.Name() == "postgres" {
+		if err := db.Exec(`CREATE FUNCTION fail_new_member_reminder_schedule() RETURNS trigger LANGUAGE plpgsql AS $$
+			BEGIN
+				RAISE EXCEPTION 'forced reminder scheduling failure';
+			END;
+		$$`).Error; err != nil {
+			t.Fatalf("create schedule failure function: %v", err)
+		}
+		if err := db.Exec(`CREATE TRIGGER fail_new_member_reminder_schedule
+			BEFORE INSERT ON contact_reminder_scheduled
+			FOR EACH ROW EXECUTE FUNCTION fail_new_member_reminder_schedule()`).Error; err != nil {
+			t.Fatalf("create schedule failure trigger: %v", err)
+		}
+		return
+	}
+	if err := db.Exec(`CREATE TRIGGER fail_new_member_reminder_schedule BEFORE INSERT ON contact_reminder_scheduled BEGIN SELECT RAISE(ABORT, 'forced reminder scheduling failure'); END`).Error; err != nil {
+		t.Fatalf("create schedule failure trigger: %v", err)
 	}
 }

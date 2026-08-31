@@ -524,6 +524,11 @@ func parseMonicaTimestamp(s string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
+func activityDateOnly(value time.Time) time.Time {
+	year, month, day := value.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+}
+
 func (s *MonicaImportService) importCalls(
 	tx *gorm.DB, mc *MonicaContact, contactID, userID string,
 	resp *dto.MonicaImportResponse,
@@ -900,9 +905,9 @@ func (s *MonicaImportService) importLegacyActivities(
 		if err := json.Unmarshal(raw, &ml); err != nil {
 			continue
 		}
-		happenedAt := now
+		happenedAt := activityDateOnly(now)
 		if t, ok := parseMonicaTimestamp(ml.Properties.HappenedAt); ok {
-			happenedAt = t
+			happenedAt = activityDateOnly(t)
 		}
 		typeRef, typeFound := legacyActivityTypeByUUID[ml.Properties.Type]
 		if !typeFound {
@@ -1087,9 +1092,9 @@ func (s *MonicaImportService) importActivities(tx *gorm.DB, accountData []Monica
 		} else if err != nil {
 			continue
 		}
-		happenedAt := time.Now()
+		happenedAt := activityDateOnly(time.Now())
 		if parsed, ok := parseMonicaTimestamp(activity.Properties.HappenedAt); ok {
-			happenedAt = parsed
+			happenedAt = activityDateOnly(parsed)
 		}
 		sourceType, sourceUUID := "monica_activity", activity.UUID
 		event := models.Activity{VaultID: vaultID, ActivityTypeID: &eventType.ID, Title: strings.TrimSpace(activity.Properties.Summary), Description: strPtrOrNil(activity.Properties.Description), StartDate: &happenedAt, StartPrecision: "day", EndStatus: "none", CalendarType: "gregorian", SourceType: &sourceType, SourceUUID: &sourceUUID}

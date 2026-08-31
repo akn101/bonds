@@ -20,6 +20,8 @@ import { useDateFormat } from "@/utils/dateFormat";
 import TasksKanban from "./TasksKanban";
 import TaskEditModal from "./TaskEditModal";
 import { VaultTaskList } from "./VaultTaskList";
+import { createVaultTaskCompletionOperation } from "./vaultTaskMutationOperation";
+import { invalidateSetVaultTaskCompletion } from "./vaultTaskMutationInvalidation";
 import {
   sortTasksForListView,
   type TaskSortMode,
@@ -94,6 +96,19 @@ export default function VaultTasks() {
     enabled: !!vaultId,
   });
 
+  const completionMutation = useMutation({
+    mutationFn: (
+      operation: ReturnType<typeof createVaultTaskCompletionOperation>,
+    ) =>
+      api.vaultTasks.tasksStatusPartialUpdate(
+        operation.vaultId,
+        operation.taskId,
+        { status: operation.status },
+      ),
+    onSuccess: (_response, operation) =>
+      invalidateSetVaultTaskCompletion(queryClient, operation),
+  });
+
   const pending = useMemo(
     () => sortTasksForListView(tasks.filter((task) => !task.completed), sortMode),
     [sortMode, tasks],
@@ -166,7 +181,17 @@ export default function VaultTasks() {
             completedTasks={completed}
             dateFormats={dateFormats}
             onSelectTask={(task) => setEditTask(task)}
+            onToggleTask={(task) => {
+              if (task.id === undefined) return;
+              completionMutation.mutate(
+                createVaultTaskCompletionOperation({
+                  vaultId,
+                  task: { ...task, id: task.id },
+                }),
+              );
+            }}
             onNavigateToContact={(contactId) => navigate(`/vaults/${vaultId}/contacts/${contactId}`)}
+            completionPending={completionMutation.isPending}
           />
         </Card>
       )}

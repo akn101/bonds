@@ -37,10 +37,16 @@ import type {
 import ContactMentionEditor from "@/components/journal/ContactMentionEditor";
 import ContactMentionText from "@/components/journal/ContactMentionText";
 import CalendarDatePicker from "@/components/CalendarDatePicker";
-import { dateInputToTimestamp } from "@/utils/dateOnlyInput";
+import {
+  dateInputToTimestamp,
+  formatDateOnly,
+  formatMonthYearOnly,
+  formatYearOnly,
+  parseDateOnly,
+} from "@/utils/dateOnlyInput";
 import type { CalendarDatePickerValue } from "@/components/CalendarDatePicker";
 import { getCalendarSystem } from "@/utils/calendar";
-import { formatDate, formatMonthYear, useDateFormat } from "@/utils/dateFormat";
+import { useDateFormat } from "@/utils/dateFormat";
 
 const { Text } = Typography;
 
@@ -266,6 +272,7 @@ export default function ActivitiesModule({
     setOpen(true);
   };
   const startEdit = (activity: Activity) => {
+    const startDate = parseDateOnly(activity.start_date);
     setEditing(activity);
     setDescription(activity.description ?? "");
     form.setFieldsValue({
@@ -279,20 +286,20 @@ export default function ActivitiesModule({
         year:
           activity.calendar_type !== "gregorian" && activity.original_year
             ? activity.original_year
-            : activity.start_date
-              ? dayjs(activity.start_date).year()
+            : startDate
+              ? startDate.year()
               : null,
         month:
           activity.calendar_type !== "gregorian" && activity.original_month
             ? activity.original_month
-            : activity.start_date
-              ? dayjs(activity.start_date).month() + 1
+            : startDate
+              ? startDate.month() + 1
               : null,
         day:
           activity.calendar_type !== "gregorian" && activity.original_day
             ? activity.original_day
-            : activity.start_date
-              ? dayjs(activity.start_date).date()
+            : startDate
+              ? startDate.date()
               : null,
         datePrecision:
           activity.start_precision === "year"
@@ -303,7 +310,7 @@ export default function ActivitiesModule({
       },
       end_status: (activity.end_status as EndStatus) || "none",
       end_precision: (activity.end_precision as Precision) || "day",
-      end_date: activity.end_date ? dayjs(activity.end_date) : undefined,
+      end_date: parseDateOnly(activity.end_date),
       participant_ids: (activity.participants ?? []).flatMap((contact) =>
         contact.id && String(contact.id) !== String(contactId ?? "")
           ? [contact.id]
@@ -321,10 +328,10 @@ export default function ActivitiesModule({
     if (!activity.start_date) return t("modules.activities.date_unknown");
     const start =
       activity.start_precision === "year"
-        ? dayjs(activity.start_date).year().toString()
+        ? formatYearOnly(activity.start_date)
         : activity.start_precision === "month"
-          ? formatMonthYear(activity.start_date, dateFormats)
-          : formatDate(activity.start_date, dateFormats);
+          ? formatMonthYearOnly(activity.start_date, dateFormats)
+          : formatDateOnly(activity.start_date, dateFormats);
     if (activity.end_status === "ongoing")
       return `${start} – ${t("modules.activities.present")}`;
     if (activity.end_status === "unknown")
@@ -332,10 +339,10 @@ export default function ActivitiesModule({
     if (activity.end_status !== "known" || !activity.end_date) return start;
     const end =
       activity.end_precision === "year"
-        ? dayjs(activity.end_date).year().toString()
+        ? formatYearOnly(activity.end_date)
         : activity.end_precision === "month"
-          ? formatMonthYear(activity.end_date, dateFormats)
-          : formatDate(activity.end_date, dateFormats);
+          ? formatMonthYearOnly(activity.end_date, dateFormats)
+          : formatDateOnly(activity.end_date, dateFormats);
     return `${start} – ${end}`;
   };
   const activityPath = (activity: Activity) =>

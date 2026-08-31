@@ -109,10 +109,11 @@ test.describe("Contact Summary Card", () => {
     const modal = page.getByRole("dialog", { name: "Edit Contact" });
     await expect(modal).toBeVisible({ timeout: 5000 });
     await modal.getByRole("combobox", { name: "Labels" }).click();
-    await page
-      .locator(".ant-select-dropdown:visible .ant-select-item-option")
-      .filter({ hasText: "summary-label" })
-      .click();
+    const labelOptions = page.locator(
+      ".ant-select-dropdown:visible .ant-select-item-option",
+    );
+    await expect(labelOptions).toHaveText(["summary-label", "unused-label"]);
+    await labelOptions.filter({ hasText: "summary-label" }).click();
 
     const updateResp = page.waitForResponse(
       (resp) =>

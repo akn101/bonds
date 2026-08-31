@@ -7,7 +7,6 @@ import {
   Spin,
   Typography,
 } from "antd";
-import dayjs from "dayjs";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -16,7 +15,12 @@ import type { Activity } from "@/api";
 import ContactMentionText from "@/components/journal/ContactMentionText";
 import ContactReferenceList from "@/components/ContactReferenceList";
 import { parseCanonicalPositiveSafeInteger } from "@/utils/feedSourceLink";
-import { formatDate, formatMonthYear, useDateFormat } from "@/utils/dateFormat";
+import {
+  formatDateOnly,
+  formatMonthYearOnly,
+  formatYearOnly,
+} from "@/utils/dateOnlyInput";
+import { useDateFormat } from "@/utils/dateFormat";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -59,10 +63,10 @@ export default function ActivityDetail() {
     if (!item.start_date) return t("modules.activities.date_unknown");
     const start =
       item.start_precision === "year"
-        ? dayjs(item.start_date).year().toString()
+        ? formatYearOnly(item.start_date)
         : item.start_precision === "month"
-          ? formatMonthYear(item.start_date, dateFormats)
-          : formatDate(item.start_date, dateFormats);
+          ? formatMonthYearOnly(item.start_date, dateFormats)
+          : formatDateOnly(item.start_date, dateFormats);
     if (item.end_status === "ongoing")
       return `${start} – ${t("modules.activities.present")}`;
     if (item.end_status === "unknown")
@@ -70,10 +74,10 @@ export default function ActivityDetail() {
     if (item.end_status !== "known" || !item.end_date) return start;
     const end =
       item.end_precision === "year"
-        ? dayjs(item.end_date).year().toString()
+        ? formatYearOnly(item.end_date)
         : item.end_precision === "month"
-          ? formatMonthYear(item.end_date, dateFormats)
-          : formatDate(item.end_date, dateFormats);
+          ? formatMonthYearOnly(item.end_date, dateFormats)
+          : formatDateOnly(item.end_date, dateFormats);
     return `${start} – ${end}`;
   };
 

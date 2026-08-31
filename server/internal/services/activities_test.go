@@ -136,7 +136,7 @@ func TestActivityInteractionUpdatesAllParticipantsMonotonically(t *testing.T) {
 		t.Fatal(err)
 	}
 	participants := []string{other.ID}
-	newer := time.Now().UTC().Add(-time.Hour)
+	newer := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
 	if _, err := svc.Create(vaultID, dto.ActivityUpsertRequest{PrimaryContactID: primary.ID, ParticipantIDs: &participants, ActivityTypeID: typeID, Title: "见面", StartDate: &newer}); err != nil {
 		t.Fatal(err)
 	}
@@ -184,6 +184,13 @@ func TestDashboardActivityUsesSystemUserSubjectWithoutCreatingContact(t *testing
 	}
 	if len(event.Participants) != 0 {
 		t.Fatalf("dashboard event participants = %+v, want none", event.Participants)
+	}
+	dashboardItems, meta, err := svc.ListForUser(vaultID, creator.ID, "", 1, 15)
+	if err != nil {
+		t.Fatalf("ListForUser failed: %v", err)
+	}
+	if meta.Total != 1 || len(dashboardItems) != 1 || dashboardItems[0].ID != event.ID {
+		t.Fatalf("dashboard list = %+v, meta = %+v", dashboardItems, meta)
 	}
 
 	otherFirstName := "Bob"

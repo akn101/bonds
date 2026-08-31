@@ -1522,9 +1522,9 @@ func TestMonicaImportActivities(t *testing.T) {
 	if event.SourceUUID == nil || *event.SourceUUID != "550e8400-e29b-41d4-a716-446655440010" {
 		t.Fatalf("source UUID not preserved: %v", event.SourceUUID)
 	}
-	wantHappenedAt, _ := time.Parse(time.RFC3339, "2024-01-03T18:00:00Z")
-	if event.StartDate == nil || !event.StartDate.Equal(wantHappenedAt) {
-		t.Fatalf("happened_at=%v, want %v", event.StartDate, wantHappenedAt)
+	wantStartDate, _ := time.Parse(time.RFC3339, "2024-01-03T00:00:00Z")
+	if event.StartDate == nil || !event.StartDate.Equal(wantStartDate) {
+		t.Fatalf("start_date=%v, want %v", event.StartDate, wantStartDate)
 	}
 	if len(event.Participants) != 1 || event.Participants[0].ID != john.ID {
 		t.Fatalf("participants=%v", event.Participants)

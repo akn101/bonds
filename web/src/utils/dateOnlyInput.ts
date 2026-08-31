@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
 import type { DateFormatVariants } from "@/utils/dateFormat";
 
 const dateInputPattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -15,12 +16,32 @@ export function timestampToDateInput(value?: string): string | undefined {
   return dateInputPattern.test(datePrefix) ? datePrefix : undefined;
 }
 
-export function formatDateOnly(value: string | undefined, variants: DateFormatVariants): string {
+export function parseDateOnly(value?: string): Dayjs | undefined {
   const dateInput = timestampToDateInput(value);
-  return dateInput ? dayjs(dateInput).format(variants.full) : "";
+  return dateInput ? dayjs(dateInput) : undefined;
 }
 
-export function formatShortDateOnly(value: string | undefined, variants: DateFormatVariants): string {
-  const dateInput = timestampToDateInput(value);
-  return dateInput ? dayjs(dateInput).format(variants.short) : "";
+export function formatDateOnly(
+  value: string | undefined,
+  variants: DateFormatVariants,
+): string {
+  return parseDateOnly(value)?.format(variants.full) ?? "";
+}
+
+export function formatMonthYearOnly(
+  value: string | undefined,
+  variants: DateFormatVariants,
+): string {
+  return parseDateOnly(value)?.format(variants.monthYear) ?? "";
+}
+
+export function formatYearOnly(value?: string): string {
+  return parseDateOnly(value)?.format("YYYY") ?? "";
+}
+
+export function formatShortDateOnly(
+  value: string | undefined,
+  variants: DateFormatVariants,
+): string {
+  return parseDateOnly(value)?.format(variants.short) ?? "";
 }

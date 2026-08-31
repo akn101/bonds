@@ -35,6 +35,13 @@ export type UpdateVaultTaskOperation = {
   readonly request: DeepReadonly<UpdateVaultTaskRequest>;
   readonly previousAssigneeContactIds: readonly string[];
 };
+export type SetVaultTaskCompletionOperation = {
+  readonly kind: "set-completion";
+  readonly vaultId: string;
+  readonly taskId: number;
+  readonly status: "done" | "todo";
+  readonly assigneeContactIds: readonly string[];
+};
 export type DeleteVaultTaskRequest = {
   readonly kind: "delete";
   readonly vaultId: string;
@@ -60,6 +67,10 @@ type UpdateOperationInput = CreateOperationInput & {
   readonly task: VaultTask & { readonly id: number };
 };
 type DeleteRequestInput = {
+  readonly vaultId: string;
+  readonly task: VaultTask & { readonly id: number };
+};
+type CompletionOperationInput = {
   readonly vaultId: string;
   readonly task: VaultTask & { readonly id: number };
 };
@@ -168,6 +179,18 @@ export function updateVaultTaskOperation(
     taskId: input.task.id,
     request,
     previousAssigneeContactIds: taskAssigneeContactIds(input.task),
+  });
+}
+
+export function createVaultTaskCompletionOperation(
+  input: CompletionOperationInput,
+): SetVaultTaskCompletionOperation {
+  return freezeRecord({
+    kind: "set-completion",
+    vaultId: String(input.vaultId),
+    taskId: input.task.id,
+    status: input.task.completed ? "todo" : "done",
+    assigneeContactIds: taskAssigneeContactIds(input.task),
   });
 }
 
