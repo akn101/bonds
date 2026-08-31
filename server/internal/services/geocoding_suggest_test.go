@@ -28,9 +28,22 @@ const suggestPayload = `[
     "lon": "16.3738",
     "display_name": "Vienna, Austria",
     "address": {
+      "name": "Vienna",
       "town": "Vienna",
       "county": "Wien",
       "country": "Austria"
+    }
+  },
+  {
+    "lat": "51.5205",
+    "lon": "-0.1571",
+    "display_name": "Baker Street, Marylebone, London, United Kingdom",
+    "address": {
+      "name": "Baker Street",
+      "suburb": "Marylebone",
+      "city": "London",
+      "state": "England",
+      "country": "United Kingdom"
     }
   }
 ]`
@@ -48,8 +61,8 @@ func TestSuggestSplitsAddressIntoFormFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("suggestFromURL failed: %v", err)
 	}
-	if len(suggestions) != 2 {
-		t.Fatalf("expected 2 suggestions, got %d", len(suggestions))
+	if len(suggestions) != 3 {
+		t.Fatalf("expected 3 suggestions, got %d", len(suggestions))
 	}
 
 	// Structured fields are what make autocomplete fill the whole form rather
@@ -71,8 +84,19 @@ func TestSuggestSplitsAddressIntoFormFields(t *testing.T) {
 	if suggestions[1].City != "Vienna" || suggestions[1].Province != "Wien" {
 		t.Fatalf("expected town/county to be used as city/province, got %q / %q", suggestions[1].City, suggestions[1].Province)
 	}
+	// The city-level result carries its own name in "name" — that is the city,
+	// not a street, and must not leak into line 1.
 	if suggestions[1].Line1 != "" {
 		t.Fatalf("expected no street line for a city-level result, got %q", suggestions[1].Line1)
+	}
+
+	// A street-layer match puts the street in "name" with no "road"; the form
+	// still deserves a line 1.
+	if suggestions[2].Line1 != "Baker Street" {
+		t.Fatalf("expected the street name as line 1, got %q", suggestions[2].Line1)
+	}
+	if suggestions[2].City != "London" {
+		t.Fatalf("unexpected city for the street match: %q", suggestions[2].City)
 	}
 
 	// The autocomplete product always includes the address breakdown and always
@@ -200,8 +224,8 @@ func TestLocationIQSuggestUsesTheAutocompleteProduct(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Suggest failed: %v", err)
 	}
-	if len(suggestions) != 2 {
-		t.Fatalf("expected 2 suggestions, got %d", len(suggestions))
+	if len(suggestions) != 3 {
+		t.Fatalf("expected 3 suggestions, got %d", len(suggestions))
 	}
 	for _, expected := range []string{"key=secret-key", "q=10+downing", "limit=5"} {
 		if !contains(gotQuery, expected) {

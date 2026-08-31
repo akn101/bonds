@@ -42,6 +42,13 @@ export default function AddressAutocomplete({ vaultId, onPick }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    // A vault switch orphans whatever was in flight for the old vault: without
+    // this, an old vault's search response could land after the new vault's
+    // probe and re-enable a control the probe had just withdrawn. (Callers
+    // additionally key this component by vault, so a switch remounts it and
+    // resets the visible state wholesale; the counter bump covers any use
+    // without the key.)
+    requestRef.current++;
     api.addresses
       .addressesSuggestList(vaultId, { q: "" })
       .then((res) => {

@@ -235,6 +235,9 @@ func NewGeocoder(provider, apiKey string) Geocoder {
 // nominatimAddress is the structured breakdown returned with addressdetails=1.
 // LocationIQ is a Nominatim fork and answers in the same shape.
 type nominatimAddress struct {
+	// Name is the matched feature's own name — LocationIQ's autocomplete
+	// returns street and POI matches with the street in "name" and no "road".
+	Name          string `json:"name"`
 	HouseNumber   string `json:"house_number"`
 	Road          string `json:"road"`
 	Neighbourhood string `json:"neighbourhood"`
@@ -262,9 +265,16 @@ func (a nominatimAddress) province() string {
 	return firstNonEmpty(a.State, a.County)
 }
 
-// line1 reassembles the street line the address form expects.
+// line1 reassembles the street line the address form expects. A street or
+// POI match from the autocomplete product carries its street in "name" with
+// no "road" — but "name" also holds the place itself for city-level results,
+// where it must not be mistaken for a street.
 func (a nominatimAddress) line1() string {
 	road := firstNonEmpty(a.Road, a.Neighbourhood)
+	if road == "" && a.Name != "" &&
+		a.Name != a.city() && a.Name != a.province() && a.Name != a.Country && a.Name != a.Postcode {
+		road = a.Name
+	}
 	if road == "" {
 		return ""
 	}

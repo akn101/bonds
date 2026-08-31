@@ -13,6 +13,7 @@ import {
   Tag,
   Empty,
   theme,
+  InputNumber,
 } from "antd";
 import {
   PlusOutlined,
@@ -437,6 +438,9 @@ export default function AddressesModule({
           }
         >
           <AddressAutocomplete
+            // Keyed by vault: switching vaults remounts the control, so no
+            // state — least of all availability — survives from the old one.
+            key={scope.vaultId}
             vaultId={scope.vaultId}
             onPick={(suggestion) =>
               form.setFieldsValue({
@@ -485,6 +489,15 @@ export default function AddressesModule({
             rules={[{ required: true }]}
           >
             <Input />
+          </Form.Item>
+          {/* Registered but invisible: antd's onFinish only hands over values
+              of registered fields, so without these the coordinates a picked
+              suggestion carries would silently never reach the server. */}
+          <Form.Item name="latitude" hidden>
+            <InputNumber />
+          </Form.Item>
+          <Form.Item name="longitude" hidden>
+            <InputNumber />
           </Form.Item>
           <Form.Item
             name="date_from"
